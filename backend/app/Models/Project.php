@@ -6,10 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
-    protected $fillable = ['name', 'description', 'color'];
+    protected $fillable = ['name', 'description', 'color', 'owner_id'];
 
     public function bugs()
     {
         return $this->hasMany(Bug::class);
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function shares()
+    {
+        return $this->hasMany(ProjectShare::class);
     }
 }

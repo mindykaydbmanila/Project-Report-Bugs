@@ -11,10 +11,40 @@
             <span class="app-logo-subtitle">Quality Assurance Dashboard</span>
           </div>
         </div>
-        <button v-if="selectedProject && !detailView" class="btn btn-primary" @click="openCreateModal">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          Report Bug
-        </button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button v-if="selectedProject && !detailView" class="btn btn-primary" @click="openCreateModal">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            Report Bug
+          </button>
+          <!-- Auth -->
+          <template v-if="currentUser">
+            <div class="auth-user" @click.stop="profileDropdownOpen = !profileDropdownOpen" ref="profileDropdownRef">
+              <img v-if="currentUser.avatar" :src="currentUser.avatar" class="auth-avatar" :alt="currentUser.name" />
+              <span v-else class="auth-avatar auth-avatar-initials">{{ currentUser.name?.[0]?.toUpperCase() }}</span>
+              <span class="auth-name">{{ currentUser.name }}</span>
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="opacity:.6"><polyline points="6 9 12 15 18 9"/></svg>
+              <div v-if="profileDropdownOpen" class="profile-dropdown">
+                <div class="profile-dropdown-info">
+                  <img v-if="currentUser.avatar" :src="currentUser.avatar" class="profile-dropdown-avatar" :alt="currentUser.name" />
+                  <span v-else class="profile-dropdown-avatar profile-dropdown-initials">{{ currentUser.name?.[0]?.toUpperCase() }}</span>
+                  <div>
+                    <div class="profile-dropdown-name">{{ currentUser.name }}</div>
+                    <div class="profile-dropdown-email">{{ currentUser.email }}</div>
+                  </div>
+                </div>
+                <div class="profile-dropdown-divider"></div>
+                <button class="profile-dropdown-item profile-dropdown-signout" @click.stop="logout">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  Sign out
+                </button>
+              </div>
+            </div>
+          </template>
+          <button v-else class="btn-google-signin" @click="login">
+            <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Sign in with Google
+          </button>
+        </div>
       </div>
     </header>
 
@@ -99,10 +129,13 @@
                 </div>
               </div>
               <div class="project-card-actions" @click.stop>
-                <button class="btn btn-icon action-btn-edit" @click="openProjectModal(p)">
+                <button class="btn btn-icon action-btn-share" title="Share project" @click="currentUser ? openShareModal(p) : login()">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                </button>
+                <button v-if="canEditProject(p)" class="btn btn-icon action-btn-edit" @click="openProjectModal(p)">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)">
+                <button v-if="canEditProject(p)" class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 </button>
               </div>
@@ -217,10 +250,16 @@
                   <h1 class="view-title" style="margin:0;">{{ selectedProject.name }}</h1>
                 </div>
               </div>
-              <button class="btn btn-primary" @click="openCreateModal">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                Report Bug
-              </button>
+              <div style="display:flex;gap:8px;">
+                <button v-if="currentUser && isProjectOwner(selectedProject)" class="btn btn-secondary btn-sm" style="gap:5px;" @click="openShareModal(selectedProject)">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  Share
+                </button>
+                <button v-if="canEditProject(selectedProject)" class="btn btn-primary" @click="openCreateModal">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                  Report Bug
+                </button>
+              </div>
             </div>
 
             <!-- Summary cards -->
@@ -604,9 +643,14 @@
     <Transition name="fade">
       <div v-if="showViewModal" class="modal-overlay" @click.self="showViewModal = false">
         <div class="modal bug-view-modal">
-          <div class="modal-header">
-            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-              <span class="bug-seq" style="flex-shrink:0;">#{{ viewingBugDetail?.sequence }}</span>
+
+          <!-- Priority accent bar -->
+          <div class="bug-view-priority-bar" :class="`priority-bar-${(viewingBugDetail?.priority||'').toLowerCase()}`"></div>
+
+          <!-- Header -->
+          <div class="modal-header bug-view-header">
+            <div class="bug-view-header-left">
+              <span class="bug-seq">#{{ viewingBugDetail?.sequence }}</span>
               <h3 class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ viewingBugDetail?.title }}</h3>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -619,33 +663,34 @@
               </button>
             </div>
           </div>
-          <div class="modal-body bug-view-body">
 
-            <!-- Badge row -->
-            <div class="bug-view-badges">
+          <!-- Meta badges row -->
+          <div class="bug-view-meta-bar">
+            <div class="bug-view-meta-badges">
               <span :class="['badge', priorityBadgeClass(viewingBugDetail?.priority)]">{{ viewingBugDetail?.priority }}</span>
               <span :class="['badge', scenarioBadgeClass(viewingBugDetail?.scenario_type)]">{{ viewingBugDetail?.scenario_type }}</span>
               <span :class="['badge', statusBadgeClass(viewingBugDetail?.status)]">{{ viewingBugDetail?.status }}</span>
-              <span style="margin-left:auto;font-size:12px;color:var(--gray-400);">
-                Reported {{ formatBugDate(viewingBugDetail?.created_at) }}
-              </span>
             </div>
+            <div class="bug-view-reported-date">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Reported {{ formatBugDate(viewingBugDetail?.created_at) }}
+            </div>
+          </div>
+
+          <div class="modal-body bug-view-body">
 
             <!-- Subtitles -->
             <div class="bug-view-section">
-              <div class="bug-view-section-label">Subtitles</div>
+              <div class="bug-view-section-label">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Subtitles
+              </div>
               <div v-if="viewingBugDetail?.subtitles && viewingBugDetail.subtitles.length" class="bug-view-subtitle-list">
                 <div v-for="(sub, idx) in viewingBugDetail.subtitles" :key="idx" class="bug-view-subtitle-card">
                   <div class="bug-view-subtitle-index">{{ idx + 1 }}</div>
                   <div class="bug-view-subtitle-content">
                     <div v-if="(typeof sub === 'string' ? sub : sub.text)" class="bug-view-subtitle-text">{{ typeof sub === 'string' ? sub : sub.text }}</div>
-                    <a
-                      v-if="sub.link"
-                      :href="sub.link"
-                      target="_blank"
-                      rel="noopener"
-                      class="bug-view-subtitle-link"
-                    >
+                    <a v-if="sub.link" :href="sub.link" target="_blank" rel="noopener" class="bug-view-subtitle-link">
                       <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                       {{ sub.link }}
                     </a>
@@ -658,16 +703,22 @@
 
             <!-- Description -->
             <div class="bug-view-section">
-              <div class="bug-view-section-label">Description</div>
+              <div class="bug-view-section-label">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Description
+              </div>
               <div v-if="viewingBugDetail?.description" class="bug-view-description" v-html="viewingBugDetail.description"></div>
               <div v-else class="bug-view-empty">No description provided.</div>
             </div>
 
-            <!-- Developer Comment Thread -->
+            <!-- Developer Comments -->
             <div class="bug-view-section">
-              <div class="bug-view-section-label" style="display:flex;align-items:center;justify-content:space-between;">
-                <span>Developer Comments</span>
-                <span v-if="viewingBugDetail?.dev_comments?.length" style="font-weight:400;color:var(--gray-400);">{{ viewingBugDetail.dev_comments.length }} message{{ viewingBugDetail.dev_comments.length !== 1 ? 's' : '' }}</span>
+              <div class="bug-view-section-label" style="justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:6px;">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Developer Comments
+                </span>
+                <span v-if="viewingBugDetail?.dev_comments?.length" class="bug-view-count-pill">{{ viewingBugDetail.dev_comments.length }}</span>
               </div>
               <div class="thread-messages-inline">
                 <div v-if="viewingBugDetail?.dev_comments && viewingBugDetail.dev_comments.length" class="thread-msg-list">
@@ -680,35 +731,53 @@
               </div>
             </div>
 
-            <!-- Front-End Screenshots -->
-            <div class="bug-view-section">
-              <div class="bug-view-section-label">Screenshots — <span style="color:var(--primary);">Front-End</span>
-                <span v-if="viewingBugDetail?.frontend_images?.length" style="font-weight:400;color:var(--gray-400);"> ({{ viewingBugDetail.frontend_images.length }})</span>
+            <!-- Screenshots — side by side -->
+            <div class="bug-view-screenshots-row">
+              <div class="bug-view-section bug-view-screenshot-col">
+                <div class="bug-view-section-label">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span>Screenshots — <span class="label-fe">Front-End</span></span>
+                  <span v-if="viewingBugDetail?.frontend_images?.length" class="bug-view-count-pill">{{ viewingBugDetail.frontend_images.length }}</span>
+                </div>
+                <div v-if="viewingBugDetail?.frontend_images && viewingBugDetail.frontend_images.length" class="bug-view-images">
+                  <a v-for="(img, idx) in viewingBugDetail.frontend_images" :key="idx" :href="apiBase + img" target="_blank" class="bug-view-img-item">
+                    <img :src="apiBase + img" :alt="`FE ${idx+1}`" />
+                    <div class="bug-view-img-overlay">
+                      <svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      <span>Open</span>
+                    </div>
+                  </a>
+                </div>
+                <div v-else class="bug-view-empty bug-view-no-images">
+                  <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="opacity:.3;margin-bottom:6px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  No images attached
+                </div>
               </div>
-              <div v-if="viewingBugDetail?.frontend_images && viewingBugDetail.frontend_images.length" class="bug-view-images">
-                <a v-for="(img, idx) in viewingBugDetail.frontend_images" :key="idx" :href="apiBase + img" target="_blank" class="bug-view-img-item">
-                  <img :src="apiBase + img" :alt="`FE ${idx+1}`" />
-                  <div class="bug-view-img-overlay"><svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>Open</span></div>
-                </a>
-              </div>
-              <div v-else class="bug-view-empty">No front-end images attached.</div>
-            </div>
 
-            <!-- CMS Screenshots -->
-            <div class="bug-view-section">
-              <div class="bug-view-section-label">Screenshots — <span style="color:#10b981;">CMS</span>
-                <span v-if="viewingBugDetail?.cms_images?.length" style="font-weight:400;color:var(--gray-400);"> ({{ viewingBugDetail.cms_images.length }})</span>
+              <div class="bug-view-section bug-view-screenshot-col">
+                <div class="bug-view-section-label">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span>Screenshots — <span class="label-cms">CMS</span></span>
+                  <span v-if="viewingBugDetail?.cms_images?.length" class="bug-view-count-pill">{{ viewingBugDetail.cms_images.length }}</span>
+                </div>
+                <div v-if="viewingBugDetail?.cms_images && viewingBugDetail.cms_images.length" class="bug-view-images">
+                  <a v-for="(img, idx) in viewingBugDetail.cms_images" :key="idx" :href="apiBase + img" target="_blank" class="bug-view-img-item">
+                    <img :src="apiBase + img" :alt="`CMS ${idx+1}`" />
+                    <div class="bug-view-img-overlay">
+                      <svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      <span>Open</span>
+                    </div>
+                  </a>
+                </div>
+                <div v-else class="bug-view-empty bug-view-no-images">
+                  <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="opacity:.3;margin-bottom:6px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  No images attached
+                </div>
               </div>
-              <div v-if="viewingBugDetail?.cms_images && viewingBugDetail.cms_images.length" class="bug-view-images">
-                <a v-for="(img, idx) in viewingBugDetail.cms_images" :key="idx" :href="apiBase + img" target="_blank" class="bug-view-img-item">
-                  <img :src="apiBase + img" :alt="`CMS ${idx+1}`" />
-                  <div class="bug-view-img-overlay"><svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>Open</span></div>
-                </a>
-              </div>
-              <div v-else class="bug-view-empty">No CMS images attached.</div>
             </div>
 
           </div>
+
           <div class="modal-footer" style="justify-content:space-between;">
             <button class="btn btn-danger btn-sm" style="gap:5px;" @click="confirmDelete(viewingBugDetail); showViewModal = false">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -716,6 +785,7 @@
             </button>
             <button class="btn btn-secondary" @click="showViewModal = false">Close</button>
           </div>
+
         </div>
       </div>
     </Transition>
@@ -809,6 +879,85 @@
       </div>
     </Transition>
 
+    <!-- Share Project Modal -->
+    <Transition name="fade">
+      <div v-if="showShareModal" class="modal-overlay" @click.self="showShareModal = false">
+        <div class="modal" style="max-width:480px;">
+          <div class="modal-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <h3 class="modal-title">Share "{{ sharingProject?.name }}"</h3>
+            </div>
+            <button class="btn btn-ghost btn-icon" @click="showShareModal = false">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <!-- Invite form -->
+            <div style="margin-bottom:20px;">
+              <label class="form-label">Invite by Gmail address</label>
+              <div style="display:flex;gap:8px;margin-top:6px;">
+                <input
+                  v-model="shareForm.email"
+                  type="email"
+                  class="form-control"
+                  placeholder="colleague@gmail.com"
+                  style="flex:1;"
+                  @keydown.enter.prevent="inviteUser"
+                />
+                <select v-model="shareForm.permission" class="form-control" style="width:110px;">
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                </select>
+                <button class="btn btn-primary" :disabled="!shareForm.email.trim() || shareSubmitting" @click="inviteUser">
+                  {{ shareSubmitting ? '…' : 'Invite' }}
+                </button>
+              </div>
+              <p style="font-size:12px;color:var(--gray-400);margin-top:6px;">
+                <strong>Viewer</strong> — can view bugs only &nbsp;·&nbsp; <strong>Editor</strong> — can create, edit, and delete bugs
+              </p>
+            </div>
+
+            <!-- Current shares list -->
+            <div>
+              <div class="form-label" style="margin-bottom:10px;">People with access</div>
+              <div v-if="sharesLoading" style="color:var(--gray-400);font-size:13px;">Loading…</div>
+              <div v-else-if="sharesList.length === 0" style="color:var(--gray-400);font-size:13px;">No one else has access yet.</div>
+              <div v-else class="shares-list">
+                <div v-for="share in sharesList" :key="share.id" class="share-row">
+                  <div class="share-user-info">
+                    <img v-if="share.user?.avatar" :src="share.user.avatar" class="share-avatar" :alt="share.user.name" />
+                    <div v-else class="share-avatar share-avatar-fallback">{{ share.email[0]?.toUpperCase() }}</div>
+                    <div>
+                      <div class="share-name">{{ share.user?.name || share.email }}</div>
+                      <div class="share-email">{{ share.email }} · <span :class="share.accepted ? 'share-accepted' : 'share-pending'">{{ share.accepted ? 'Accepted' : 'Pending' }}</span></div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <select
+                      :value="share.permission"
+                      class="form-control"
+                      style="width:100px;font-size:12px;padding:4px 8px;"
+                      @change="updateSharePermission(share, $event.target.value)"
+                    >
+                      <option value="viewer">Viewer</option>
+                      <option value="editor">Editor</option>
+                    </select>
+                    <button class="btn btn-icon action-btn-delete" title="Remove access" @click="removeShare(share.id)">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="showShareModal = false">Done</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Image Viewer -->
     <Transition name="fade">
       <div v-if="showImagesModal" class="modal-overlay" @click.self="showImagesModal = false">
@@ -832,10 +981,148 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onUnmounted, reactive } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, reactive } from 'vue'
 
 const config  = useRuntimeConfig()
 const apiBase = config.public.apiBase.replace('/api', '')
+
+// ── Auth state ──────────────────────────────────────────────────────────────
+const authToken           = ref(null)
+const currentUser         = ref(null)
+const profileDropdownOpen = ref(false)
+const profileDropdownRef  = ref(null)
+
+// apiFetch: wraps $fetch with Authorization header when logged in
+const apiFetch = (url, options = {}) => {
+  if (authToken.value) {
+    options.headers = { Authorization: `Bearer ${authToken.value}`, ...(options.headers || {}) }
+  }
+  return $fetch(url, options)
+}
+
+const login  = () => { window.location.href = `${apiBase}/api/auth/google` }
+const logout = async () => {
+  try { await apiFetch(`${config.public.apiBase}/auth/logout`, { method: 'POST' }) } catch {}
+  authToken.value = null
+  localStorage.removeItem('auth_token')
+  currentUser.value = null
+}
+
+const fetchCurrentUser = async () => {
+  try {
+    const user = await apiFetch(`${config.public.apiBase}/auth/me`)
+    currentUser.value = (user && user.id) ? user : null
+    if (!currentUser.value) {
+      authToken.value = null
+      localStorage.removeItem('auth_token')
+    }
+  } catch {
+    authToken.value = null
+    localStorage.removeItem('auth_token')
+    currentUser.value = null
+  }
+}
+
+onMounted(async () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+  const authError = urlParams.get('auth_error')
+  if (token) {
+    authToken.value = token
+    localStorage.setItem('auth_token', token)
+    window.history.replaceState({}, '', '/')
+  } else if (authError) {
+    window.history.replaceState({}, '', '/')
+    alert('Google sign-in failed. Please try again.')
+  } else {
+    const stored = localStorage.getItem('auth_token')
+    if (stored) authToken.value = stored
+  }
+  if (authToken.value) await fetchCurrentUser()
+
+  // Close profile dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
+      profileDropdownOpen.value = false
+    }
+  })
+})
+
+// ── Permission helpers ───────────────────────────────────────────────────────
+// A project is "owned" by the logged-in user if they created it, OR if it has no owner (legacy)
+const isProjectOwner = (project) => {
+  if (!project || !currentUser.value) return false
+  if (!project.owner_id) return true   // legacy unowned project — any logged-in user can share it
+  return project.owner_id === currentUser.value.id
+}
+// Can edit if: no owner (legacy project), or user is owner, or user has editor share
+const canEditProject = (project) => {
+  if (!project) return true
+  if (!project.owner_id) return true          // legacy / unowned project
+  if (isProjectOwner(project)) return true
+  const share = projectShareMap.value[project.id]
+  return share?.permission === 'editor'
+}
+
+// Share map: project_id → share info (populated from the shares list when share modal loads)
+const projectShareMap = ref({})
+
+// ── Share modal state ────────────────────────────────────────────────────────
+const showShareModal   = ref(false)
+const sharingProject   = ref(null)
+const sharesList       = ref([])
+const shareForm        = ref({ email: '', permission: 'viewer' })
+const sharesLoading    = ref(false)
+const shareSubmitting  = ref(false)
+
+const openShareModal = async (project) => {
+  sharingProject.value = project
+  shareForm.value = { email: '', permission: 'viewer' }
+  showShareModal.value = true
+  await loadShares()
+}
+
+const loadShares = async () => {
+  sharesLoading.value = true
+  try {
+    sharesList.value = await apiFetch(`${config.public.apiBase}/projects/${sharingProject.value.id}/shares`)
+  } catch { sharesList.value = [] }
+  finally { sharesLoading.value = false }
+}
+
+const inviteUser = async () => {
+  if (!shareForm.value.email.trim() || shareSubmitting.value) return
+  shareSubmitting.value = true
+  try {
+    const share = await apiFetch(`${config.public.apiBase}/projects/${sharingProject.value.id}/shares`, {
+      method: 'POST',
+      body: shareForm.value,
+    })
+    const idx = sharesList.value.findIndex(s => s.email === share.email)
+    if (idx >= 0) sharesList.value[idx] = share
+    else sharesList.value.push(share)
+    shareForm.value.email = ''
+  } catch (e) {
+    alert(e?.data?.error || 'Failed to invite. Check the email and try again.')
+  } finally { shareSubmitting.value = false }
+}
+
+const updateSharePermission = async (share, newPermission) => {
+  try {
+    await apiFetch(`${config.public.apiBase}/projects/${sharingProject.value.id}/shares/${share.id}`, {
+      method: 'PUT',
+      body: { permission: newPermission },
+    })
+    share.permission = newPermission
+  } catch { console.error('Failed to update permission') }
+}
+
+const removeShare = async (shareId) => {
+  try {
+    await apiFetch(`${config.public.apiBase}/projects/${sharingProject.value.id}/shares/${shareId}`, { method: 'DELETE' })
+    sharesList.value = sharesList.value.filter(s => s.id !== shareId)
+  } catch { console.error('Failed to remove share') }
+}
 
 const priorities    = ['Critical', 'High', 'Medium', 'Low']
 const statuses      = ['Pending', 'Out of Scope', 'Ongoing', 'Completed']
@@ -1116,7 +1403,7 @@ const filteredBugs = computed(() => bugs.value.filter(bug => {
 // ── API: Projects ──
 const fetchProjects = async () => {
   try {
-    const data = await $fetch(`${config.public.apiBase}/projects`)
+    const data = await apiFetch(`${config.public.apiBase}/projects`)
     projects.value = data
     if (selectedProject.value) {
       const updated = data.find(p => p.id === selectedProject.value.id)
@@ -1146,9 +1433,9 @@ const submitProject = async () => {
   submitting.value = true
   try {
     if (editingProject.value) {
-      await $fetch(`${config.public.apiBase}/projects/${editingProject.value.id}`, { method: 'PUT', body: projectForm.value })
+      await apiFetch(`${config.public.apiBase}/projects/${editingProject.value.id}`, { method: 'PUT', body: projectForm.value })
     } else {
-      await $fetch(`${config.public.apiBase}/projects`, { method: 'POST', body: projectForm.value })
+      await apiFetch(`${config.public.apiBase}/projects`, { method: 'POST', body: projectForm.value })
     }
     await fetchProjects()
     showProjectModal.value = false
@@ -1161,7 +1448,7 @@ const confirmDeleteProject = (project) => { deletingProject.value = project; sho
 const deleteProject = async () => {
   submitting.value = true
   try {
-    await $fetch(`${config.public.apiBase}/projects/${deletingProject.value.id}`, { method: 'DELETE' })
+    await apiFetch(`${config.public.apiBase}/projects/${deletingProject.value.id}`, { method: 'DELETE' })
     if (selectedProject.value?.id === deletingProject.value.id) selectProject(null)
     await fetchProjects()
     showDeleteProjectModal.value = false
@@ -1174,7 +1461,7 @@ const deleteProject = async () => {
 const fetchBugs = async () => {
   if (!selectedProject.value) return
   try {
-    const data = await $fetch(`${config.public.apiBase}/bugs`, { params: { project_id: selectedProject.value.id } })
+    const data = await apiFetch(`${config.public.apiBase}/bugs`, { params: { project_id: selectedProject.value.id } })
     bugs.value    = data.bugs    || []
     summary.value = data.summary || {}
   } catch (e) { console.error('Failed to fetch bugs', e) }
@@ -1256,7 +1543,7 @@ const submitForm = async () => {
     newFrontendFiles.value.forEach(file => fd.append('frontend_images[]', file))
     newCmsFiles.value.forEach(file => fd.append('cms_images[]', file))
     const url = editingBug.value ? `${config.public.apiBase}/bugs/${editingBug.value.id}` : `${config.public.apiBase}/bugs`
-    await $fetch(url, { method: 'POST', body: fd })
+    await apiFetch(url, { method: 'POST', body: fd })
     await fetchBugs(); await fetchProjects(); closeModal()
   } catch (e) { console.error('Failed to save bug', e); alert('Failed to save bug. Please try again.') }
   finally { submitting.value = false }
@@ -1265,7 +1552,7 @@ const submitForm = async () => {
 const updateStatus = async (bug, newStatus) => {
   try {
     const fd = new FormData(); fd.append('_method', 'PUT'); fd.append('status', newStatus)
-    await $fetch(`${config.public.apiBase}/bugs/${bug.id}`, { method: 'POST', body: fd })
+    await apiFetch(`${config.public.apiBase}/bugs/${bug.id}`, { method: 'POST', body: fd })
     await fetchBugs(); await fetchProjects()
   } catch (e) { console.error('Failed to update status', e) }
 }
@@ -1274,7 +1561,7 @@ const confirmDelete = (bug) => { deletingBug.value = bug; showDeleteModal.value 
 const deleteBug = async () => {
   submitting.value = true
   try {
-    await $fetch(`${config.public.apiBase}/bugs/${deletingBug.value.id}`, { method: 'DELETE' })
+    await apiFetch(`${config.public.apiBase}/bugs/${deletingBug.value.id}`, { method: 'DELETE' })
     await fetchBugs(); await fetchProjects()
     showDeleteModal.value = false; deletingBug.value = null
   } catch (e) { console.error('Failed to delete bug', e) }
@@ -1313,7 +1600,7 @@ const addThreadMessage = async () => {
     const fd = new FormData()
     fd.append('_method', 'PUT')
     fd.append('dev_comments_json', JSON.stringify(updated))
-    await $fetch(`${config.public.apiBase}/bugs/${threadBug.value.id}`, { method: 'POST', body: fd })
+    await apiFetch(`${config.public.apiBase}/bugs/${threadBug.value.id}`, { method: 'POST', body: fd })
     await fetchBugs()
     nextTick(() => {
       if (threadListEl.value) threadListEl.value.scrollTop = threadListEl.value.scrollHeight
@@ -1355,7 +1642,7 @@ const saveThreadComments = async (comments) => {
     const fd = new FormData()
     fd.append('_method', 'PUT')
     fd.append('dev_comments_json', JSON.stringify(comments))
-    await $fetch(`${config.public.apiBase}/bugs/${threadBug.value.id}`, { method: 'POST', body: fd })
+    await apiFetch(`${config.public.apiBase}/bugs/${threadBug.value.id}`, { method: 'POST', body: fd })
     await fetchBugs()
   } catch (e) { console.error('Failed to update comments', e) }
 }

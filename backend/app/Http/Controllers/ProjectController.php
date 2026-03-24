@@ -28,6 +28,10 @@ class ProjectController extends Controller
             'color'       => 'nullable|string|max:20',
         ]);
 
+        if ($request->user()) {
+            $validated['owner_id'] = $request->user()->id;
+        }
+
         $project = Project::create($validated);
 
         return response()->json($project->loadCount('bugs'), 201);

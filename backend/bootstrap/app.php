@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->use([
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+        $middleware->alias([
+            'api.auth' => \App\Http\Middleware\ApiAuth::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
