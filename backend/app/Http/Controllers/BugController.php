@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\BugTicketMail;
 use App\Models\Bug;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class BugController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Bug::query();
+        $query = Bug::with('assignedDeveloper:id,name,email,avatar');
 
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->project_id);
@@ -100,7 +103,7 @@ class BugController extends Controller
 
     public function show(Bug $bug)
     {
-        return response()->json($bug);
+        return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
     }
 
     public function update(Request $request, Bug $bug)
@@ -162,7 +165,7 @@ class BugController extends Controller
         unset($validated['existing_cms_images']);
 
         $bug->update($validated);
-        return response()->json($bug);
+        return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
     }
 
     public function destroy(Bug $bug)
@@ -184,5 +187,195 @@ class BugController extends Controller
             'by_scenario_type'=> (clone $query)->selectRaw('scenario_type, count(*) as count')->groupBy('scenario_type')->pluck('count', 'scenario_type'),
             'by_status'       => (clone $query)->selectRaw('status, count(*) as count')->groupBy('status')->pluck('count', 'status'),
         ]);
+    }
+
+    // ── Feature: Assign Developer ─────────────────────────────────────────────
+
+    public function assign(Request $request, Bug $bug)
+    {
+        $request->validate([
+            'action'          => 'required|in:add,remove',
+            'developer_id'    => 'nullable|integer|exists:users,id',
+            'developer_email' => 'nullable|email|max:255',
+            'developer_name'  => 'nullable|string|max:255',
+        ]);
+
+        $devs   = $bug->assigned_developers ?? [];
+        $action = $request->input('action');
+
+        if ($action === 'remove') {
+            $removeId    = $request->input('developer_id');
+            $removeEmail = $request->input('developer_email');
+            $devs = array_values(array_filter($devs, function ($d) use ($removeId, $removeEmail) {
+                if ($removeId    && ($d['id']    ?? null) == $removeId)    return false;
+                if ($removeEmail && ($d['email'] ?? null) === $removeEmail) return false;
+                return true;
+            }));
+            $bug->update([
+                'assigned_developers' => $devs ?: null,
+                'ticket_sent_at'      => empty($devs) ? null : $bug->ticket_sent_at,
+            ]);
+            return response()->json($bug);
+        }
+
+        // action === 'add'
+        $developerId = $request->input('developer_id');
+        $email       = $request->input('developer_email');
+
+        if ($developerId) {
+            $user = User::findOrFail($developerId);
+            // Avoid duplicates
+            if (!collect($devs)->contains('id', $user->id)) {
+                $devs[] = ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'avatar' => $user->avatar];
+            }
+        } elseif ($email) {
+            // Check registered user first
+            $user = User::where('email', $email)->first();
+            if ($user) {
+                if (!collect($devs)->contains('id', $user->id)) {
+                    $devs[] = ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'avatar' => $user->avatar];
+                }
+            } else {
+                // Guest email
+                if (!collect($devs)->contains('email', $email)) {
+                    $name   = $request->input('developer_name') ?: explode('@', $email)[0];
+                    $devs[] = ['id' => null, 'name' => $name, 'email' => $email, 'avatar' => null];
+                }
+            }
+        }
+
+        $bug->update(['assigned_developers' => $devs ?: null]);
+        return response()->json($bug);
+    }
+
+    // ── Feature: Send Ticket ──────────────────────────────────────────────────
+
+    public function sendTicket(Request $request, Bug $bug)
+    {
+        $devs = $bug->assigned_developers ?? [];
+
+        if (empty($devs)) {
+            return response()->json(['error' => 'No developer assigned to this bug.'], 422);
+        }
+
+        if ($bug->ticket_sent_at) {
+            return response()->json(['error' => 'Ticket already sent.'], 422);
+        }
+
+        $assigner = $request->user ?? User::first();
+
+        $bug->update(['ticket_sent_at' => now()]);
+
+        $devNames = implode(', ', array_column($devs, 'name'));
+
+        // Log to activity
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'ticket_sent',
+            'user_name' => $assigner?->name ?? 'System',
+            'content'   => "Ticket sent to {$devNames}",
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        // Send email to each assigned developer
+        foreach ($devs as $devData) {
+            $developer = new User([
+                'name'   => $devData['name'],
+                'email'  => $devData['email'],
+                'avatar' => $devData['avatar'] ?? null,
+            ]);
+            try {
+                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer));
+            } catch (\Exception $e) {
+                \Log::error('BugTicketMail failed: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
+    }
+
+    // ── Feature: Ticket Detail ────────────────────────────────────────────────
+
+    public function ticket(Bug $bug)
+    {
+        return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
+    }
+
+    public function addComment(Request $request, Bug $bug)
+    {
+        $request->validate([
+            'message'   => 'required|string|max:2000',
+            'author'    => 'required|string|max:255',
+            'author_email' => 'nullable|email',
+        ]);
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'         => 'comment',
+            'user_name'    => $request->input('author'),
+            'author_email' => $request->input('author_email'),
+            'content'      => $request->input('message'),
+            'timestamp'    => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
+    }
+
+    public function updateStatus(Request $request, Bug $bug)
+    {
+        $request->validate([
+            'status'    => 'required|in:Pending,Out of Scope,Ongoing,Completed',
+            'author'    => 'nullable|string|max:255',
+        ]);
+
+        $oldStatus = $bug->status;
+        $newStatus = $request->input('status');
+
+        $bug->update(['status' => $newStatus]);
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'status_change',
+            'user_name' => $request->input('author', 'Developer'),
+            'content'   => "Status changed from {$oldStatus} to {$newStatus}",
+            'old_value' => $oldStatus,
+            'new_value' => $newStatus,
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
+    }
+
+    public function resolve(Request $request, Bug $bug)
+    {
+        $request->validate([
+            'author' => 'nullable|string|max:255',
+        ]);
+
+        $authorName = $request->input('author', 'Developer');
+
+        $bug->update(['status' => 'Completed']);
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'resolved',
+            'user_name' => $authorName,
+            'content'   => "{$authorName} marked this ticket as resolved.",
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
+    }
+
+    // ── Team Members ──────────────────────────────────────────────────────────
+
+    public function teamMembers()
+    {
+        $users = User::select('id', 'name', 'email', 'avatar')->orderBy('name')->get();
+        return response()->json($users);
     }
 }

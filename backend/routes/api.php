@@ -25,4 +25,17 @@ Route::middleware('api.auth:optional')->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('bugs', BugController::class);
     Route::get('bugs-summary', [BugController::class, 'summary']);
+
+    // Assign developer & send ticket
+    Route::patch('bugs/{bug}/assign', [BugController::class, 'assign']);
+    Route::post('bugs/{bug}/send-ticket', [BugController::class, 'sendTicket']);
+
+    // Team members list
+    Route::get('team-members', [BugController::class, 'teamMembers']);
 });
+
+// ── Ticket detail (public — accessible via email link) ────────────────────
+Route::get('bugs/{bug}/ticket', [BugController::class, 'ticket']);
+Route::post('bugs/{bug}/comments', [BugController::class, 'addComment']);
+Route::patch('bugs/{bug}/status', [BugController::class, 'updateStatus']);
+Route::post('bugs/{bug}/resolve', [BugController::class, 'resolve']);

@@ -55,7 +55,7 @@
       <aside class="sidebar">
         <div class="sidebar-section-label">Projects</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: !selectedProject }" @click="selectProject(null)">
+          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen }" @click="selectProject(null); ticketTrackerOpen = false">
             <span class="sidebar-item-icon">🏠</span>
             <span class="sidebar-item-name">All Projects</span>
             <span class="sidebar-item-count">{{ projects.length }}</span>
@@ -63,12 +63,21 @@
           <div v-if="projects.length" class="sidebar-divider"></div>
           <button
             v-for="p in projects" :key="p.id"
-            class="sidebar-item" :class="{ active: selectedProject?.id === p.id }"
-            @click="selectProject(p)"
+            class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !ticketTrackerOpen }"
+            @click="selectProject(p); ticketTrackerOpen = false"
           >
             <span class="sidebar-color-dot" :style="{ background: p.color }"></span>
             <span class="sidebar-item-name">{{ p.name }}</span>
             <span class="sidebar-item-count">{{ p.bugs_count }}</span>
+          </button>
+        </nav>
+        <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
+        <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
+        <nav class="sidebar-nav">
+          <button class="sidebar-item" :class="{ active: ticketTrackerOpen }" @click="openTicketTracker">
+            <span class="sidebar-item-icon">🎫</span>
+            <span class="sidebar-item-name">Ticket Tracker</span>
+            <span v-if="allTickets.length" class="sidebar-item-count">{{ allTickets.length }}</span>
           </button>
         </nav>
         <div class="sidebar-footer">
@@ -83,7 +92,7 @@
       <main class="main-content">
 
         <!-- ══ All Projects view ══ -->
-        <div v-if="!selectedProject">
+        <div v-if="!selectedProject && !ticketTrackerOpen">
           <div class="view-header">
             <div>
               <h1 class="view-title">All Projects</h1>
@@ -102,10 +111,10 @@
             </div>
             <select v-model="projectFilter" class="form-control">
               <option value="">All Projects</option>
-              <option value="critical">Has Critical Bugs</option>
-              <option value="pending">Has Pending Bugs</option>
-              <option value="ongoing">Has Ongoing Bugs</option>
-              <option value="completed">Has Completed Bugs</option>
+              <option value="critical">Critical </option>
+              <option value="pending">Pending </option>
+              <option value="ongoing">Ongoing </option>
+              <option value="completed">Completed</option>
             </select>
             <button v-if="projectSearch || projectFilter" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -148,6 +157,627 @@
             <div class="empty-state-text">{{ projects.length ? 'Try adjusting your search or filter' : 'Create your first project to start tracking bugs' }}</div>
             <button v-if="!projects.length" class="btn btn-primary" style="margin-top:20px;" @click="openProjectModal(null)">+ Create Project</button>
           </div>
+        </div>
+
+        <!-- ══ Ticket Tracker view ══ -->
+        <div v-else-if="ticketTrackerOpen" class="ticket-tracker-view">
+
+          <!-- ── Inline Ticket Detail ── -->
+          <div v-if="ttDetailBug" class="tt-detail-wrap">
+            <!-- Back button -->
+            <div class="tt-detail-back-bar">
+              <button class="btn btn-ghost btn-sm" @click="ttDetailBug = null">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Back to Ticket Tracker
+              </button>
+              <div style="display:flex;gap:8px;margin-left:auto;">
+                <span :class="['badge', priorityBadgeClass(ttDetailBug.priority)]">{{ ttDetailBug.priority }}</span>
+                <span :class="['badge', statusBadgeClass(ttDetailBug.status)]">{{ ttDetailBug.status }}</span>
+              </div>
+            </div>
+
+            <div class="tt-detail-layout">
+              <!-- Main panel -->
+              <div class="tt-detail-main">
+                <!-- Title -->
+                <div class="tt-detail-title-block">
+                  <span class="bug-seq" style="font-size:14px;flex-shrink:0;">#{{ ttDetailBug.sequence }}</span>
+                  <h2 class="tt-detail-title">{{ ttDetailBug.title }}</h2>
+                </div>
+
+                <!-- Description -->
+                <div v-if="ttDetailBug.description" class="tt-detail-section">
+                  <div class="tt-detail-section-label">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Description
+                  </div>
+                  <div class="ticket-description" v-html="ttDetailBug.description"></div>
+                </div>
+
+                <!-- Activity -->
+                <div class="tt-detail-section">
+                  <div class="tt-detail-section-label">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Activity
+                    <span style="font-weight:400;color:var(--gray-400);font-size:12px;">({{ (ttDetailBug.activity_log || []).length }})</span>
+                  </div>
+                  <div class="ticket-activity-list" ref="ttActivityListEl">
+                    <div v-if="!(ttDetailBug.activity_log || []).length" class="ticket-activity-empty">No activity yet.</div>
+                    <div
+                      v-for="(entry, i) in (ttDetailBug.activity_log || [])" :key="i"
+                      class="ticket-activity-item"
+                      :class="'ticket-activity-' + entry.type"
+                    >
+                      <div class="ticket-activity-icon">
+                        <svg v-if="entry.type === 'comment'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <svg v-else-if="entry.type === 'ticket_sent'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        <svg v-else-if="entry.type === 'resolved'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg v-else width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      </div>
+                      <div class="ticket-activity-body">
+                        <div class="ticket-activity-header">
+                          <span class="ticket-activity-author">{{ entry.user_name }}</span>
+                          <span class="ticket-activity-time">{{ formatThreadTime(entry.timestamp) }}</span>
+                        </div>
+                        <div v-if="entry.type === 'comment'" class="ticket-activity-comment">{{ entry.content }}</div>
+                        <div v-else class="ticket-activity-event">{{ entry.content }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Compose -->
+                <div class="tt-detail-section" :class="{ 'tt-detail-compose--locked': ttDetailBug.status === 'Completed' }">
+                  <div v-if="ttDetailBug.status === 'Completed'" style="display:flex;align-items:center;gap:8px;color:#16a34a;font-size:13px;font-weight:500;padding:4px 0;">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                    This ticket has been resolved.
+                  </div>
+                  <template v-else>
+                    <textarea
+                      v-model="ttNewComment"
+                      class="ticket-compose-textarea"
+                      placeholder="Write a comment… (Ctrl+Enter to post)"
+                      rows="3"
+                      @keydown.ctrl.enter.prevent="ttPostComment"
+                    ></textarea>
+                    <div class="ticket-compose-footer">
+                      <div class="ticket-author-input-wrap">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <input v-model="ttAuthorName" class="ticket-author-input" placeholder="Your name" />
+                      </div>
+                      <div style="display:flex;gap:8px;">
+                        <button class="btn-ticket-resolve" @click="ttMarkResolved" :disabled="ttPosting">
+                          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                          Mark as resolved
+                        </button>
+                        <button class="btn-ticket-comment" :disabled="!ttNewComment.trim() || ttPosting" @click="ttPostComment">
+                          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                          {{ ttPosting ? 'Posting…' : 'Post comment' }}
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Sidebar -->
+              <aside class="tt-detail-sidebar">
+                <!-- Status -->
+                <div class="ticket-sidebar-card">
+                  <div class="ticket-sidebar-label">Status</div>
+                  <select
+                    v-if="ttDetailBug.status !== 'Completed'"
+                    v-model="ttCurrentStatus"
+                    class="ticket-status-select"
+                    :class="'ticket-status--' + ttCurrentStatus.toLowerCase().replace(/\s+/g, '-')"
+                    @change="ttUpdateStatus"
+                  >
+                    <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+                  </select>
+                  <span v-else class="badge badge-completed" style="font-size:13px;padding:6px 14px;">Completed</span>
+                </div>
+
+                <!-- Assigned Developers -->
+                <div class="ticket-sidebar-card">
+                  <div class="ticket-sidebar-label">Assigned Developer{{ (ttDetailBug.assigned_developers || []).length > 1 ? 's' : '' }}</div>
+                  <div v-if="(ttDetailBug.assigned_developers || []).length" style="display:flex;flex-direction:column;gap:10px;">
+                    <div v-for="dev in ttDetailBug.assigned_developers" :key="dev.email" class="ticket-sidebar-person">
+                      <div class="ticket-sidebar-avatar">{{ dev.name?.[0]?.toUpperCase() }}</div>
+                      <div>
+                        <div class="ticket-sidebar-person-name">{{ dev.name }}</div>
+                        <div class="ticket-sidebar-person-email">{{ dev.email }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="ticket-sidebar-empty">Not assigned</div>
+                </div>
+
+                <!-- Details -->
+                <div class="ticket-sidebar-card">
+                  <div class="ticket-sidebar-label">Details</div>
+                  <div class="ticket-meta-list">
+                    <div class="ticket-meta-row">
+                      <span class="ticket-meta-key">Priority</span>
+                      <span :class="['badge', priorityBadgeClass(ttDetailBug.priority)]">{{ ttDetailBug.priority }}</span>
+                    </div>
+                    <div class="ticket-meta-row">
+                      <span class="ticket-meta-key">Scenario</span>
+                      <span :class="['badge', scenarioBadgeClass(ttDetailBug.scenario_type)]">{{ ttDetailBug.scenario_type }}</span>
+                    </div>
+                    <div v-if="ttDetailBug.project" class="ticket-meta-row">
+                      <span class="ticket-meta-key">Project</span>
+                      <span style="font-size:13px;color:var(--gray-800);font-weight:500;display:flex;align-items:center;gap:6px;">
+                        <span style="width:8px;height:8px;border-radius:50%;display:inline-block;" :style="{ background: ttDetailBug.project?.color || '#94a3b8' }"></span>
+                        {{ ttDetailBug.project?.name }}
+                      </span>
+                    </div>
+                    <div class="ticket-meta-row">
+                      <span class="ticket-meta-key">Reported</span>
+                      <span style="font-size:13px;color:var(--gray-800);">{{ formatBugDate(ttDetailBug.created_at) }}</span>
+                    </div>
+                    <div v-if="ttDetailBug.ticket_sent_at" class="ticket-meta-row">
+                      <span class="ticket-meta-key">Sent</span>
+                      <span style="font-size:13px;color:var(--gray-800);">{{ formatBugDate(ttDetailBug.ticket_sent_at) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Activity counts -->
+                <div class="ticket-sidebar-card">
+                  <div class="ticket-sidebar-label">Activity Log</div>
+                  <div class="ticket-meta-list">
+                    <div class="ticket-meta-row">
+                      <span class="ticket-meta-key">Comments</span>
+                      <span style="font-size:13px;color:var(--gray-800);font-weight:600;">{{ (ttDetailBug.activity_log || []).filter(e => e.type === 'comment').length }}</span>
+                    </div>
+                    <div class="ticket-meta-row">
+                      <span class="ticket-meta-key">Status changes</span>
+                      <span style="font-size:13px;color:var(--gray-800);font-weight:600;">{{ (ttDetailBug.activity_log || []).filter(e => e.type === 'status_change').length }}</span>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <!-- ── Tracker List ── -->
+          <template v-else>
+
+          <!-- Header -->
+          <div class="view-header" style="margin-bottom:0;">
+            <div>
+              <h1 class="view-title">Ticket Tracker</h1>
+              <p class="view-subtitle">Monitor and manage bug tickets across all projects</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" @click="fetchAllTickets" title="Refresh">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Refresh
+            </button>
+          </div>
+
+          <!-- Tab bar -->
+          <div class="tt-tab-bar">
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'overview' }]" @click="ticketTab = 'overview'">
+              Overview
+            </button>
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'all' }]" @click="ticketTab = 'all'">
+              All Tickets
+              <span class="tt-tab-chip">{{ allTickets.length }}</span>
+            </button>
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'sent' }]" @click="ticketTab = 'sent'">
+              Sent
+              <span class="tt-tab-chip tt-tab-chip--blue">{{ sentTickets.length }}</span>
+            </button>
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'resolved' }]" @click="ticketTab = 'resolved'">
+              Resolved
+              <span class="tt-tab-chip tt-tab-chip--green">{{ resolvedTickets.length }}</span>
+            </button>
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'pending' }]" @click="ticketTab = 'pending'">
+              Pending Action
+              <span v-if="pendingTickets.length" class="tt-tab-chip tt-tab-chip--red">{{ pendingTickets.length }}</span>
+            </button>
+          </div>
+
+          <!-- ── Overview Tab ── -->
+          <div v-if="ticketTab === 'overview'">
+            <!-- Stat cards -->
+            <div class="tt-stat-grid">
+              <div class="tt-stat-card">
+                <div class="tt-stat-icon" style="background:#eff6ff;color:#1d4ed8;">🎫</div>
+                <div class="tt-stat-label">Total Tickets</div>
+                <div class="tt-stat-value">{{ allTickets.length }}</div>
+              </div>
+              <div class="tt-stat-card">
+                <div class="tt-stat-icon" style="background:#f0fdf4;color:#16a34a;">✅</div>
+                <div class="tt-stat-label">Resolved</div>
+                <div class="tt-stat-value" style="color:#16a34a;">{{ resolvedTickets.length }}</div>
+              </div>
+              <div class="tt-stat-card">
+                <div class="tt-stat-icon" style="background:#fefce8;color:#854d0e;">⚡</div>
+                <div class="tt-stat-label">In Progress</div>
+                <div class="tt-stat-value" style="color:#854d0e;">{{ inProgressTickets.length }}</div>
+              </div>
+              <div class="tt-stat-card">
+                <div class="tt-stat-icon" style="background:#fef2f2;color:#dc2626;">⏳</div>
+                <div class="tt-stat-label">Needs Action</div>
+                <div class="tt-stat-value" style="color:#dc2626;">{{ pendingTickets.length }}</div>
+              </div>
+            </div>
+
+            <div class="tt-overview-grid">
+              <!-- Ticket Pipeline Table -->
+              <div class="card" style="grid-column:1/-1;">
+                <div class="card-header">
+                  <h3 class="card-title">Ticket Pipeline</h3>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <table v-if="allTickets.length">
+                    <thead>
+                      <tr>
+                        <th style="width:56px;">#</th>
+                        <th>Title</th>
+                        <th style="width:130px;">Project</th>
+                        <th style="width:100px;">Priority</th>
+                        <th style="width:140px;">Assigned Dev</th>
+                        <th style="width:120px;">Stage</th>
+                        <th style="width:120px;">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="t in allTickets" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
+                        <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                        <td>
+                          <div class="bug-title-main bug-title-link" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.title }}</div>
+                        </td>
+                        <td>
+                          <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                            {{ t.project?.name }}
+                          </span>
+                        </td>
+                        <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                        <td>
+                          <span v-if="t.assigned_developer" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span class="assign-avatar-xs">{{ t.assigned_developer.name?.[0]?.toUpperCase() }}</span>
+                            {{ t.assigned_developer.name.split(' ')[0] }}
+                          </span>
+                          <span v-else style="color:var(--gray-300);font-size:12px;">Unassigned</span>
+                        </td>
+                        <td><span :class="['tt-stage-badge', ticketStageBadge(t)]">{{ ticketStage(t) }}</span></td>
+                        <td><span :class="['badge', statusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div v-else class="empty-state" style="padding:40px;">
+                    <div class="empty-state-icon">🎫</div>
+                    <div class="empty-state-title">No tickets yet</div>
+                    <div class="empty-state-text">Assign developers to bugs to start tracking tickets</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Per-project breakdown -->
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">By Project</h3></div>
+                <div class="card-body" style="padding:12px 20px;">
+                  <div v-if="!projectBreakdown.length" class="empty-state" style="padding:20px;"><div class="empty-state-title">No data</div></div>
+                  <div v-for="row in projectBreakdown" :key="row.name" class="tt-breakdown-row">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                      <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;" :style="{ background: row.color }"></span>
+                      <span style="font-size:13px;font-weight:500;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ row.name }}</span>
+                    </div>
+                    <div class="tt-bar-wrap">
+                      <div class="tt-bar" :style="{ width: row.pct + '%', background: row.color }"></div>
+                    </div>
+                    <span style="font-size:12px;font-weight:600;color:var(--gray-600);min-width:20px;text-align:right;">{{ row.count }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dev Workload -->
+              <div class="card">
+                <div class="card-header"><h3 class="card-title">Dev Workload</h3><span class="card-title" style="font-size:12px;font-weight:400;color:var(--gray-400);">Open tickets per developer</span></div>
+                <div class="card-body" style="padding:12px 20px;">
+                  <div v-if="!devWorkload.length" class="empty-state" style="padding:20px;"><div class="empty-state-title">No assignments yet</div></div>
+                  <div v-for="dev in devWorkload" :key="dev.name" class="tt-breakdown-row">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                      <span class="assign-avatar-xs" style="flex-shrink:0;">{{ dev.name?.[0]?.toUpperCase() }}</span>
+                      <span style="font-size:13px;font-weight:500;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ dev.name.split(' ')[0] }}</span>
+                    </div>
+                    <div class="tt-bar-wrap">
+                      <div class="tt-bar" :style="{ width: dev.pct + '%', background: '#4f46e5' }"></div>
+                    </div>
+                    <span style="font-size:12px;font-weight:600;color:var(--gray-600);min-width:20px;text-align:right;">{{ dev.count }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recent Activity -->
+              <div class="card" style="grid-column:1/-1;">
+                <div class="card-header"><h3 class="card-title">Recent Activity</h3></div>
+                <div class="card-body" style="padding:0 20px;">
+                  <div v-if="!recentActivity.length" class="empty-state" style="padding:32px;"><div class="empty-state-title">No activity yet</div></div>
+                  <div v-for="(entry, i) in recentActivity" :key="i" class="tt-activity-row">
+                    <div class="tt-activity-dot" :class="'tt-activity-dot--' + entry.type"></div>
+                    <div style="flex:1;min-width:0;">
+                      <span style="font-size:13px;font-weight:600;color:var(--gray-800);">{{ entry.user_name }}</span>
+                      <span style="font-size:13px;color:var(--gray-500);margin-left:6px;">{{ entry.content }}</span>
+                      <span style="font-size:11px;color:var(--gray-400);margin-left:8px;">· #{{ entry.bugSequence }} {{ entry.bugTitle }}</span>
+                    </div>
+                    <span style="font-size:11px;color:var(--gray-400);white-space:nowrap;margin-left:12px;">{{ formatBugDate(entry.timestamp) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── All Tickets Tab ── -->
+          <div v-else-if="ticketTab === 'all'">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">All Tickets</h3>
+                <span class="result-chip">{{ filteredAllTickets.length }} result{{ filteredAllTickets.length !== 1 ? 's' : '' }}</span>
+              </div>
+              <div class="card-body">
+                <div class="filters-bar">
+                  <div class="search-input-wrap">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input v-model="ttFilters.search" class="search-input" placeholder="Search tickets…" />
+                  </div>
+                  <select v-model="ttFilters.project_id" class="form-control" style="width:160px;">
+                    <option value="">All Projects</option>
+                    <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
+                  </select>
+                  <select v-model="ttFilters.status" class="form-control" style="width:140px;">
+                    <option value="">All Statuses</option>
+                    <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+                  </select>
+                  <button v-if="ttFilters.search || ttFilters.project_id || ttFilters.status" class="btn btn-ghost btn-sm" @click="ttFilters = { search:'', project_id:'', status:'' }">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    Clear
+                  </button>
+                </div>
+                <div class="table-wrap">
+                  <table v-if="filteredAllTickets.length">
+                    <thead>
+                      <tr>
+                        <th style="width:56px;">#</th>
+                        <th>Title</th>
+                        <th style="width:130px;">Project</th>
+                        <th style="width:100px;">Priority</th>
+                        <th style="width:130px;">Status</th>
+                        <th style="width:150px;">Assigned Dev</th>
+                        <th style="width:120px;">Stage</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="t in filteredAllTickets" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
+                        <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                        <td>
+                          <div class="bug-title-main bug-title-link">{{ t.title }}</div>
+                          <div v-if="t.description" class="bug-title-desc">{{ stripHtml(t.description) }}</div>
+                        </td>
+                        <td>
+                          <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                            {{ t.project?.name }}
+                          </span>
+                        </td>
+                        <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                        <td><span :class="['badge', statusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                        <td>
+                          <span v-if="t.assigned_developer" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span class="assign-avatar-xs">{{ t.assigned_developer.name?.[0]?.toUpperCase() }}</span>
+                            {{ t.assigned_developer.name }}
+                          </span>
+                          <span v-else style="color:var(--gray-300);font-size:12px;">Unassigned</span>
+                        </td>
+                        <td><span :class="['tt-stage-badge', ticketStageBadge(t)]">{{ ticketStage(t) }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div v-else class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">No tickets found</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Sent Tab ── -->
+          <div v-else-if="ticketTab === 'sent'">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Sent Tickets</h3>
+                <span class="result-chip">{{ sentTickets.length }}</span>
+              </div>
+              <div class="card-body" style="padding:0;">
+                <table v-if="sentTickets.length">
+                  <thead>
+                    <tr>
+                      <th style="width:56px;">#</th>
+                      <th>Title</th>
+                      <th style="width:130px;">Project</th>
+                      <th style="width:100px;">Priority</th>
+                      <th style="width:160px;">Sent To</th>
+                      <th style="width:140px;">Sent At</th>
+                      <th style="width:130px;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="t in sentTickets" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
+                      <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                      <td><div class="bug-title-main bug-title-link">{{ t.title }}</div></td>
+                      <td>
+                        <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                          <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                          {{ t.project?.name }}
+                        </span>
+                      </td>
+                      <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                      <td>
+                        <span v-if="t.assigned_developer" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                          <span class="assign-avatar-xs">{{ t.assigned_developer.name?.[0]?.toUpperCase() }}</span>
+                          {{ t.assigned_developer.name }}
+                        </span>
+                      </td>
+                      <td style="font-size:12px;color:var(--gray-500);">{{ formatBugDate(t.ticket_sent_at) }}</td>
+                      <td><span :class="['badge', statusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="empty-state" style="padding:40px;">
+                  <div class="empty-state-icon">📤</div>
+                  <div class="empty-state-title">No tickets sent yet</div>
+                  <div class="empty-state-text">Assign a developer and click "Send Ticket" in the bug table</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Resolved Tab ── -->
+          <div v-else-if="ticketTab === 'resolved'">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Resolved Tickets</h3>
+                <span class="result-chip">{{ resolvedTickets.length }}</span>
+              </div>
+              <div class="card-body" style="padding:0;">
+                <table v-if="resolvedTickets.length">
+                  <thead>
+                    <tr>
+                      <th style="width:56px;">#</th>
+                      <th>Title</th>
+                      <th style="width:130px;">Project</th>
+                      <th style="width:100px;">Priority</th>
+                      <th style="width:160px;">Resolved By</th>
+                      <th style="width:130px;">Date Resolved</th>
+                      <th style="width:120px;">Time Taken</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="t in resolvedTickets" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
+                      <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                      <td><div class="bug-title-main bug-title-link">{{ t.title }}</div></td>
+                      <td>
+                        <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                          <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                          {{ t.project?.name }}
+                        </span>
+                      </td>
+                      <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                      <td>
+                        <span style="font-size:12px;">{{ resolvedBy(t) || '—' }}</span>
+                      </td>
+                      <td style="font-size:12px;color:var(--gray-500);">{{ formatBugDate(resolvedAt(t)) }}</td>
+                      <td style="font-size:12px;color:#16a34a;font-weight:600;">{{ timeTaken(t) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="empty-state" style="padding:40px;">
+                  <div class="empty-state-icon">✅</div>
+                  <div class="empty-state-title">No resolved tickets yet</div>
+                  <div class="empty-state-text">Resolved tickets will appear here with completion details</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Pending Tab ── -->
+          <div v-else-if="ticketTab === 'pending'">
+            <div v-if="!pendingTickets.length" class="empty-state" style="padding:60px;">
+              <div class="empty-state-icon">🎉</div>
+              <div class="empty-state-title">All caught up!</div>
+              <div class="empty-state-text">No tickets need action right now</div>
+            </div>
+            <template v-else>
+              <!-- Group: Assign Dev First -->
+              <div v-if="needsAssignment.length" class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>
+                    <h3 class="card-title">Assign Developer First</h3>
+                  </div>
+                  <span class="result-chip">{{ needsAssignment.length }}</span>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width:56px;">#</th>
+                        <th>Title</th>
+                        <th style="width:130px;">Project</th>
+                        <th style="width:100px;">Priority</th>
+                        <th style="width:130px;">Status</th>
+                        <th style="width:160px;">Action Needed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="t in needsAssignment" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
+                        <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                        <td><div class="bug-title-main bug-title-link">{{ t.title }}</div></td>
+                        <td>
+                          <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                            {{ t.project?.name }}
+                          </span>
+                        </td>
+                        <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                        <td><span :class="['badge', statusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                        <td><span class="tt-action-chip tt-action-chip--red">Assign dev first</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Group: Send Ticket -->
+              <div v-if="needsSend.length" class="card">
+                <div class="card-header">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;"></span>
+                    <h3 class="card-title">Ready to Send</h3>
+                  </div>
+                  <span class="result-chip">{{ needsSend.length }}</span>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width:56px;">#</th>
+                        <th>Title</th>
+                        <th style="width:130px;">Project</th>
+                        <th style="width:100px;">Priority</th>
+                        <th style="width:150px;">Assigned Dev</th>
+                        <th style="width:160px;">Action Needed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="t in needsSend" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
+                        <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                        <td><div class="bug-title-main bug-title-link">{{ t.title }}</div></td>
+                        <td>
+                          <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                            {{ t.project?.name }}
+                          </span>
+                        </td>
+                        <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                        <td>
+                          <span v-if="t.assigned_developer" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span class="assign-avatar-xs">{{ t.assigned_developer.name?.[0]?.toUpperCase() }}</span>
+                            {{ t.assigned_developer.name.split(' ')[0] }}
+                          </span>
+                        </td>
+                        <td><span class="tt-action-chip tt-action-chip--yellow">Send ticket</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          </template><!-- end v-else tracker list -->
+
         </div>
 
         <!-- ══ Project view ══ -->
@@ -346,8 +976,10 @@
                         <th style="width:110px;">Priority</th>
                         <th style="width:160px;">Scenario</th>
                         <th style="width:180px;">Status</th>
-                        <th style="width:220px;">Dev Comment</th>
+                        <th style="width:220px;">Comment</th>
                         <th style="width:90px;">Images</th>
+                        <th style="width:150px;">Assign Dev</th>
+                        <th style="width:120px;text-align:center;">Send Ticket</th>
                         <th style="width:130px;text-align:center;">Actions</th>
                       </tr>
                     </thead>
@@ -380,6 +1012,118 @@
                           </button>
                           <span v-else style="color:var(--gray-300);padding-left:4px;">—</span>
                         </td>
+
+                        <!-- Assign Dev -->
+                        <td style="position:relative;" @click.stop>
+                          <div class="assign-dev-wrap">
+                            <button
+                              :class="['assign-dev-btn', { 'assign-dev-btn--assigned': bug.assigned_developers?.length }]"
+                              @click.stop="openAssignDropdown(bug.id)"
+                            >
+                              <template v-if="bug.assigned_developers?.length">
+                                <span class="assign-avatars-stack">
+                                  <span
+                                    v-for="(dev, i) in bug.assigned_developers.slice(0, 3)" :key="i"
+                                    class="assign-avatar-xs"
+                                    :style="{ marginLeft: i > 0 ? '-6px' : '0', zIndex: 3 - i }"
+                                  >{{ dev.name?.[0]?.toUpperCase() }}</span>
+                                </span>
+                                <span v-if="bug.assigned_developers.length === 1">{{ bug.assigned_developers[0].name.split(' ')[0] }}</span>
+                                <span v-else>{{ bug.assigned_developers.length }} devs</span>
+                              </template>
+                              <template v-else>
+                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                                Assign dev
+                              </template>
+                            </button>
+                            <div v-if="assignDropdownBugId === bug.id" class="assign-dropdown" @click.stop>
+                              <!-- Search / email input -->
+                              <div class="assign-search-wrap">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input
+                                  v-model="assignSearch"
+                                  class="assign-search-input"
+                                  placeholder="Search name or enter email…"
+                                  @click.stop
+                                  ref="assignSearchInput"
+                                />
+                              </div>
+                              <!-- Assigned devs with remove buttons -->
+                              <template v-if="bug.assigned_developers?.length">
+                                <div class="assign-dropdown-divider"></div>
+                                <div class="assign-dropdown-section-label">Assigned ({{ bug.assigned_developers.length }})</div>
+                                <div
+                                  v-for="dev in bug.assigned_developers" :key="dev.email"
+                                  class="assign-dropdown-item assign-dropdown-item--assigned"
+                                >
+                                  <span class="assign-avatar-xs" style="background:#4f46e5;">{{ dev.name?.[0]?.toUpperCase() }}</span>
+                                  <div style="flex:1;min-width:0;">
+                                    <div class="assign-member-name">{{ dev.name }}</div>
+                                    <div class="assign-member-email">{{ dev.email }}</div>
+                                  </div>
+                                  <button class="assign-remove-btn" @click.stop="removeDev(bug, dev)" title="Remove">
+                                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                                  </button>
+                                </div>
+                              </template>
+                              <div class="assign-dropdown-divider"></div>
+                              <!-- Filtered team members -->
+                              <div v-if="filteredAssignMembers.length" class="assign-dropdown-section-label">Team members</div>
+                              <div
+                                v-for="member in filteredAssignMembers" :key="member.id"
+                                class="assign-dropdown-item"
+                                :class="{ 'assign-dropdown-item--active': (bug.assigned_developers || []).some(d => d.id === member.id) }"
+                                @click.stop="assignDev(bug, member)"
+                              >
+                                <span class="assign-avatar-xs">{{ member.name?.[0]?.toUpperCase() }}</span>
+                                <div>
+                                  <div class="assign-member-name">{{ member.name }}</div>
+                                  <div class="assign-member-email">{{ member.email }}</div>
+                                </div>
+                                <svg v-if="(bug.assigned_developers || []).some(d => d.id === member.id)" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:auto;color:#4f46e5;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+                              </div>
+                              <!-- Manual email assign option -->
+                              <template v-if="assignSearch.includes('@') && !(bug.assigned_developers || []).some(d => d.email === assignSearch) && !filteredAssignMembers.some(m => m.email === assignSearch)">
+                                <div class="assign-dropdown-divider"></div>
+                                <div class="assign-dropdown-item assign-dropdown-email-option" @click.stop="assignDevByEmail(bug, assignSearch)">
+                                  <span class="assign-avatar-xs" style="background:#64748b;">@</span>
+                                  <div>
+                                    <div class="assign-member-name">Assign by email</div>
+                                    <div class="assign-member-email">{{ assignSearch }}</div>
+                                  </div>
+                                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:auto;color:#4f46e5;flex-shrink:0;"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </div>
+                              </template>
+                              <!-- Empty state -->
+                              <div v-if="!filteredAssignMembers.length && !assignSearch.includes('@')" class="assign-dropdown-empty">
+                                {{ assignSearch ? 'No match — type a full email to assign' : 'No team members yet' }}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Send Ticket -->
+                        <td style="text-align:center;">
+                          <button
+                            v-if="bug.ticket_sent_at"
+                            class="send-ticket-btn send-ticket-btn--sent"
+                            disabled
+                          >
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                            Sent
+                          </button>
+                          <button
+                            v-else
+                            :class="['send-ticket-btn', bug.has_assignment ? 'send-ticket-btn--active' : 'send-ticket-btn--disabled']"
+                            :disabled="!bug.has_assignment"
+                            :title="!bug.has_assignment ? 'Assign a developer first' : 'Send ticket to developer'"
+                            @click="openSendTicketModal(bug)"
+                          >
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            Send
+                          </button>
+                        </td>
+
                         <td>
                           <div style="display:flex;gap:6px;justify-content:center;">
                             <button class="btn btn-icon action-btn-view" title="View" @click="viewBug(bug)">
@@ -716,7 +1460,7 @@
               <div class="bug-view-section-label" style="justify-content:space-between;">
                 <span style="display:flex;align-items:center;gap:6px;">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  Developer Comments
+                  Comments
                 </span>
                 <span v-if="viewingBugDetail?.dev_comments?.length" class="bug-view-count-pill">{{ viewingBugDetail.dev_comments.length }}</span>
               </div>
@@ -797,7 +1541,7 @@
           <div class="modal-header">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              <h3 class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Dev Comments — {{ threadBug?.title }}</h3>
+              <h3 class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Comments — {{ threadBug?.title }}</h3>
             </div>
             <button class="btn btn-ghost btn-icon" @click="showThreadModal = false">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -826,9 +1570,11 @@
                   </div>
                   <!-- View mode -->
                   <template v-else>
-                    <div class="thread-msg-row">
-                      <div class="thread-msg-bubble">{{ msg.message }}</div>
-                      <div class="thread-msg-menu-wrap">
+                    <div class="thread-msg-author-row">
+                      <span class="thread-msg-avatar">{{ (msg.author || '?')[0].toUpperCase() }}</span>
+                      <span class="thread-msg-author-name">{{ msg.author || 'Anonymous' }}</span>
+                      <span class="thread-msg-time-inline">{{ formatThreadTime(msg.timestamp) }}{{ msg.edited ? ' · edited' : '' }}</span>
+                      <div class="thread-msg-menu-wrap" style="margin-left:auto;">
                         <button class="thread-ellipsis-btn" @click.stop="openMenuIdx = (openMenuIdx === i ? null : i)">⋯</button>
                         <div v-if="openMenuIdx === i" class="thread-dropdown" @click.stop>
                           <button class="thread-dropdown-item" @click="startEditMsg(i, msg.message); openMenuIdx = null">
@@ -842,6 +1588,7 @@
                         </div>
                       </div>
                     </div>
+                    <div class="thread-msg-bubble">{{ msg.message }}</div>
                     <div v-if="deletingMsgIdx === i" class="thread-delete-confirm">
                       <span>Delete this comment?</span>
                       <div style="display:flex;gap:6px;">
@@ -850,7 +1597,6 @@
                       </div>
                     </div>
                   </template>
-                  <div class="thread-msg-time">{{ formatThreadTime(msg.timestamp) }}{{ msg.edited ? ' · edited' : '' }}</div>
                 </div>
               </div>
               <div v-else class="thread-empty">
@@ -860,16 +1606,22 @@
             </div>
           </div>
           <div class="thread-input-area">
+            <input
+              v-model="newThreadAuthor"
+              class="thread-author-input"
+              placeholder="Your name…"
+              maxlength="80"
+            />
             <textarea
               v-model="newThreadMessage"
               class="thread-textarea"
-              placeholder="Write a developer comment… (Ctrl+Enter to send)"
+              placeholder="Write a comment… (Ctrl+Enter to send)"
               rows="3"
               @keydown.ctrl.enter.prevent="addThreadMessage"
             ></textarea>
             <div class="thread-input-footer">
               <span style="font-size:11px;color:var(--gray-400);">Ctrl + Enter to send</span>
-              <button class="btn btn-primary" :disabled="!newThreadMessage.trim() || threadSending" @click="addThreadMessage">
+              <button class="btn btn-primary" :disabled="!newThreadMessage.trim() || !newThreadAuthor.trim() || threadSending" @click="addThreadMessage">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 {{ threadSending ? 'Sending…' : 'Send' }}
               </button>
@@ -955,6 +1707,67 @@
             <button class="btn btn-secondary" @click="showShareModal = false">Done</button>
           </div>
         </div>
+      </div>
+    </Transition>
+
+    <!-- Send Ticket Confirmation Modal -->
+    <Transition name="fade">
+      <div v-if="showSendTicketModal" class="modal-overlay" @click.self="showSendTicketModal = false">
+        <div class="modal" style="max-width:440px;">
+          <div class="modal-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <h3 class="modal-title">Send Ticket</h3>
+            </div>
+            <button class="btn btn-ghost btn-icon" @click="showSendTicketModal = false">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="modal-body" style="padding:20px 24px;">
+            <p style="color:var(--gray-500);font-size:14px;margin:0 0 20px;">Review the ticket details before sending.</p>
+            <div class="send-ticket-preview">
+              <div class="send-ticket-preview-row">
+                <span class="send-ticket-preview-label">Bug</span>
+                <span class="send-ticket-preview-val"><span class="bug-seq">#{{ sendTicketBug?.sequence }}</span> {{ sendTicketBug?.title }}</span>
+              </div>
+              <div class="send-ticket-preview-row">
+                <span class="send-ticket-preview-label">Priority</span>
+                <span :class="['badge', priorityBadgeClass(sendTicketBug?.priority)]">{{ sendTicketBug?.priority }}</span>
+              </div>
+              <div class="send-ticket-preview-row">
+                <span class="send-ticket-preview-label">Developer{{ (sendTicketBug?.assigned_developers?.length || 0) > 1 ? 's' : '' }}</span>
+                <span style="display:flex;flex-direction:column;gap:6px;">
+                  <span
+                    v-for="dev in (sendTicketBug?.assigned_developers || [])" :key="dev.email"
+                    style="display:flex;align-items:center;gap:8px;"
+                  >
+                    <span class="assign-avatar-xs">{{ dev.name?.[0]?.toUpperCase() }}</span>
+                    <span>
+                      <strong>{{ dev.name }}</strong>
+                      <span style="color:var(--gray-400);margin-left:6px;font-size:12px;">{{ dev.email }}</span>
+                    </span>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer" style="padding:16px 24px;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end;gap:10px;">
+            <button class="btn btn-ghost" @click="showSendTicketModal = false">Cancel</button>
+            <button class="btn btn-primary" :disabled="ticketSending" @click="doSendTicket">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              {{ ticketSending ? 'Sending…' : 'Send ticket' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Toast -->
+    <Transition name="toast-slide">
+      <div v-if="toast.show" class="toast-notification" :class="'toast-' + toast.type">
+        <svg v-if="toast.type === 'success'" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <svg v-else width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        {{ toast.message }}
       </div>
     </Transition>
 
@@ -1173,6 +1986,7 @@ const form = ref({ title: '', description: '', priority: 'Medium', scenario_type
 const showThreadModal  = ref(false)
 const threadBugId      = ref(null)
 const newThreadMessage = ref('')
+const newThreadAuthor  = ref('')
 const threadSending    = ref(false)
 const threadListEl     = ref(null)
 const editingMsgIndex  = ref(null)
@@ -1580,6 +2394,9 @@ const clearFilters = () => { filters.value = { search: '', status: '', priority:
 const openThread = (bug) => {
   threadBugId.value = bug.id
   newThreadMessage.value = ''
+  if (!newThreadAuthor.value && currentUser.value?.name) {
+    newThreadAuthor.value = currentUser.value.name
+  }
   editingMsgIndex.value = null
   showThreadModal.value = true
   nextTick(() => {
@@ -1588,14 +2405,15 @@ const openThread = (bug) => {
 }
 
 const addThreadMessage = async () => {
-  if (!newThreadMessage.value.trim() || threadSending.value || !threadBug.value) return
+  if (!newThreadMessage.value.trim() || !newThreadAuthor.value.trim() || threadSending.value || !threadBug.value) return
   threadSending.value = true
   const message = newThreadMessage.value.trim()
+  const author  = newThreadAuthor.value.trim()
   newThreadMessage.value = ''
   try {
     const updated = [
       ...(threadBug.value.dev_comments || []),
-      { message, timestamp: new Date().toISOString() }
+      { message, author, timestamp: new Date().toISOString() }
     ]
     const fd = new FormData()
     fd.append('_method', 'PUT')
@@ -1662,5 +2480,338 @@ const priorityBadgeClass = (p) => ({ Critical: 'badge-critical', High: 'badge-hi
 const statusBadgeClass   = (s) => ({ Pending: 'badge-pending', 'Out of Scope': 'badge-outofscope', Ongoing: 'badge-ongoing', Completed: 'badge-completed' }[s] || '')
 const scenarioBadgeClass = (t) => ({ UI: 'badge-ui', Functionality: 'badge-functionality', 'UI & Functionality': 'badge-uifunctionality' }[t] || '')
 
+// ── Ticket Tracker ───────────────────────────────────────────────────────────
+const ticketTrackerOpen = ref(false)
+const ticketTab         = ref('overview')
+const allTickets        = ref([])
+const ttFilters         = reactive({ search: '', project_id: '', status: '' })
+
+const fetchAllTickets = async () => {
+  try {
+    const data = await apiFetch(`${config.public.apiBase}/bugs`, { params: {} })
+    // Load with project info
+    const bugsWithProject = (data.bugs || []).map(b => ({
+      ...b,
+      project: projects.value.find(p => p.id === b.project_id) || null,
+    }))
+    allTickets.value = bugsWithProject
+  } catch (e) { console.error('Failed to fetch all tickets', e) }
+}
+
+const openTicketTracker = async () => {
+  ticketTrackerOpen.value = true
+  selectedProject.value   = null
+  detailView.value        = null
+  ticketTab.value         = 'overview'
+  await fetchAllTickets()
+}
+
+const sentTickets       = computed(() => allTickets.value.filter(t => t.ticket_sent_at))
+const resolvedTickets   = computed(() => allTickets.value.filter(t => t.status === 'Completed'))
+const inProgressTickets = computed(() => allTickets.value.filter(t => t.ticket_sent_at && t.status !== 'Completed'))
+const pendingTickets    = computed(() => allTickets.value.filter(t => !t.has_assignment || !t.ticket_sent_at))
+const needsAssignment   = computed(() => allTickets.value.filter(t => !t.has_assignment))
+const needsSend         = computed(() => allTickets.value.filter(t => t.has_assignment && !t.ticket_sent_at))
+
+// ── Ticket Tracker — Inline Detail ───────────────────────────────────────────
+const ttDetailBug     = ref(null)
+const ttNewComment    = ref('')
+const ttAuthorName    = ref('')
+const ttPosting       = ref(false)
+const ttCurrentStatus = ref('Pending')
+const ttActivityListEl = ref(null)
+
+const openTTDetail = async (ticket) => {
+  try {
+    const fresh = await apiFetch(`${config.public.apiBase}/bugs/${ticket.id}/ticket`)
+    ttDetailBug.value     = { ...fresh, project: ticket.project || fresh.project }
+    ttCurrentStatus.value = fresh.status
+    ttNewComment.value    = ''
+    if (!ttAuthorName.value && currentUser.value?.name) {
+      ttAuthorName.value = currentUser.value.name
+    }
+    nextTick(() => {
+      if (ttActivityListEl.value) ttActivityListEl.value.scrollTop = ttActivityListEl.value.scrollHeight
+    })
+  } catch (e) { console.error('Failed to load ticket detail', e) }
+}
+
+const ttScrollBottom = () => {
+  nextTick(() => {
+    if (ttActivityListEl.value) ttActivityListEl.value.scrollTop = ttActivityListEl.value.scrollHeight
+  })
+}
+
+const ttPostComment = async () => {
+  if (!ttNewComment.value.trim() || ttPosting.value || !ttDetailBug.value) return
+  ttPosting.value = true
+  const message = ttNewComment.value.trim()
+  ttNewComment.value = ''
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${ttDetailBug.value.id}/comments`, {
+      method: 'POST',
+      body: { message, author: ttAuthorName.value || 'Developer' },
+    })
+    ttDetailBug.value = { ...updated, project: ttDetailBug.value.project }
+    ttCurrentStatus.value = updated.status
+    updateBugInLists(updated)
+    ttScrollBottom()
+  } catch (e) {
+    console.error('Failed to post comment', e)
+    ttNewComment.value = message
+  } finally { ttPosting.value = false }
+}
+
+const ttUpdateStatus = async () => {
+  if (!ttDetailBug.value) return
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${ttDetailBug.value.id}/status`, {
+      method: 'PATCH',
+      body: { status: ttCurrentStatus.value, author: ttAuthorName.value || 'Developer' },
+    })
+    ttDetailBug.value = { ...updated, project: ttDetailBug.value.project }
+    ttCurrentStatus.value = updated.status
+    updateBugInLists(updated)
+    ttScrollBottom()
+  } catch (e) {
+    console.error('Failed to update status', e)
+    ttCurrentStatus.value = ttDetailBug.value?.status ?? 'Pending'
+  }
+}
+
+const ttMarkResolved = async () => {
+  if (ttPosting.value || !ttDetailBug.value) return
+  ttPosting.value = true
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${ttDetailBug.value.id}/resolve`, {
+      method: 'POST',
+      body: { author: ttAuthorName.value || 'Developer' },
+    })
+    ttDetailBug.value = { ...updated, project: ttDetailBug.value.project }
+    ttCurrentStatus.value = updated.status
+    updateBugInLists(updated)
+    ttScrollBottom()
+  } catch (e) { console.error('Failed to resolve ticket', e) }
+  finally { ttPosting.value = false }
+}
+
+const filteredAllTickets = computed(() => {
+  return allTickets.value.filter(t => {
+    if (ttFilters.search) {
+      const q = ttFilters.search.toLowerCase()
+      if (!t.title.toLowerCase().includes(q)) return false
+    }
+    if (ttFilters.project_id && t.project_id !== ttFilters.project_id) return false
+    if (ttFilters.status && t.status !== ttFilters.status) return false
+    return true
+  })
+})
+
+const projectBreakdown = computed(() => {
+  const counts = {}
+  allTickets.value.forEach(t => {
+    if (t.project) {
+      const key = t.project.id
+      if (!counts[key]) counts[key] = { name: t.project.name, color: t.project.color, count: 0 }
+      counts[key].count++
+    }
+  })
+  const rows = Object.values(counts).sort((a, b) => b.count - a.count)
+  const max  = rows[0]?.count || 1
+  return rows.map(r => ({ ...r, pct: Math.round((r.count / max) * 100) }))
+})
+
+const devWorkload = computed(() => {
+  const counts = {}
+  allTickets.value.filter(t => t.assigned_developer && t.status !== 'Completed').forEach(t => {
+    const dev = t.assigned_developer
+    if (!counts[dev.id]) counts[dev.id] = { name: dev.name, count: 0 }
+    counts[dev.id].count++
+  })
+  const rows = Object.values(counts).sort((a, b) => b.count - a.count)
+  const max  = rows[0]?.count || 1
+  return rows.map(r => ({ ...r, pct: Math.round((r.count / max) * 100) }))
+})
+
+const recentActivity = computed(() => {
+  const entries = []
+  allTickets.value.forEach(t => {
+    (t.activity_log || []).forEach(e => {
+      entries.push({ ...e, bugSequence: t.sequence, bugTitle: t.title })
+    })
+  })
+  return entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 15)
+})
+
+const ticketStage = (t) => {
+  if (t.status === 'Completed') return 'Resolved'
+  if (t.ticket_sent_at) return 'In Progress'
+  if (t.assigned_developer_id) return 'Ready'
+  return 'Unassigned'
+}
+const ticketStageBadge = (t) => {
+  const s = ticketStage(t)
+  return { Resolved: 'tt-stage--resolved', 'In Progress': 'tt-stage--progress', Ready: 'tt-stage--ready', Unassigned: 'tt-stage--unassigned' }[s] || ''
+}
+
+const resolvedBy = (t) => {
+  const entry = (t.activity_log || []).findLast?.(e => e.type === 'resolved')
+  return entry?.user_name || t.assigned_developer?.name || null
+}
+const resolvedAt = (t) => {
+  const entry = (t.activity_log || []).findLast?.(e => e.type === 'resolved')
+  return entry?.timestamp || t.updated_at
+}
+const timeTaken = (t) => {
+  if (!t.ticket_sent_at) return '—'
+  const sentDate = new Date(t.ticket_sent_at)
+  const endDate  = new Date(resolvedAt(t) || t.updated_at)
+  const diffMs   = endDate - sentDate
+  if (diffMs < 0) return '—'
+  const days  = Math.floor(diffMs / 86400000)
+  const hours = Math.floor((diffMs % 86400000) / 3600000)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h`
+  return '< 1h'
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+const toast = reactive({ show: false, message: '', type: 'success' })
+let toastTimer = null
+const showToast = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.message = message
+  toast.type    = type
+  toast.show    = true
+  toastTimer    = setTimeout(() => { toast.show = false }, 3500)
+}
+
+// ── Assign Developer ─────────────────────────────────────────────────────────
+const teamMembers         = ref([])
+const assignDropdownBugId = ref(null)
+const assignSearch        = ref('')
+const assignSearchInput   = ref(null)
+
+const fetchTeamMembers = async () => {
+  try {
+    teamMembers.value = await apiFetch(`${config.public.apiBase}/team-members`)
+  } catch (e) { console.error('Failed to fetch team members', e) }
+}
+
+const filteredAssignMembers = computed(() => {
+  if (!assignSearch.value.trim()) return teamMembers.value
+  const q = assignSearch.value.toLowerCase()
+  return teamMembers.value.filter(m =>
+    m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+  )
+})
+
+const openAssignDropdown = (bugId) => {
+  assignDropdownBugId.value = assignDropdownBugId.value === bugId ? null : bugId
+  assignSearch.value = ''
+  if (assignDropdownBugId.value) {
+    nextTick(() => { assignSearchInput.value?.focus() })
+  }
+}
+
+const updateBugInLists = (updated, originalBug) => {
+  const idx = bugs.value.findIndex(b => b.id === updated.id)
+  if (idx !== -1) bugs.value[idx] = updated
+  const tidx = allTickets.value.findIndex(b => b.id === updated.id)
+  if (tidx !== -1) allTickets.value[tidx] = { ...updated, project: allTickets.value[tidx]?.project }
+}
+
+const assignDev = async (bug, member) => {
+  // Toggle: if already assigned, remove; otherwise add
+  const alreadyAssigned = (bug.assigned_developers || []).some(d => d.id === member.id)
+  if (alreadyAssigned) {
+    await removeDev(bug, { id: member.id, email: member.email })
+    return
+  }
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${bug.id}/assign`, {
+      method: 'PATCH',
+      body: { action: 'add', developer_id: member.id },
+    })
+    updateBugInLists(updated)
+    showToast(`${member.name.split(' ')[0]} assigned to #${bug.sequence}`)
+  } catch (e) { console.error('Failed to assign developer', e) }
+}
+
+const removeDev = async (bug, dev) => {
+  try {
+    const body = dev.id
+      ? { action: 'remove', developer_id: dev.id }
+      : { action: 'remove', developer_email: dev.email }
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${bug.id}/assign`, {
+      method: 'PATCH',
+      body,
+    })
+    updateBugInLists(updated)
+    showToast(`${dev.name} removed from #${bug.sequence}`)
+  } catch (e) { console.error('Failed to remove developer', e) }
+}
+
+const assignDevByEmail = async (bug, email) => {
+  assignSearch.value = ''
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${bug.id}/assign`, {
+      method: 'PATCH',
+      body: { action: 'add', developer_email: email },
+    })
+    updateBugInLists(updated)
+    showToast(`${email.split('@')[0]} assigned to #${bug.sequence}`)
+  } catch (e) { console.error('Failed to assign by email', e) }
+}
+
+// Close assign dropdown when clicking outside
+onMounted(() => {
+  document.addEventListener('click', () => {
+    assignDropdownBugId.value = null
+    assignSearch.value = ''
+  })
+})
+
+// ── Send Ticket ──────────────────────────────────────────────────────────────
+const showSendTicketModal = ref(false)
+const sendTicketBug       = ref(null)
+const ticketSending       = ref(false)
+
+const openSendTicketModal = (bug) => {
+  sendTicketBug.value       = bug
+  showSendTicketModal.value = true
+}
+
+const doSendTicket = async () => {
+  if (!sendTicketBug.value || ticketSending.value) return
+  ticketSending.value = true
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${sendTicketBug.value.id}/send-ticket`, {
+      method: 'POST',
+    })
+    updateBugInLists(updated)
+    showSendTicketModal.value = false
+    const devNames = (updated.assigned_developers || []).map(d => d.name.split(' ')[0]).join(', ')
+    showToast(`Ticket #${updated.sequence} sent to ${devNames || 'developer'}`)
+  } catch (e) {
+    console.error('Failed to send ticket', e)
+    const msg = e?.data?.error || e?.message || ''
+    if (msg.toLowerCase().includes('already sent')) {
+      // Refresh stale bug state so "Sent" button appears
+      try {
+        const fresh = await apiFetch(`${config.public.apiBase}/bugs/${sendTicketBug.value.id}`)
+        updateBugInLists(fresh)
+      } catch {}
+      showSendTicketModal.value = false
+      showToast('Ticket was already sent.', 'error')
+    } else {
+      showToast('Failed to send ticket. Please try again.', 'error')
+    }
+  } finally {
+    ticketSending.value = false
+  }
+}
+
+await fetchTeamMembers()
 await fetchProjects()
 </script>
