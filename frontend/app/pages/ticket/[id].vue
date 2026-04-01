@@ -150,6 +150,7 @@
                 <svg v-if="entry.type === 'comment'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <svg v-else-if="entry.type === 'ticket_sent'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 <svg v-else-if="entry.type === 'resolved'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg v-else-if="entry.type === 'dev_status_change'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 <svg v-else width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
               <!-- Content -->
@@ -203,9 +204,30 @@
       <!-- Right Panel: Sidebar -->
       <aside class="ticket-sidebar">
 
+        <!-- Dev Status -->
+        <div class="ticket-sidebar-card">
+          <div class="ticket-sidebar-label">Dev Status</div>
+          <select
+            v-model="currentDevStatus"
+            :class="['ticket-dev-status-select', 'ticket-dev-status--' + currentDevStatus.toLowerCase().replace(/\s+/g, '-')]"
+            @change="updateDevStatus"
+          >
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Ready for QA">Ready for QA ✅</option>
+            <option value="Blocked">Blocked ⚠️</option>
+          </select>
+          <div v-if="currentDevStatus === 'Ready for QA'" class="ticket-dev-status-notice ticket-dev-status-notice--ready">
+            🔔 QA team has been notified to verify this bug.
+          </div>
+          <div v-else-if="currentDevStatus === 'Blocked'" class="ticket-dev-status-notice ticket-dev-status-notice--blocked">
+            ⚠️ This bug is blocked — QA team has been alerted.
+          </div>
+        </div>
+
         <!-- Status -->
         <div class="ticket-sidebar-card">
-          <div class="ticket-sidebar-label">Status</div>
+          <div class="ticket-sidebar-label">QA Status</div>
           <select
             v-if="!isResolved"
             v-model="currentStatus"
@@ -297,10 +319,12 @@ const error          = ref(null)
 const newComment     = ref('')
 const authorName     = ref('')
 const posting        = ref(false)
-const currentStatus  = ref('Pending')
-const activityListEl = ref(null)
+const currentStatus    = ref('Pending')
+const currentDevStatus = ref('Not Started')
+const activityListEl   = ref(null)
 
-const statuses = ['Pending', 'Out of Scope', 'Ongoing', 'Completed']
+const statuses    = ['Pending', 'Out of Scope', 'Ongoing', 'Completed']
+const devStatuses = ['Not Started', 'In Progress', 'Ready for QA', 'Blocked']
 
 const activityLog = computed(() => bug.value?.activity_log ?? [])
 const isResolved  = computed(() => bug.value?.status === 'Completed')
@@ -333,7 +357,8 @@ const loadTicket = async () => {
   error.value   = null
   try {
     bug.value = await $fetch(`${apiBase}/bugs/${route.params.id}/ticket`)
-    currentStatus.value = bug.value.status
+    currentStatus.value    = bug.value.status
+    currentDevStatus.value = bug.value.dev_status || 'Not Started'
     scrollToBottom()
   } catch (e) {
     error.value = 'This ticket does not exist or could not be loaded.'
@@ -373,6 +398,20 @@ const updateStatus = async () => {
   } catch (e) {
     console.error('Failed to update status', e)
     currentStatus.value = bug.value?.status ?? 'Pending'
+  }
+}
+
+const updateDevStatus = async () => {
+  try {
+    bug.value = await $fetch(`${apiBase}/bugs/${bug.value.id}/dev-status`, {
+      method: 'PATCH',
+      body: { dev_status: currentDevStatus.value, author: authorName.value || 'Developer' },
+    })
+    currentDevStatus.value = bug.value.dev_status || 'Not Started'
+    scrollToBottom()
+  } catch (e) {
+    console.error('Failed to update dev status', e)
+    currentDevStatus.value = bug.value?.dev_status || 'Not Started'
   }
 }
 
@@ -478,6 +517,20 @@ onMounted(loadTicket)
 .ticket-status--out-of-scope { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
 .ticket-status--ongoing { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
 .ticket-status--completed { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+
+/* Dev Status select */
+.ticket-dev-status-select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; appearance: none; font-family: inherit; }
+.ticket-dev-status-select:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px #eef2ff; }
+.ticket-dev-status--not-started  { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
+.ticket-dev-status--in-progress  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.ticket-dev-status--ready-for-qa { background: #f0fdf4; color: #15803d; border-color: #86efac; animation: ticket-dev-glow 1.8s ease-in-out infinite; }
+.ticket-dev-status--blocked      { background: #fef2f2; color: #dc2626; border-color: #fecaca; animation: ticket-dev-glow-red 1.8s ease-in-out infinite; }
+@keyframes ticket-dev-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(21,128,61,.3); } 50% { box-shadow: 0 0 0 5px rgba(21,128,61,0); } }
+@keyframes ticket-dev-glow-red { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.3); } 50% { box-shadow: 0 0 0 5px rgba(220,38,38,0); } }
+.ticket-dev-status-notice { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; line-height: 1.5; }
+.ticket-dev-status-notice--ready   { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+.ticket-dev-status-notice--blocked { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.ticket-activity-dev_status_change .ticket-activity-icon { background: #f5f3ff; color: #7c3aed; }
 
 /* Subtitles */
 .ticket-subtitle-list { display: flex; flex-direction: column; gap: 8px; }

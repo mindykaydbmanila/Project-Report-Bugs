@@ -24,6 +24,7 @@ class Bug extends Model
         'guest_developer_email',
         'guest_developer_name',
         'assigned_developers',   // new: JSON array of {id,name,email,avatar}
+        'dev_status',
         'ticket_sent_at',
         'activity_log',
     ];

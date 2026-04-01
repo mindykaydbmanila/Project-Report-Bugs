@@ -30,6 +30,9 @@ Route::middleware('api.auth:optional')->group(function () {
     Route::patch('bugs/{bug}/assign', [BugController::class, 'assign']);
     Route::post('bugs/{bug}/send-ticket', [BugController::class, 'sendTicket']);
 
+    // Dev status
+    Route::patch('bugs/{bug}/dev-status', [BugController::class, 'updateDevStatus']);
+
     // Team members list
     Route::get('team-members', [BugController::class, 'teamMembers']);
 });

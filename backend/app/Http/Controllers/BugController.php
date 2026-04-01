@@ -98,6 +98,19 @@ class BugController extends Controller
         $validated['cms_images'] = $cmsPaths;
 
         $bug = Bug::create($validated);
+
+        // Log initial attachments
+        $totalImages = count($imagePaths) + count($frontendPaths) + count($cmsPaths);
+        if ($totalImages > 0) {
+            $bug->update(['activity_log' => [[
+                'type'      => 'attachment',
+                'user_name' => 'Team',
+                'content'   => "{$totalImages} screenshot(s) attached",
+                'count'     => $totalImages,
+                'timestamp' => now()->toIso8601String(),
+            ]]]);
+        }
+
         return response()->json($bug, 201);
     }
 
@@ -163,6 +176,22 @@ class BugController extends Controller
         }
         $validated['cms_images'] = $cmsPaths;
         unset($validated['existing_cms_images']);
+
+        // Log newly added attachments
+        $oldTotal = count($bug->images ?? []) + count($bug->frontend_images ?? []) + count($bug->cms_images ?? []);
+        $newTotal = count($imagePaths) + count($frontendPaths) + count($cmsPaths);
+        $addedCount = $newTotal - $oldTotal;
+        if ($addedCount > 0) {
+            $log = $bug->activity_log ?? [];
+            $log[] = [
+                'type'      => 'attachment',
+                'user_name' => 'Team',
+                'content'   => "{$addedCount} screenshot(s) added",
+                'count'     => $addedCount,
+                'timestamp' => now()->toIso8601String(),
+            ];
+            $validated['activity_log'] = $log;
+        }
 
         $bug->update($validated);
         return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
@@ -364,6 +393,34 @@ class BugController extends Controller
             'type'      => 'resolved',
             'user_name' => $authorName,
             'content'   => "{$authorName} marked this ticket as resolved.",
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
+    }
+
+    // ── Dev Status ────────────────────────────────────────────────────────────
+
+    public function updateDevStatus(Request $request, Bug $bug)
+    {
+        $request->validate([
+            'dev_status' => 'required|in:Not Started,In Progress,Ready for QA,Blocked',
+            'author'     => 'nullable|string|max:255',
+        ]);
+
+        $oldStatus = $bug->dev_status ?? 'Not Started';
+        $newStatus = $request->input('dev_status');
+
+        $bug->update(['dev_status' => $newStatus]);
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'dev_status_change',
+            'user_name' => $request->input('author', 'Developer'),
+            'content'   => "Dev status changed from {$oldStatus} to {$newStatus}",
+            'old_value' => $oldStatus,
+            'new_value' => $newStatus,
             'timestamp' => now()->toIso8601String(),
         ];
         $bug->update(['activity_log' => $log]);

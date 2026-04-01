@@ -293,6 +293,7 @@
                         <svg v-if="entry.type === 'comment'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         <svg v-else-if="entry.type === 'ticket_sent'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         <svg v-else-if="entry.type === 'resolved'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg v-else-if="entry.type === 'attachment'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                         <svg v-else width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                       </div>
                       <div class="ticket-activity-body">
@@ -343,9 +344,30 @@
 
               <!-- Sidebar -->
               <aside class="tt-detail-sidebar">
-                <!-- Status -->
+                <!-- Dev Status -->
                 <div class="ticket-sidebar-card">
-                  <div class="ticket-sidebar-label">Status</div>
+                  <div class="ticket-sidebar-label">Dev Status</div>
+                  <select
+                    v-model="ttCurrentDevStatus"
+                    :class="['dev-status-select', 'dev-status--' + ttCurrentDevStatus.toLowerCase().replace(/\s+/g, '-')]"
+                    @change="ttUpdateDevStatus"
+                  >
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Ready for QA">Ready for QA ✅</option>
+                    <option value="Blocked">Blocked ⚠️</option>
+                  </select>
+                  <div v-if="ttCurrentDevStatus === 'Ready for QA'" class="ticket-dev-status-notice ticket-dev-status-notice--ready" style="margin-top:8px;">
+                    🔔 QA team notified to verify.
+                  </div>
+                  <div v-else-if="ttCurrentDevStatus === 'Blocked'" class="ticket-dev-status-notice ticket-dev-status-notice--blocked" style="margin-top:8px;">
+                    ⚠️ Blocked — needs attention.
+                  </div>
+                </div>
+
+                <!-- QA Status -->
+                <div class="ticket-sidebar-card">
+                  <div class="ticket-sidebar-label">QA Status</div>
                   <select
                     v-if="ttDetailBug.status !== 'Completed'"
                     v-model="ttCurrentStatus"
@@ -436,6 +458,15 @@
             </button>
           </div>
 
+          <!-- Global search bar -->
+          <div class="tt-global-search-wrap">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input v-model="ttGlobalSearch" class="tt-global-search" placeholder="Search by title, assignee, or ticket #…" />
+            <button v-if="ttGlobalSearch" class="tt-search-clear" @click="ttGlobalSearch = ''" title="Clear">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
           <!-- Tab bar -->
           <div class="tt-tab-bar">
             <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'overview' }]" @click="ticketTab = 'overview'">
@@ -456,6 +487,10 @@
             <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'pending' }]" @click="ticketTab = 'pending'">
               Pending Action
               <span v-if="pendingTickets.length" class="tt-tab-chip tt-tab-chip--red">{{ pendingTickets.length }}</span>
+            </button>
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'overdue' }]" @click="ticketTab = 'overdue'">
+              Overdue
+              <span v-if="overdueTickets.length" class="tt-tab-chip tt-tab-chip--orange">{{ overdueTickets.length }}</span>
             </button>
           </div>
 
@@ -483,6 +518,16 @@
                 <div class="tt-stat-label">Needs Action</div>
                 <div class="tt-stat-value" style="color:#dc2626;">{{ pendingTickets.length }}</div>
               </div>
+              <div class="tt-stat-card">
+                <div class="tt-stat-icon" style="background:#fff1f2;color:#b91c1c;">🔴</div>
+                <div class="tt-stat-label">Overdue</div>
+                <div class="tt-stat-value" style="color:#b91c1c;">{{ overdueTickets.length }}</div>
+              </div>
+              <div class="tt-stat-card">
+                <div class="tt-stat-icon" style="background:#f5f3ff;color:#6d28d9;">🕐</div>
+                <div class="tt-stat-label">Avg Age</div>
+                <div class="tt-stat-value" style="color:#6d28d9;font-size:22px;">{{ avgAge }}</div>
+              </div>
             </div>
 
             <div class="tt-overview-grid">
@@ -497,18 +542,25 @@
                       <tr>
                         <th style="width:56px;">#</th>
                         <th>Title</th>
-                        <th style="width:130px;">Project</th>
-                        <th style="width:100px;">Priority</th>
-                        <th style="width:140px;">Assigned Dev</th>
-                        <th style="width:120px;">Stage</th>
-                        <th style="width:120px;">Status</th>
+                        <th style="width:120px;">Project</th>
+                        <th style="width:90px;">Priority</th>
+                        <th style="width:130px;">Assigned Dev</th>
+                        <th style="width:120px;">Dev Status</th>
+                        <th style="width:110px;">QA Status</th>
+                        <th style="width:70px;">Age</th>
+                        <th style="width:110px;">SLA</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="t in allTickets" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
-                        <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                      <tr v-for="t in allTickets" :key="t.id" class="clickable-row" :class="{ 'tt-overdue-row': isOverdue(t) }" @click="openTTDetail(t)">
                         <td>
-                          <div class="bug-title-main bug-title-link" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.title }}</div>
+                          <div style="display:flex;align-items:center;gap:5px;">
+                            <span v-if="isOverdue(t)" class="tt-overdue-dot" title="Overdue"></span>
+                            <span class="bug-seq">#{{ t.sequence }}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div class="bug-title-main bug-title-link" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.title }}</div>
                         </td>
                         <td>
                           <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
@@ -524,8 +576,15 @@
                           </span>
                           <span v-else style="color:var(--gray-300);font-size:12px;">Unassigned</span>
                         </td>
-                        <td><span :class="['tt-stage-badge', ticketStageBadge(t)]">{{ ticketStage(t) }}</span></td>
+                        <td><span :class="['tt-dev-status-badge', 'tt-dev-status--' + (t.dev_status || 'Not Started').toLowerCase().replace(/\s+/g,'-')]">{{ t.dev_status || 'Not Started' }}</span></td>
                         <td><span :class="['badge', statusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                        <td><span :class="['age-badge', ageBadgeClass(t)]">{{ ageLabel(t) }}</span></td>
+                        <td>
+                          <div class="sla-bar-wrap" :title="`${slaProgress(t)}% of SLA used`">
+                            <div class="sla-bar" :style="{ width: slaProgress(t) + '%', background: slaBarColor(slaProgress(t)) }"></div>
+                          </div>
+                          <div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:center;">{{ slaProgress(t) }}%</div>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -579,7 +638,7 @@
                 <div class="card-body" style="padding:0 20px;">
                   <div v-if="!recentActivity.length" class="empty-state" style="padding:32px;"><div class="empty-state-title">No activity yet</div></div>
                   <div v-for="(entry, i) in recentActivity" :key="i" class="tt-activity-row">
-                    <div class="tt-activity-dot" :class="'tt-activity-dot--' + entry.type"></div>
+                    <div class="tt-activity-dot" :class="'tt-activity-dot--' + entry.type" :title="entry.type"></div>
                     <div style="flex:1;min-width:0;">
                       <span style="font-size:13px;font-weight:600;color:var(--gray-800);">{{ entry.user_name }}</span>
                       <span style="font-size:13px;color:var(--gray-500);margin-left:6px;">{{ entry.content }}</span>
@@ -600,20 +659,29 @@
                 <span class="result-chip">{{ filteredAllTickets.length }} result{{ filteredAllTickets.length !== 1 ? 's' : '' }}</span>
               </div>
               <div class="card-body">
+                <!-- Filter pills -->
+                <div class="tt-pill-bar">
+                  <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'all' }]" @click="ttFilterPill = 'all'">All <span class="tt-pill-count">{{ allTickets.length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'pending' }]" @click="ttFilterPill = 'pending'">Pending <span class="tt-pill-count">{{ allTickets.filter(t => t.status === 'Pending').length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'in-progress' }]" @click="ttFilterPill = 'in-progress'">In Progress <span class="tt-pill-count">{{ inProgressTickets.length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'resolved' }]" @click="ttFilterPill = 'resolved'">Resolved <span class="tt-pill-count tt-pill-count--green">{{ resolvedTickets.length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'overdue' }]" @click="ttFilterPill = 'overdue'">Overdue <span v-if="overdueTickets.length" class="tt-pill-count tt-pill-count--red">{{ overdueTickets.length }}</span></button>
+                </div>
+                <!-- Dropdown filters -->
                 <div class="filters-bar">
-                  <div class="search-input-wrap">
-                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input v-model="ttFilters.search" class="search-input" placeholder="Search tickets…" />
-                  </div>
-                  <select v-model="ttFilters.project_id" class="form-control" style="width:160px;">
+                  <select v-model="ttFilters.project_id" class="form-control" style="width:155px;">
                     <option value="">All Projects</option>
                     <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
                   </select>
-                  <select v-model="ttFilters.status" class="form-control" style="width:140px;">
-                    <option value="">All Statuses</option>
-                    <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+                  <select v-model="ttPriorityFilter" class="form-control" style="width:140px;">
+                    <option value="">All Priorities</option>
+                    <option v-for="p in priorities" :key="p" :value="p">{{ p }}</option>
                   </select>
-                  <button v-if="ttFilters.search || ttFilters.project_id || ttFilters.status" class="btn btn-ghost btn-sm" @click="ttFilters = { search:'', project_id:'', status:'' }">
+                  <select v-model="ttAssigneeFilter" class="form-control" style="width:155px;">
+                    <option value="">All Assignees</option>
+                    <option v-for="m in teamMembers" :key="m.id" :value="m.name.toLowerCase()">{{ m.name }}</option>
+                  </select>
+                  <button v-if="ttFilters.project_id || ttPriorityFilter || ttAssigneeFilter || ttFilterPill !== 'all'" class="btn btn-ghost btn-sm" @click="ttFilters.project_id=''; ttPriorityFilter=''; ttAssigneeFilter=''; ttFilterPill='all'">
                     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
                     Clear
                   </button>
@@ -622,18 +690,25 @@
                   <table v-if="filteredAllTickets.length">
                     <thead>
                       <tr>
-                        <th style="width:56px;">#</th>
+                        <th style="width:50px;">#</th>
                         <th>Title</th>
-                        <th style="width:130px;">Project</th>
-                        <th style="width:100px;">Priority</th>
-                        <th style="width:130px;">Status</th>
-                        <th style="width:150px;">Assigned Dev</th>
-                        <th style="width:120px;">Stage</th>
+                        <th style="width:115px;">Project</th>
+                        <th style="width:90px;">Priority</th>
+                        <th style="width:115px;">QA Status</th>
+                        <th style="width:140px;">Assigned Dev</th>
+                        <th style="width:115px;">Dev Status</th>
+                        <th style="width:65px;">Age</th>
+                        <th style="width:105px;">SLA</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="t in filteredAllTickets" :key="t.id" class="clickable-row" @click="openTTDetail(t)">
-                        <td><span class="bug-seq">#{{ t.sequence }}</span></td>
+                      <tr v-for="t in filteredAllTickets" :key="t.id" class="clickable-row" :class="{ 'tt-overdue-row': isOverdue(t) }" @click="openTTDetail(t)">
+                        <td>
+                          <div style="display:flex;align-items:center;gap:5px;">
+                            <span v-if="isOverdue(t)" class="tt-overdue-dot" title="Overdue"></span>
+                            <span class="bug-seq">#{{ t.sequence }}</span>
+                          </div>
+                        </td>
                         <td>
                           <div class="bug-title-main bug-title-link">{{ t.title }}</div>
                           <div v-if="t.description" class="bug-title-desc">{{ stripHtml(t.description) }}</div>
@@ -653,7 +728,14 @@
                           </span>
                           <span v-else style="color:var(--gray-300);font-size:12px;">Unassigned</span>
                         </td>
-                        <td><span :class="['tt-stage-badge', ticketStageBadge(t)]">{{ ticketStage(t) }}</span></td>
+                        <td><span :class="['tt-dev-status-badge', 'tt-dev-status--' + (t.dev_status || 'Not Started').toLowerCase().replace(/\s+/g,'-')]">{{ t.dev_status || 'Not Started' }}</span></td>
+                        <td><span :class="['age-badge', ageBadgeClass(t)]">{{ ageLabel(t) }}</span></td>
+                        <td>
+                          <div class="sla-bar-wrap" :title="`${slaProgress(t)}% of SLA used`">
+                            <div class="sla-bar" :style="{ width: slaProgress(t) + '%', background: slaBarColor(slaProgress(t)) }"></div>
+                          </div>
+                          <div style="font-size:10px;color:var(--gray-400);margin-top:2px;text-align:center;">{{ slaProgress(t) }}%</div>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -758,6 +840,73 @@
                   <div class="empty-state-title">No resolved tickets yet</div>
                   <div class="empty-state-text">Resolved tickets will appear here with completion details</div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Overdue Tab ── -->
+          <div v-else-if="ticketTab === 'overdue'">
+            <div v-if="!overdueTickets.length" class="empty-state" style="padding:60px;">
+              <div class="empty-state-icon">🎉</div>
+              <div class="empty-state-title">No overdue tickets!</div>
+              <div class="empty-state-text">All tickets are within their SLA response windows</div>
+            </div>
+            <div v-else class="card">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:qa-pulse-red 1.5s ease-in-out infinite;"></span>
+                  <h3 class="card-title">Overdue Tickets</h3>
+                </div>
+                <span class="result-chip" style="background:#fee2e2;color:#b91c1c;">{{ overdueTickets.length }}</span>
+              </div>
+              <div class="card-body" style="padding:0;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:50px;">#</th>
+                      <th>Title</th>
+                      <th style="width:115px;">Project</th>
+                      <th style="width:90px;">Priority</th>
+                      <th style="width:65px;">Age</th>
+                      <th style="width:110px;">SLA Used</th>
+                      <th style="width:140px;">Assigned Dev</th>
+                      <th style="width:115px;">QA Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="t in overdueTickets" :key="t.id" class="clickable-row tt-overdue-row" @click="openTTDetail(t)">
+                      <td>
+                        <div style="display:flex;align-items:center;gap:5px;">
+                          <span class="tt-overdue-dot"></span>
+                          <span class="bug-seq">#{{ t.sequence }}</span>
+                        </div>
+                      </td>
+                      <td><div class="bug-title-main bug-title-link">{{ t.title }}</div></td>
+                      <td>
+                        <span v-if="t.project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                          <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t.project?.color || '#94a3b8' }"></span>
+                          {{ t.project?.name }}
+                        </span>
+                      </td>
+                      <td><span :class="['badge', priorityBadgeClass(t.priority)]">{{ t.priority }}</span></td>
+                      <td><span :class="['age-badge', ageBadgeClass(t)]">{{ ageLabel(t) }}</span></td>
+                      <td>
+                        <div class="sla-bar-wrap" :title="`${slaProgress(t)}% of SLA used`">
+                          <div class="sla-bar" :style="{ width: '100%', background: '#ef4444' }"></div>
+                        </div>
+                        <div style="font-size:10px;color:#ef4444;margin-top:2px;text-align:center;font-weight:600;">{{ slaProgress(t) }}%</div>
+                      </td>
+                      <td>
+                        <span v-if="t.assigned_developer" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                          <span class="assign-avatar-xs">{{ t.assigned_developer.name?.[0]?.toUpperCase() }}</span>
+                          {{ t.assigned_developer.name }}
+                        </span>
+                        <span v-else style="color:var(--gray-300);font-size:12px;">Unassigned</span>
+                      </td>
+                      <td><span :class="['badge', statusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -1060,7 +1209,8 @@
                         <th style="width:220px;">Comment</th>
                         <th style="width:90px;">Images</th>
                         <th style="width:150px;">Assign Dev</th>
-                        <th style="width:120px;text-align:center;">Send Ticket</th>
+                        <th style="width:160px;">Dev Status</th>
+                        <th style="width:130px;text-align:center;">QA Notify</th>
                         <th style="width:130px;text-align:center;">Actions</th>
                       </tr>
                     </thead>
@@ -1183,26 +1333,52 @@
                           </div>
                         </td>
 
-                        <!-- Send Ticket -->
+                        <!-- Dev Status -->
+                        <td @click.stop>
+                          <select
+                            :value="bug.dev_status || 'Not Started'"
+                            :class="['dev-status-select', 'dev-status--' + (bug.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]"
+                            @change="updateDevStatus(bug, $event.target.value)"
+                          >
+                            <option value="Not Started">Not Started</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Ready for QA">Ready for QA ✅</option>
+                            <option value="Blocked">Blocked ⚠️</option>
+                          </select>
+                        </td>
+
+                        <!-- QA Notify -->
                         <td style="text-align:center;">
-                          <button
-                            v-if="bug.ticket_sent_at"
-                            class="send-ticket-btn send-ticket-btn--sent"
-                            disabled
-                          >
-                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                            Sent
-                          </button>
-                          <button
-                            v-else
-                            :class="['send-ticket-btn', bug.has_assignment ? 'send-ticket-btn--active' : 'send-ticket-btn--disabled']"
-                            :disabled="!bug.has_assignment"
-                            :title="!bug.has_assignment ? 'Assign a developer first' : 'Send ticket to developer'"
-                            @click="openSendTicketModal(bug)"
-                          >
-                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                            Send
-                          </button>
+                          <template v-if="bug.dev_status === 'Ready for QA'">
+                            <span class="qa-notify-badge qa-notify-badge--ready">
+                              🔔 QA: Verify
+                            </span>
+                          </template>
+                          <template v-else-if="bug.dev_status === 'Blocked'">
+                            <span class="qa-notify-badge qa-notify-badge--blocked">
+                              ⚠️ Blocked
+                            </span>
+                          </template>
+                          <template v-else>
+                            <button
+                              v-if="bug.ticket_sent_at"
+                              class="send-ticket-btn send-ticket-btn--sent"
+                              disabled
+                            >
+                              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                              Sent
+                            </button>
+                            <button
+                              v-else
+                              :class="['send-ticket-btn', bug.has_assignment ? 'send-ticket-btn--active' : 'send-ticket-btn--disabled']"
+                              :disabled="!bug.has_assignment"
+                              :title="!bug.has_assignment ? 'Assign a developer first' : 'Send ticket to developer'"
+                              @click="openSendTicketModal(bug)"
+                            >
+                              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              Send
+                            </button>
+                          </template>
                         </td>
 
                         <td>
@@ -2599,14 +2775,16 @@ const ttDetailBug     = ref(null)
 const ttNewComment    = ref('')
 const ttAuthorName    = ref('')
 const ttPosting       = ref(false)
-const ttCurrentStatus = ref('Pending')
+const ttCurrentStatus    = ref('Pending')
+const ttCurrentDevStatus = ref('Not Started')
 const ttActivityListEl = ref(null)
 
 const openTTDetail = async (ticket) => {
   try {
     const fresh = await apiFetch(`${config.public.apiBase}/bugs/${ticket.id}/ticket`)
-    ttDetailBug.value     = { ...fresh, project: ticket.project || fresh.project }
-    ttCurrentStatus.value = fresh.status
+    ttDetailBug.value        = { ...fresh, project: ticket.project || fresh.project }
+    ttCurrentStatus.value    = fresh.status
+    ttCurrentDevStatus.value = fresh.dev_status || 'Not Started'
     ttNewComment.value    = ''
     if (!ttAuthorName.value && currentUser.value?.name) {
       ttAuthorName.value = currentUser.value.name
@@ -2660,6 +2838,29 @@ const ttUpdateStatus = async () => {
   }
 }
 
+const ttUpdateDevStatus = async () => {
+  if (!ttDetailBug.value) return
+  const newStatus = ttCurrentDevStatus.value
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${ttDetailBug.value.id}/dev-status`, {
+      method: 'PATCH',
+      body: { dev_status: newStatus, author: ttAuthorName.value || 'Developer' },
+    })
+    ttDetailBug.value        = { ...updated, project: ttDetailBug.value.project }
+    ttCurrentDevStatus.value = updated.dev_status || 'Not Started'
+    updateBugInLists(updated)
+    ttScrollBottom()
+    if (newStatus === 'Ready for QA') {
+      showToast(`🔔 Bug #${ttDetailBug.value.sequence} "${ttDetailBug.value.title}" is Ready for QA — please verify!`, 'success')
+    } else if (newStatus === 'Blocked') {
+      showToast(`⚠️ Bug #${ttDetailBug.value.sequence} "${ttDetailBug.value.title}" is Blocked — needs attention!`, 'error')
+    }
+  } catch (e) {
+    console.error('Failed to update dev status', e)
+    ttCurrentDevStatus.value = ttDetailBug.value?.dev_status || 'Not Started'
+  }
+}
+
 const ttMarkResolved = async () => {
   if (ttPosting.value || !ttDetailBug.value) return
   ttPosting.value = true
@@ -2676,14 +2877,59 @@ const ttMarkResolved = async () => {
   finally { ttPosting.value = false }
 }
 
+// ── Ticket Tracker — Search / Filter / SLA ───────────────────────────────────
+const ttGlobalSearch   = ref('')
+const ttFilterPill     = ref('all')
+const ttPriorityFilter = ref('')
+const ttAssigneeFilter = ref('')
+
+const SLA_DAYS = { Critical: 1, High: 3, Medium: 7, Low: 14 }
+
+const ticketAgeDays = (t) => Math.max(0, Math.floor((Date.now() - new Date(t.created_at)) / 86400000))
+const ageLabel      = (t) => { const d = ticketAgeDays(t); return d === 0 ? 'Today' : `${d}d` }
+const ageBadgeClass = (t) => {
+  if (t.status === 'Completed') return 'age-badge--resolved'
+  const d = ticketAgeDays(t)
+  if (d < 3) return 'age-badge--fresh'
+  if (d < 7) return 'age-badge--aging'
+  return 'age-badge--old'
+}
+const slaProgress = (t) => {
+  if (t.status === 'Completed') return 0
+  const limit = SLA_DAYS[t.priority] || 7
+  return Math.min(Math.round((ticketAgeDays(t) / limit) * 100), 100)
+}
+const slaBarColor = (pct) => pct >= 100 ? '#ef4444' : pct >= 75 ? '#f59e0b' : '#22c55e'
+const isOverdue   = (t) => t.status !== 'Completed' && slaProgress(t) >= 100
+
+const overdueTickets = computed(() => allTickets.value.filter(t => isOverdue(t)))
+const avgAge = computed(() => {
+  const open = allTickets.value.filter(t => t.status !== 'Completed')
+  if (!open.length) return '—'
+  const avg = open.reduce((s, t) => s + ticketAgeDays(t), 0) / open.length
+  return avg < 1 ? '< 1d' : `${Math.round(avg)}d`
+})
+
 const filteredAllTickets = computed(() => {
   return allTickets.value.filter(t => {
-    if (ttFilters.search) {
-      const q = ttFilters.search.toLowerCase()
-      if (!t.title.toLowerCase().includes(q)) return false
+    if (ttGlobalSearch.value) {
+      const q = ttGlobalSearch.value.toLowerCase()
+      const devName  = t.assigned_developer?.name?.toLowerCase() || ''
+      const devNames = (t.assigned_developers || []).map(d => d.name?.toLowerCase()).join(' ')
+      if (!t.title.toLowerCase().includes(q) && !String(t.sequence).includes(q) && !devName.includes(q) && !devNames.includes(q)) return false
     }
+    if (ttFilterPill.value === 'pending')      { if (t.status !== 'Pending')    return false }
+    else if (ttFilterPill.value === 'in-progress') { if (t.status !== 'Ongoing') return false }
+    else if (ttFilterPill.value === 'resolved')    { if (t.status !== 'Completed') return false }
+    else if (ttFilterPill.value === 'overdue')     { if (!isOverdue(t)) return false }
     if (ttFilters.project_id && t.project_id !== ttFilters.project_id) return false
-    if (ttFilters.status && t.status !== ttFilters.status) return false
+    if (ttPriorityFilter.value && t.priority !== ttPriorityFilter.value) return false
+    if (ttAssigneeFilter.value) {
+      const q = ttAssigneeFilter.value.toLowerCase()
+      const devName  = t.assigned_developer?.name?.toLowerCase() || ''
+      const devNames = (t.assigned_developers || []).map(d => d.name?.toLowerCase()).join(' ')
+      if (!devName.includes(q) && !devNames.includes(q)) return false
+    }
     return true
   })
 })
@@ -2891,6 +3137,24 @@ const doSendTicket = async () => {
   } finally {
     ticketSending.value = false
   }
+}
+
+// ── Dev Status ───────────────────────────────────────────────────────────────
+const updateDevStatus = async (bug, newStatus) => {
+  const old = bug.dev_status || 'Not Started'
+  if (old === newStatus) return
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${bug.id}/dev-status`, {
+      method: 'PATCH',
+      body: { dev_status: newStatus },
+    })
+    updateBugInLists(updated)
+    if (newStatus === 'Ready for QA') {
+      showToast(`🔔 Bug #${bug.sequence} "${bug.title}" is Ready for QA — please verify!`, 'success')
+    } else if (newStatus === 'Blocked') {
+      showToast(`⚠️ Bug #${bug.sequence} "${bug.title}" is Blocked — needs attention!`, 'error')
+    }
+  } catch (e) { console.error('Failed to update dev status', e) }
 }
 
 await fetchTeamMembers()
