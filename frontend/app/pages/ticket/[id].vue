@@ -251,6 +251,15 @@
             </div>
           </div>
           <div v-else class="ticket-sidebar-empty">Not assigned</div>
+          <!-- My Folder link -->
+          <button
+            v-if="bug.assigned_developer"
+            class="my-folder-btn"
+            style="margin-top:12px;width:100%;"
+            @click="openMyFolder"
+          >
+            📁 View My Ticket Folder
+          </button>
         </div>
 
         <!-- Bug Metadata -->
@@ -504,6 +513,28 @@ const markResolved = async () => {
   }
 }
 
+async function openMyFolder() {
+  if (!bug.value?.assigned_developer) return
+  const dev = bug.value.assigned_developer
+  try {
+    const body = {
+      developer_email: dev.email,
+      developer_name:  dev.name,
+      visibility:      'private',
+    }
+    if (bug.value.project_id) body.project_id = bug.value.project_id
+
+    const data = await $fetch(`${apiBase}/dev-folders`, {
+      method: 'POST',
+      body,
+    })
+    window.open(data.url, '_blank')
+  } catch (e) {
+    const msg = e?.data?.message || e?.message || JSON.stringify(e?.data) || 'Unknown error'
+    alert(`Could not open folder.\n\nError: ${msg}\n\nMake sure you ran: php artisan migrate`)
+  }
+}
+
 onMounted(loadTicket)
 </script>
 
@@ -578,6 +609,8 @@ onMounted(loadTicket)
 .ticket-sidebar-person-name { font-size: 14px; font-weight: 600; color: #1e293b; }
 .ticket-sidebar-person-email { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 .ticket-sidebar-empty { font-size: 13px; color: #94a3b8; font-style: italic; }
+.my-folder-btn { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4f46e5; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: background .15s; }
+.my-folder-btn:hover { background: #e0e7ff; }
 .ticket-meta-list { display: flex; flex-direction: column; gap: 0; }
 .ticket-meta-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
 .ticket-meta-row:last-child { border-bottom: none; }

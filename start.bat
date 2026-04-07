@@ -3,7 +3,7 @@ echo Starting QA Bug Tracker...
 echo.
 
 echo [1/2] Starting Laravel backend on http://localhost:8000
-start "Laravel Backend" cmd /k "cd /d "%~dp0backend" && C:\php\php.exe artisan serve"
+start "Laravel Backend" cmd /k "cd /d "%~dp0backend" && php artisan serve"
 
 timeout /t 2 /nobreak >nul
 

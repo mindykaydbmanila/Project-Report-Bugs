@@ -51,9 +51,10 @@ class BugTicketMail extends Mailable
             <body style="font-family:Inter,Arial,sans-serif;background:#f1f5f9;margin:0;padding:32px 16px;">
               <div style="max-width:560px;margin:0 auto;">
                 <!-- Header -->
-                <div style="background:#4f46e5;border-radius:12px 12px 0 0;padding:24px 32px;">
-                  <div style="color:#c7d2fe;font-size:13px;font-weight:500;letter-spacing:.5px;margin-bottom:4px;">BUG TICKET ASSIGNED</div>
-                  <div style="color:#fff;font-size:22px;font-weight:700;">#{$this->bug->sequence} — {$this->bug->title}</div>
+                <div style="background:#1a4a3a;border-radius:12px 12px 0 0;padding:24px 32px;">
+                  <div style="color:#6ee7b7;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">BUG TICKET ASSIGNED</div>
+                  <div style="color:#fff;font-size:24px;font-weight:800;line-height:1.2;margin-bottom:6px;">#{$this->bug->sequence} — {$this->bug->title}</div>
+                  <div style="color:#a7f3d0;font-size:13px;">{$this->bug->scenario_type}</div>
                 </div>
 
                 <!-- Body -->
@@ -99,7 +100,7 @@ class BugTicketMail extends Mailable
                   <!-- CTA -->
                   <div style="text-align:center;margin-bottom:24px;">
                     <a href="{$ticketUrl}"
-                       style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;">
+                       style="display:inline-block;background:#1a4a3a;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;">
                       View &amp; respond to ticket →
                     </a>
                   </div>
