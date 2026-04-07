@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\BugTicketMail;
+use App\Models\AppNotification;
 use App\Models\Bug;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -99,6 +100,15 @@ class BugController extends Controller
         $validated['cms_images'] = $cmsPaths;
 
         $bug = Bug::create($validated);
+
+        // Notification: new ticket created
+        $projectName = $bug->project?->name ?? 'Unknown Project';
+        AppNotification::create([
+            'type'    => 'ticket_created',
+            'title'   => 'New Ticket Created',
+            'message' => "#{$bug->sequence} — {$bug->title} ({$projectName})",
+            'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+        ]);
 
         // Log initial attachments
         $totalImages = count($imagePaths) + count($frontendPaths) + count($cmsPaths);
@@ -276,6 +286,20 @@ class BugController extends Controller
         }
 
         $bug->update(['assigned_developers' => $devs ?: null]);
+
+        // Notification: developer assigned
+        $lastDev = end($devs);
+        if ($lastDev) {
+            $devName     = $lastDev['name'] ?? $lastDev['email'] ?? 'Developer';
+            $projectName = $bug->project?->name ?? 'Unknown Project';
+            AppNotification::create([
+                'type'    => 'developer_assigned',
+                'title'   => 'Developer Assigned',
+                'message' => "{$devName} assigned to #{$bug->sequence} — {$bug->title}",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName, 'developer_name' => $devName],
+            ]);
+        }
+
         return response()->json($bug);
     }
 
@@ -324,6 +348,45 @@ class BugController extends Controller
         }
 
         return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
+    }
+
+    public function resendTicket(Request $request, Bug $bug)
+    {
+        $devs = $bug->assigned_developers ?? [];
+
+        if (empty($devs)) {
+            return response()->json(['error' => 'No developer assigned to this bug.'], 422);
+        }
+
+        $assigner = $request->user ?? User::first();
+
+        $bug->update(['ticket_sent_at' => now()]);
+
+        $devNames = implode(', ', array_column($devs, 'name'));
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'ticket_resent',
+            'user_name' => $assigner?->name ?? 'System',
+            'content'   => "Ticket resent to {$devNames}",
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        foreach ($devs as $devData) {
+            $developer = new User([
+                'name'   => $devData['name'],
+                'email'  => $devData['email'],
+                'avatar' => $devData['avatar'] ?? null,
+            ]);
+            try {
+                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer));
+            } catch (\Exception $e) {
+                \Log::error('BugTicketMail resend failed: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json($bug->fresh());
     }
 
     // ── Feature: Ticket Detail ────────────────────────────────────────────────
@@ -377,6 +440,17 @@ class BugController extends Controller
         ];
         $bug->update(['activity_log' => $log]);
 
+        // Notification: ticket completed
+        if ($newStatus === 'Completed' && $oldStatus !== 'Completed') {
+            $projectName = $bug->project?->name ?? 'Unknown Project';
+            AppNotification::create([
+                'type'    => 'ticket_completed',
+                'title'   => 'Ticket Completed',
+                'message' => "#{$bug->sequence} — {$bug->title} marked as Completed",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+            ]);
+        }
+
         return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
     }
 
@@ -398,6 +472,15 @@ class BugController extends Controller
             'timestamp' => now()->toIso8601String(),
         ];
         $bug->update(['activity_log' => $log]);
+
+        // Notification: resolved
+        $projectName = $bug->project?->name ?? 'Unknown Project';
+        AppNotification::create([
+            'type'    => 'ticket_completed',
+            'title'   => 'Ticket Resolved',
+            'message' => "{$authorName} resolved #{$bug->sequence} — {$bug->title}",
+            'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+        ]);
 
         return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
     }
@@ -426,6 +509,24 @@ class BugController extends Controller
             'timestamp' => now()->toIso8601String(),
         ];
         $bug->update(['activity_log' => $log]);
+
+        // Notification: Ready for QA or Blocked
+        $projectName = $bug->project?->name ?? 'Unknown Project';
+        if ($newStatus === 'Ready for QA') {
+            AppNotification::create([
+                'type'    => 'ready_for_qa',
+                'title'   => 'Ready for QA',
+                'message' => "#{$bug->sequence} — {$bug->title} is ready for QA testing",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+            ]);
+        } elseif ($newStatus === 'Blocked') {
+            AppNotification::create([
+                'type'    => 'blocked',
+                'title'   => 'Ticket Blocked',
+                'message' => "#{$bug->sequence} — {$bug->title} is blocked",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+            ]);
+        }
 
         return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
     }

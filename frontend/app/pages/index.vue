@@ -16,6 +16,46 @@
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
             Report Bug
           </button>
+
+          <!-- Notification Bell -->
+          <div class="notif-bell-wrap" ref="notifDropdownRef" @click.stop="toggleNotifDropdown">
+            <button class="notif-bell-btn" :class="{ 'notif-bell-btn--active': notifDropdownOpen }">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span v-if="notifUnreadCount > 0" class="notif-badge">{{ notifUnreadCount > 99 ? '99+' : notifUnreadCount }}</span>
+            </button>
+
+            <!-- Dropdown -->
+            <transition name="notif-drop">
+              <div v-if="notifDropdownOpen" class="notif-dropdown" @click.stop>
+                <div class="notif-dropdown-header">
+                  <span class="notif-dropdown-title">Notifications</span>
+                  <button v-if="notifUnreadCount > 0" class="notif-read-all-btn" @click="markAllNotifRead">Mark all read</button>
+                </div>
+                <div class="notif-list">
+                  <div v-if="!notifications.length" class="notif-empty">No notifications yet</div>
+                  <div
+                    v-for="n in notifications"
+                    :key="n.id"
+                    class="notif-item"
+                    :class="{ 'notif-item--unread': !n.read_at }"
+                    @click="openNotif(n)"
+                  >
+                    <div class="notif-item-icon" :class="notifIconClass(n.type)">{{ notifIcon(n.type) }}</div>
+                    <div class="notif-item-body">
+                      <div class="notif-item-title">{{ n.title }}</div>
+                      <div class="notif-item-msg">{{ n.message }}</div>
+                      <div class="notif-item-time">{{ timeAgo(n.created_at) }}</div>
+                    </div>
+                    <div v-if="!n.read_at" class="notif-item-dot"></div>
+                  </div>
+                </div>
+              </div>
+            </transition>
+          </div>
+
           <!-- Auth -->
           <template v-if="currentUser">
             <div class="auth-user" @click.stop="profileDropdownOpen = !profileDropdownOpen" ref="profileDropdownRef">
@@ -55,7 +95,7 @@
       <aside class="sidebar">
         <div class="sidebar-section-label">Projects</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen }" @click="selectProject(null); ticketTrackerOpen = false">
+          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !devFoldersViewOpen }" @click="selectProject(null); ticketTrackerOpen = false; devFoldersViewOpen = false">
             <span class="sidebar-item-icon">🏠</span>
             <span class="sidebar-item-name">All Projects</span>
             <span class="sidebar-item-count">{{ projects.length }}</span>
@@ -63,8 +103,8 @@
           <div v-if="projects.length" class="sidebar-divider"></div>
           <button
             v-for="p in projects" :key="p.id"
-            class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !ticketTrackerOpen }"
-            @click="selectProject(p); ticketTrackerOpen = false"
+            class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !ticketTrackerOpen && !devFoldersViewOpen }"
+            @click="selectProject(p); ticketTrackerOpen = false; devFoldersViewOpen = false"
           >
             <span class="sidebar-color-dot" :style="{ background: p.color }"></span>
             <span class="sidebar-item-name">{{ p.name }}</span>
@@ -79,6 +119,11 @@
             <span class="sidebar-item-name">Ticket Tracker</span>
             <span v-if="allTickets.length" class="sidebar-item-count">{{ allTickets.length }}</span>
           </button>
+          <button class="sidebar-item" :class="{ active: devFoldersViewOpen }" @click="openDevFoldersView">
+            <span class="sidebar-item-icon">📁</span>
+            <span class="sidebar-item-name">Dev Folders</span>
+            <span v-if="devFolders.length" class="sidebar-item-count">{{ devFolders.length }}</span>
+          </button>
         </nav>
         <div class="sidebar-footer">
           <button class="btn-new-proj" @click="openProjectModal(null)">
@@ -92,7 +137,7 @@
       <main class="main-content">
 
         <!-- ══ All Projects view ══ -->
-        <div v-if="!selectedProject && !ticketTrackerOpen">
+        <div v-if="!selectedProject && !ticketTrackerOpen && !devFoldersViewOpen">
           <div class="view-header">
             <div>
               <h1 class="view-title">All Projects</h1>
@@ -631,8 +676,8 @@
                 <div class="card-header"><h3 class="card-title">Dev Workload</h3><span class="card-title" style="font-size:12px;font-weight:400;color:var(--gray-400);">Open tickets per developer</span></div>
                 <div class="card-body" style="padding:12px 20px;">
                   <div v-if="!devWorkload.length" class="empty-state" style="padding:20px;"><div class="empty-state-title">No assignments yet</div></div>
-                  <div v-for="dev in devWorkload" :key="dev.name" class="tt-breakdown-row">
-                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                  <div v-for="dev in devWorkload" :key="dev.email || dev.name" class="tt-breakdown-row">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-shrink:0;width:160px;">
                       <span class="assign-avatar-xs" style="flex-shrink:0;">{{ dev.name?.[0]?.toUpperCase() }}</span>
                       <span style="font-size:13px;font-weight:500;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ dev.name.split(' ')[0] }}</span>
                     </div>
@@ -640,6 +685,14 @@
                       <div class="tt-bar" :style="{ width: dev.pct + '%', background: '#4f46e5' }"></div>
                     </div>
                     <span style="font-size:12px;font-weight:600;color:var(--gray-600);min-width:20px;text-align:right;">{{ dev.count }}</span>
+                    <a
+                      v-if="dev.folderToken"
+                      :href="'/dev-folder/' + dev.folderToken"
+                      target="_blank"
+                      title="View dev folder"
+                      style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:#eef2ff;color:#6366f1;text-decoration:none;font-size:11px;font-weight:600;flex-shrink:0;white-space:nowrap;border:1px solid #e0e7ff;"
+                    >📁 Folder</a>
+                    <span v-else style="width:66px;flex-shrink:0;"></span>
                   </div>
                 </div>
               </div>
@@ -1022,6 +1075,77 @@
 
         </div>
 
+        <!-- ══ Dev Folders view ══ -->
+        <div v-else-if="devFoldersViewOpen">
+          <div class="view-header">
+            <div>
+              <h1 class="view-title">Dev Folders</h1>
+              <p class="view-subtitle">{{ devFolders.length }} folder{{ devFolders.length !== 1 ? 's' : '' }}</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" @click="fetchDevFolders" title="Refresh">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+              Refresh
+            </button>
+          </div>
+
+          <div v-if="devFoldersLoading" style="text-align:center;padding:60px;color:var(--gray-400);">
+            <div style="width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div>
+            Loading folders…
+          </div>
+
+          <div v-else-if="!devFolders.length" class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-title">No folders yet</div>
+            <div class="empty-state-text">Folders are created automatically when you assign a developer to a bug and generate their link.</div>
+          </div>
+
+          <div v-else class="df-grid">
+            <div v-for="folder in devFolders" :key="folder.token" class="df-card">
+              <div class="df-card-stripe"></div>
+              <div class="df-card-body">
+                <div class="df-card-top">
+                  <div class="df-avatar">{{ folderInitials(folder.developer_name) }}</div>
+                  <div class="df-card-info">
+                    <div class="df-card-name">{{ folder.developer_name }}</div>
+                    <div class="df-card-email">{{ folder.developer_email }}</div>
+                  </div>
+                  <button
+                    :class="['df-vis-pill', folder.visibility === 'public' ? 'df-vis--public' : 'df-vis--private']"
+                    :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
+                    @click="toggleFolderVisibility(folder)"
+                  >
+                    <span v-if="folder.visibility === 'public'">
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      Public
+                    </span>
+                    <span v-else>
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Private
+                    </span>
+                  </button>
+                </div>
+
+                <div v-if="folder.project_id" class="df-card-project">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  {{ projects.find(p => p.id === folder.project_id)?.name || 'Project #' + folder.project_id }}
+                </div>
+                <div v-else class="df-card-project">All projects</div>
+
+                <div class="df-card-footer">
+                  <button class="df-action-btn df-action-copy" @click="copyFolderLink(folder)" title="Copy link">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy link
+                  </button>
+                  <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Open
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ══ Project view ══ -->
         <div v-else>
 
@@ -1391,14 +1515,19 @@
                             </span>
                           </template>
                           <template v-else>
-                            <button
-                              v-if="bug.ticket_sent_at"
-                              class="send-ticket-btn send-ticket-btn--sent"
-                              disabled
-                            >
-                              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                              Sent
-                            </button>
+                            <div v-if="bug.ticket_sent_at" style="display:flex;align-items:center;gap:4px;">
+                              <span class="send-ticket-btn send-ticket-btn--sent" style="pointer-events:none;">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                                Sent
+                              </span>
+                              <button
+                                class="resend-ticket-btn"
+                                title="Resend ticket to developer"
+                                @click="openResendTicketModal(bug)"
+                              >
+                                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+                              </button>
+                            </div>
                             <button
                               v-else
                               :class="['send-ticket-btn', bug.has_assignment ? 'send-ticket-btn--active' : 'send-ticket-btn--disabled']"
@@ -2037,7 +2166,7 @@
           <div class="modal-header">
             <div style="display:flex;align-items:center;gap:8px;">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              <h3 class="modal-title">Send Ticket</h3>
+              <h3 class="modal-title">{{ isResend ? 'Resend Ticket' : 'Send Ticket' }}</h3>
             </div>
             <button class="btn btn-ghost btn-icon" @click="showSendTicketModal = false">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -2073,9 +2202,9 @@
           </div>
           <div class="modal-footer" style="padding:16px 24px;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end;gap:10px;">
             <button class="btn btn-ghost" @click="showSendTicketModal = false">Cancel</button>
-            <button class="btn btn-primary" :disabled="ticketSending" @click="doSendTicket">
+            <button class="btn btn-primary" :disabled="ticketSending" @click="isResend ? doResendTicket() : doSendTicket()">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              {{ ticketSending ? 'Sending…' : 'Send ticket' }}
+              {{ ticketSending ? 'Sending…' : (isResend ? 'Resend ticket' : 'Send ticket') }}
             </button>
           </div>
         </div>
@@ -2156,6 +2285,59 @@ const fetchCurrentUser = async () => {
   }
 }
 
+// ── Notifications ────────────────────────────────────────────────────────────
+const notifications      = ref([])
+const notifDropdownOpen  = ref(false)
+const notifDropdownRef   = ref(null)
+let   notifPollTimer     = null
+
+const notifUnreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
+
+const fetchNotifications = async () => {
+  try {
+    notifications.value = await $fetch(`${config.public.apiBase}/notifications`)
+  } catch { /* silent */ }
+}
+
+const toggleNotifDropdown = () => {
+  notifDropdownOpen.value = !notifDropdownOpen.value
+}
+
+const openNotif = async (n) => {
+  if (!n.read_at) {
+    try { await $fetch(`${config.public.apiBase}/notifications/${n.id}/read`, { method: 'PATCH' }) } catch {}
+    n.read_at = new Date().toISOString()
+  }
+  notifDropdownOpen.value = false
+  if (n.data?.bug_id) {
+    const bug = bugs.value.find(b => b.id === n.data.bug_id)
+    if (bug) { openBugView(bug); return }
+    // Bug might not be loaded yet — navigate to ticket page directly
+    window.open(`/ticket/${n.data.bug_id}`, '_blank')
+  }
+}
+
+const markAllNotifRead = async () => {
+  try { await $fetch(`${config.public.apiBase}/notifications/read-all`, { method: 'PATCH' }) } catch {}
+  notifications.value.forEach(n => { if (!n.read_at) n.read_at = new Date().toISOString() })
+}
+
+const notifIcon = (type) => {
+  return { ready_for_qa: '🔍', ticket_created: '🐛', ticket_completed: '✅', developer_assigned: '👤', blocked: '🚫' }[type] ?? '🔔'
+}
+const notifIconClass = (type) => {
+  return { ready_for_qa: 'notif-icon--qa', ticket_created: 'notif-icon--created', ticket_completed: 'notif-icon--done', developer_assigned: 'notif-icon--assigned', blocked: 'notif-icon--blocked' }[type] ?? ''
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return ''
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+  if (diff < 60)    return 'just now'
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
 onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const token = urlParams.get('token')
@@ -2173,10 +2355,17 @@ onMounted(async () => {
   }
   if (authToken.value) await fetchCurrentUser()
 
-  // Close profile dropdown when clicking outside
+  // Start notification polling
+  fetchNotifications()
+  notifPollTimer = setInterval(fetchNotifications, 15000)
+
+  // Close dropdowns when clicking outside
   document.addEventListener('click', (e) => {
     if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
       profileDropdownOpen.value = false
+    }
+    if (notifDropdownRef.value && !notifDropdownRef.value.contains(e.target)) {
+      notifDropdownOpen.value = false
     }
   })
 })
@@ -2487,7 +2676,10 @@ watch(detailView, async (newView) => {
   }
 })
 
-onUnmounted(() => destroyCharts())
+onUnmounted(() => {
+  destroyCharts()
+  clearInterval(notifPollTimer)
+})
 
 const openDetailView = (type) => {
   detailView.value = type
@@ -2547,8 +2739,9 @@ const fetchProjects = async () => {
 }
 
 const selectProject = (project) => {
-  selectedProject.value = project
-  detailView.value = null
+  selectedProject.value    = project
+  detailView.value         = null
+  devFoldersViewOpen.value = false
   bugs.value = []
   summary.value = {}
   clearFilters()
@@ -2707,6 +2900,27 @@ const deleteBug = async () => {
 const viewImages  = (bug)  => { viewingBug.value = bug; showImagesModal.value = true }
 const viewBug     = (bug)  => { viewingBugDetail.value = bug; showViewModal.value = true }
 
+async function generateFolderLink(dev, projectId) {
+  try {
+    const body = {
+      developer_email: dev.email,
+      developer_name:  dev.name,
+      visibility:      'private',
+    }
+    if (projectId) body.project_id = projectId
+
+    const data = await $fetch(`${config.public.apiBase}/dev-folders`, {
+      method: 'POST',
+      body,
+    })
+    await navigator.clipboard.writeText(data.url)
+    alert(`Link copied!\n\n${data.url}\n\nVisibility: ${data.visibility}`)
+  } catch (e) {
+    const msg = e?.data?.message || e?.message || JSON.stringify(e?.data) || 'Unknown error'
+    alert(`Failed to generate folder link.\n\nError: ${msg}\n\nMake sure you ran: php artisan migrate`)
+  }
+}
+
 const formatBugDate = (dateStr) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -2835,12 +3049,28 @@ const fetchAllTickets = async () => {
   } catch (e) { console.error('Failed to fetch all tickets', e) }
 }
 
+const ttDevFolders = ref([])
+
+async function fetchTtDevFolders() {
+  try {
+    const data = await $fetch(`${api}/dev-folders`)
+    ttDevFolders.value = data
+  } catch { ttDevFolders.value = [] }
+}
+
+function devFolderToken(email) {
+  if (!email) return null
+  const f = ttDevFolders.value.find(f => f.developer_email?.toLowerCase() === email?.toLowerCase())
+  return f?.token ?? null
+}
+
 const openTicketTracker = async () => {
-  ticketTrackerOpen.value = true
-  selectedProject.value   = null
-  detailView.value        = null
-  ticketTab.value         = 'overview'
-  await fetchAllTickets()
+  ticketTrackerOpen.value  = true
+  selectedProject.value    = null
+  devFoldersViewOpen.value = false
+  detailView.value         = null
+  ticketTab.value          = 'overview'
+  await Promise.all([fetchAllTickets(), fetchTtDevFolders()])
 }
 
 const sentTickets       = computed(() => allTickets.value.filter(t => t.ticket_sent_at))
@@ -3032,12 +3262,19 @@ const devWorkload = computed(() => {
   const counts = {}
   allTickets.value.filter(t => t.assigned_developer && t.status !== 'Completed').forEach(t => {
     const dev = t.assigned_developer
-    if (!counts[dev.id]) counts[dev.id] = { name: dev.name, count: 0 }
-    counts[dev.id].count++
+    const key = dev.email || dev.id || dev.name
+    if (!counts[key]) counts[key] = { name: dev.name, email: dev.email ?? null, count: 0 }
+    counts[key].count++
   })
   const rows = Object.values(counts).sort((a, b) => b.count - a.count)
   const max  = rows[0]?.count || 1
-  return rows.map(r => ({ ...r, pct: Math.round((r.count / max) * 100) }))
+  return rows.map(r => {
+    const folder = ttDevFolders.value.find(f =>
+      (r.email && f.developer_email?.toLowerCase() === r.email.toLowerCase()) ||
+      (f.developer_name?.toLowerCase() === r.name?.toLowerCase())
+    )
+    return { ...r, pct: Math.round((r.count / max) * 100), folderToken: folder?.token ?? null }
+  })
 })
 
 const recentActivity = computed(() => {
@@ -3179,12 +3416,68 @@ onMounted(() => {
   })
 })
 
+// ── Dev Folders View ──────────────────────────────────────────────────────────
+const devFoldersViewOpen = ref(false)
+const devFolders         = ref([])
+const devFoldersLoading  = ref(false)
+
+async function fetchDevFolders() {
+  devFoldersLoading.value = true
+  try {
+    devFolders.value = await $fetch(`${config.public.apiBase}/dev-folders`)
+  } catch (e) {
+    console.error('Failed to fetch dev folders', e)
+  } finally {
+    devFoldersLoading.value = false
+  }
+}
+
+async function openDevFoldersView() {
+  devFoldersViewOpen.value = true
+  ticketTrackerOpen.value  = false
+  selectedProject.value    = null
+  await fetchDevFolders()
+}
+
+function folderInitials(name) {
+  if (!name) return '?'
+  return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+}
+
+async function toggleFolderVisibility(folder) {
+  const next = folder.visibility === 'public' ? 'private' : 'public'
+  try {
+    await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}`, {
+      method: 'PATCH',
+      body: { visibility: next },
+    })
+    folder.visibility = next
+    showToast(`Folder set to ${next}`)
+  } catch (e) {
+    showToast('Failed to update visibility', 'error')
+  }
+}
+
+async function copyFolderLink(folder) {
+  const url = `${window.location.origin}/dev-folder/${folder.token}`
+  await navigator.clipboard.writeText(url)
+  showToast('Folder link copied!')
+}
+
 // ── Send Ticket ──────────────────────────────────────────────────────────────
 const showSendTicketModal = ref(false)
 const sendTicketBug       = ref(null)
 const ticketSending       = ref(false)
+const isResend            = ref(false)
 
 const openSendTicketModal = (bug) => {
+  isResend.value            = false
+  sendTicketBug.value       = bug
+  showSendTicketModal.value = true
+}
+
+const openResendTicketModal = (bug) => {
+  isResend.value            = true
   sendTicketBug.value       = bug
   showSendTicketModal.value = true
 }
@@ -3214,6 +3507,24 @@ const doSendTicket = async () => {
     } else {
       showToast('Failed to send ticket. Please try again.', 'error')
     }
+  } finally {
+    ticketSending.value = false
+  }
+}
+
+const doResendTicket = async () => {
+  if (!sendTicketBug.value || ticketSending.value) return
+  ticketSending.value = true
+  try {
+    const updated = await apiFetch(`${config.public.apiBase}/bugs/${sendTicketBug.value.id}/resend-ticket`, {
+      method: 'POST',
+    })
+    updateBugInLists(updated)
+    showSendTicketModal.value = false
+    const devNames = (updated.assigned_developers || []).map(d => d.name.split(' ')[0]).join(', ')
+    showToast(`Ticket #${updated.sequence} resent to ${devNames || 'developer'}`)
+  } catch (e) {
+    showToast('Failed to resend ticket. Please try again.', 'error')
   } finally {
     ticketSending.value = false
   }

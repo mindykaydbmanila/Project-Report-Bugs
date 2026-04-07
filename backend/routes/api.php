@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BugController;
+use App\Http\Controllers\DevFolderController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectShareController;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +31,7 @@ Route::middleware('api.auth:optional')->group(function () {
     // Assign developer & send ticket
     Route::patch('bugs/{bug}/assign', [BugController::class, 'assign']);
     Route::post('bugs/{bug}/send-ticket', [BugController::class, 'sendTicket']);
+    Route::post('bugs/{bug}/resend-ticket', [BugController::class, 'resendTicket']);
 
     // Dev status
     Route::patch('bugs/{bug}/dev-status', [BugController::class, 'updateDevStatus']);
@@ -45,3 +48,16 @@ Route::get('bugs/{bug}/ticket', [BugController::class, 'ticket']);
 Route::post('bugs/{bug}/comments', [BugController::class, 'addComment']);
 Route::patch('bugs/{bug}/status', [BugController::class, 'updateStatus']);
 Route::post('bugs/{bug}/resolve', [BugController::class, 'resolve']);
+
+// ── Dev Folders (share link feature) ─────────────────────────────────────
+// ── Notifications ─────────────────────────────────────────────────────────
+Route::get('notifications', [NotificationController::class, 'index']);
+Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
+Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead']);
+Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead']);
+
+Route::get('dev-folders', [DevFolderController::class, 'index']);
+Route::post('dev-folders', [DevFolderController::class, 'store']);
+Route::patch('dev-folders/{token}', [DevFolderController::class, 'update']);
+Route::delete('dev-folders/{token}', [DevFolderController::class, 'destroy']);
+Route::get('dev-folders/{token}/bugs', [DevFolderController::class, 'bugs']);
