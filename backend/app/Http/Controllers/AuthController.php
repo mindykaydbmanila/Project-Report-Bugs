@@ -9,15 +9,27 @@ use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
+    private function socialiteGoogle(): \Laravel\Socialite\Two\GoogleProvider
+    {
+        /** @var \Laravel\Socialite\Two\GoogleProvider $driver */
+        $driver = Socialite::driver('google');
+        // Windows local dev: PHP ships without a CA bundle, so cURL can't verify
+        // Google's SSL cert. Safe to skip on localhost only.
+        if (app()->environment('local')) {
+            $driver->setHttpClient(new \GuzzleHttp\Client(['verify' => false]));
+        }
+        return $driver->stateless();
+    }
+
     public function redirectToGoogle()
     {
-        return Socialite::driver('google')->stateless()->redirect();
+        return $this->socialiteGoogle()->redirect();
     }
 
     public function handleGoogleCallback()
     {
         try {
-            $googleUser = Socialite::driver('google')->stateless()->user();
+            $googleUser = $this->socialiteGoogle()->user();
         } catch (\Exception $e) {
             \Log::error('Google OAuth callback failed (Socialite): ' . $e->getMessage());
             $frontend = env('FRONTEND_URL', 'http://localhost:3000');

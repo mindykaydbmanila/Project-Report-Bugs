@@ -11,11 +11,5 @@ class DevFolder extends Model
         'developer_email',
         'developer_name',
         'visibility',
-        'project_id',
     ];
-
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
 }

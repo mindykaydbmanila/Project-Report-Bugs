@@ -29,14 +29,10 @@ class DevFolderController extends Controller
             'developer_email' => 'required|email',
             'developer_name'  => 'required|string|max:255',
             'visibility'      => 'nullable|in:private,public',
-            'project_id'      => 'nullable|integer|exists:projects,id',
         ]);
 
         $folder = DevFolder::firstOrCreate(
-            [
-                'developer_email' => strtolower($validated['developer_email']),
-                'project_id'      => $validated['project_id'] ?? null,
-            ],
+            ['developer_email' => strtolower($validated['developer_email'])],
             [
                 'token'          => Str::random(48),
                 'developer_name' => $validated['developer_name'],
@@ -90,7 +86,7 @@ class DevFolderController extends Controller
      */
     public function bugs(Request $request, string $token)
     {
-        $folder = DevFolder::with('project')->where('token', $token)->firstOrFail();
+        $folder = DevFolder::where('token', $token)->firstOrFail();
 
         // Private folders require email verification
         if ($folder->visibility === 'private') {
@@ -102,7 +98,6 @@ class DevFolderController extends Controller
 
         $bugs = Bug::query()
             ->with('project')
-            ->when($folder->project_id, fn($q) => $q->where('project_id', $folder->project_id))
             ->get()
             ->filter(function ($bug) use ($folder) {
                 $devs = $bug->assigned_developers ?? [];
@@ -124,7 +119,6 @@ class DevFolderController extends Controller
                 'developer_name'  => $folder->developer_name,
                 'developer_email' => $folder->developer_email,
                 'visibility'      => $folder->visibility,
-                'project_name'    => $folder->project?->name ?? null,
             ],
             'bugs' => $bugs,
         ]);

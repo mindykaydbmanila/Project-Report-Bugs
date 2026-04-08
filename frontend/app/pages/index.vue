@@ -80,10 +80,6 @@
               </div>
             </div>
           </template>
-          <button v-else class="btn-google-signin" @click="login">
-            <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-            Sign in with Google
-          </button>
         </div>
       </div>
     </header>
@@ -552,7 +548,7 @@
           </div>
 
           <!-- ── Overview Tab ── -->
-          <div v-if="ticketTab === 'overview'">
+          <div v-if="ticketTab === 'overview'" style="display:flex;flex-direction:column;gap:16px;">
             <!-- Stat cards -->
             <div class="tt-stat-grid">
               <div class="tt-stat-card">
@@ -1125,11 +1121,10 @@
                   </button>
                 </div>
 
-                <div v-if="folder.project_id" class="df-card-project">
+                <div class="df-card-project">
                   <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  {{ projects.find(p => p.id === folder.project_id)?.name || 'Project #' + folder.project_id }}
+                  All projects
                 </div>
-                <div v-else class="df-card-project">All projects</div>
 
                 <div class="df-card-footer">
                   <button class="df-action-btn df-action-copy" @click="copyFolderLink(folder)" title="Copy link">
@@ -2243,10 +2238,13 @@
 </template>
 
 <script setup>
+definePageMeta({ middleware: 'auth' })
+
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, reactive } from 'vue'
 
-const config  = useRuntimeConfig()
-const apiBase = config.public.apiBase.replace('/api', '')
+const config     = useRuntimeConfig()
+const apiBase    = config.public.apiBase.replace('/api', '')
+const appLoading = useState('appLoading', () => false)
 
 // ── Auth state ──────────────────────────────────────────────────────────────
 const authToken           = ref(null)
@@ -2268,6 +2266,7 @@ const logout = async () => {
   authToken.value = null
   localStorage.removeItem('auth_token')
   currentUser.value = null
+  navigateTo('/login')
 }
 
 const fetchCurrentUser = async () => {
@@ -2348,7 +2347,7 @@ onMounted(async () => {
     window.history.replaceState({}, '', '/')
   } else if (authError) {
     window.history.replaceState({}, '', '/')
-    alert('Google sign-in failed. Please try again.')
+    navigateTo(`/login?auth_error=${authError}`)
   } else {
     const stored = localStorage.getItem('auth_token')
     if (stored) authToken.value = stored
@@ -2738,14 +2737,16 @@ const fetchProjects = async () => {
   } catch (e) { console.error('Failed to fetch projects', e) }
 }
 
-const selectProject = (project) => {
+const selectProject = async (project) => {
+  appLoading.value         = true
   selectedProject.value    = project
   detailView.value         = null
   devFoldersViewOpen.value = false
-  bugs.value = []
-  summary.value = {}
+  bugs.value               = []
+  summary.value            = {}
   clearFilters()
-  if (project) fetchBugs()
+  if (project) await fetchBugs()
+  appLoading.value = false
 }
 
 const openProjectModal = (project) => {
@@ -2900,14 +2901,13 @@ const deleteBug = async () => {
 const viewImages  = (bug)  => { viewingBug.value = bug; showImagesModal.value = true }
 const viewBug     = (bug)  => { viewingBugDetail.value = bug; showViewModal.value = true }
 
-async function generateFolderLink(dev, projectId) {
+async function generateFolderLink(dev) {
   try {
     const body = {
       developer_email: dev.email,
       developer_name:  dev.name,
       visibility:      'private',
     }
-    if (projectId) body.project_id = projectId
 
     const data = await $fetch(`${config.public.apiBase}/dev-folders`, {
       method: 'POST',
@@ -3065,12 +3065,14 @@ function devFolderToken(email) {
 }
 
 const openTicketTracker = async () => {
+  appLoading.value         = true
   ticketTrackerOpen.value  = true
   selectedProject.value    = null
   devFoldersViewOpen.value = false
   detailView.value         = null
   ticketTab.value          = 'overview'
   await Promise.all([fetchAllTickets(), fetchTtDevFolders()])
+  appLoading.value = false
 }
 
 const sentTickets       = computed(() => allTickets.value.filter(t => t.ticket_sent_at))
@@ -3393,6 +3395,11 @@ const removeDev = async (bug, dev) => {
     })
     updateBugInLists(updated)
     showToast(`${dev.name} removed from #${bug.sequence}`)
+    // Close dropdown if no devs remain
+    if (!(updated.assigned_developers?.length)) {
+      assignDropdownBugId.value = null
+      assignSearch.value = ''
+    }
   } catch (e) { console.error('Failed to remove developer', e) }
 }
 
@@ -3433,10 +3440,12 @@ async function fetchDevFolders() {
 }
 
 async function openDevFoldersView() {
+  appLoading.value         = true
   devFoldersViewOpen.value = true
   ticketTrackerOpen.value  = false
   selectedProject.value    = null
   await fetchDevFolders()
+  appLoading.value = false
 }
 
 function folderInitials(name) {
