@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\BugTicketMail;
+use App\Models\AppNotification;
 use App\Models\Bug;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -62,6 +63,7 @@ class BugController extends Controller
             'priority'         => 'required|in:Critical,High,Medium,Low',
             'scenario_type'    => 'required|in:UI,Functionality,UI & Functionality',
             'status'              => 'required|in:Pending,Out of Scope,Ongoing,Completed',
+            'date_to_accomplish'  => 'nullable|date',
             'developer_comment'   => 'nullable|string',
             'images.*'            => 'nullable|image|max:5120',
             'frontend_images.*'=> 'nullable|image|max:5120',
@@ -99,6 +101,15 @@ class BugController extends Controller
 
         $bug = Bug::create($validated);
 
+        // Notification: new ticket created
+        $projectName = $bug->project?->name ?? 'Unknown Project';
+        AppNotification::create([
+            'type'    => 'ticket_created',
+            'title'   => 'New Ticket Created',
+            'message' => "#{$bug->sequence} — {$bug->title} ({$projectName})",
+            'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+        ]);
+
         // Log initial attachments
         $totalImages = count($imagePaths) + count($frontendPaths) + count($cmsPaths);
         if ($totalImages > 0) {
@@ -132,6 +143,7 @@ class BugController extends Controller
             'status'                   => 'sometimes|required|in:Pending,Out of Scope,Ongoing,Completed',
             'developer_comment'        => 'nullable|string',
             'dev_comments_json'        => 'nullable|string',
+            'date_to_accomplish'       => 'nullable|date',
             'images.*'                 => 'nullable|image|max:5120',
             'existing_images'          => 'nullable|array',
             'frontend_images.*'        => 'nullable|image|max:5120',
@@ -274,6 +286,20 @@ class BugController extends Controller
         }
 
         $bug->update(['assigned_developers' => $devs ?: null]);
+
+        // Notification: developer assigned
+        $lastDev = end($devs);
+        if ($lastDev) {
+            $devName     = $lastDev['name'] ?? $lastDev['email'] ?? 'Developer';
+            $projectName = $bug->project?->name ?? 'Unknown Project';
+            AppNotification::create([
+                'type'    => 'developer_assigned',
+                'title'   => 'Developer Assigned',
+                'message' => "{$devName} assigned to #{$bug->sequence} — {$bug->title}",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName, 'developer_name' => $devName],
+            ]);
+        }
+
         return response()->json($bug);
     }
 
@@ -322,6 +348,45 @@ class BugController extends Controller
         }
 
         return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
+    }
+
+    public function resendTicket(Request $request, Bug $bug)
+    {
+        $devs = $bug->assigned_developers ?? [];
+
+        if (empty($devs)) {
+            return response()->json(['error' => 'No developer assigned to this bug.'], 422);
+        }
+
+        $assigner = $request->user ?? User::first();
+
+        $bug->update(['ticket_sent_at' => now()]);
+
+        $devNames = implode(', ', array_column($devs, 'name'));
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'ticket_resent',
+            'user_name' => $assigner?->name ?? 'System',
+            'content'   => "Ticket resent to {$devNames}",
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        foreach ($devs as $devData) {
+            $developer = new User([
+                'name'   => $devData['name'],
+                'email'  => $devData['email'],
+                'avatar' => $devData['avatar'] ?? null,
+            ]);
+            try {
+                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer));
+            } catch (\Exception $e) {
+                \Log::error('BugTicketMail resend failed: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json($bug->fresh());
     }
 
     // ── Feature: Ticket Detail ────────────────────────────────────────────────
@@ -375,6 +440,17 @@ class BugController extends Controller
         ];
         $bug->update(['activity_log' => $log]);
 
+        // Notification: ticket completed
+        if ($newStatus === 'Completed' && $oldStatus !== 'Completed') {
+            $projectName = $bug->project?->name ?? 'Unknown Project';
+            AppNotification::create([
+                'type'    => 'ticket_completed',
+                'title'   => 'Ticket Completed',
+                'message' => "#{$bug->sequence} — {$bug->title} marked as Completed",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+            ]);
+        }
+
         return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
     }
 
@@ -386,7 +462,7 @@ class BugController extends Controller
 
         $authorName = $request->input('author', 'Developer');
 
-        $bug->update(['status' => 'Completed']);
+        $bug->update(['status' => 'Completed', 'resolved_by' => $authorName]);
 
         $log = $bug->activity_log ?? [];
         $log[] = [
@@ -396,6 +472,15 @@ class BugController extends Controller
             'timestamp' => now()->toIso8601String(),
         ];
         $bug->update(['activity_log' => $log]);
+
+        // Notification: resolved
+        $projectName = $bug->project?->name ?? 'Unknown Project';
+        AppNotification::create([
+            'type'    => 'ticket_completed',
+            'title'   => 'Ticket Resolved',
+            'message' => "{$authorName} resolved #{$bug->sequence} — {$bug->title}",
+            'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+        ]);
 
         return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
     }
@@ -421,6 +506,54 @@ class BugController extends Controller
             'content'   => "Dev status changed from {$oldStatus} to {$newStatus}",
             'old_value' => $oldStatus,
             'new_value' => $newStatus,
+            'timestamp' => now()->toIso8601String(),
+        ];
+        $bug->update(['activity_log' => $log]);
+
+        // Notification: Ready for QA or Blocked
+        $projectName = $bug->project?->name ?? 'Unknown Project';
+        if ($newStatus === 'Ready for QA') {
+            AppNotification::create([
+                'type'    => 'ready_for_qa',
+                'title'   => 'Ready for QA',
+                'message' => "#{$bug->sequence} — {$bug->title} is ready for QA testing",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+            ]);
+        } elseif ($newStatus === 'Blocked') {
+            AppNotification::create([
+                'type'    => 'blocked',
+                'title'   => 'Ticket Blocked',
+                'message' => "#{$bug->sequence} — {$bug->title} is blocked",
+                'data'    => ['bug_id' => $bug->id, 'bug_sequence' => $bug->sequence, 'bug_title' => $bug->title, 'project_name' => $projectName],
+            ]);
+        }
+
+        return response()->json($bug->load(['assignedDeveloper:id,name,email,avatar', 'project:id,name,color']));
+    }
+
+    // ── Date to Accomplish ────────────────────────────────────────────────────
+
+    public function updateDateToAccomplish(Request $request, Bug $bug)
+    {
+        $request->validate([
+            'date_to_accomplish' => 'nullable|date',
+            'author'             => 'nullable|string|max:255',
+        ]);
+
+        $old = $bug->date_to_accomplish?->format('Y-m-d');
+        $new = $request->input('date_to_accomplish');
+
+        $bug->update(['date_to_accomplish' => $new ?: null]);
+
+        $log = $bug->activity_log ?? [];
+        $log[] = [
+            'type'      => 'date_to_accomplish_change',
+            'user_name' => $request->input('author', 'Developer'),
+            'content'   => $new
+                ? "Date to accomplish set to {$new}" . ($old ? " (was {$old})" : '')
+                : 'Date to accomplish cleared',
+            'old_value' => $old,
+            'new_value' => $new,
             'timestamp' => now()->toIso8601String(),
         ];
         $bug->update(['activity_log' => $log]);

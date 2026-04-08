@@ -251,6 +251,15 @@
             </div>
           </div>
           <div v-else class="ticket-sidebar-empty">Not assigned</div>
+          <!-- My Folder link -->
+          <button
+            v-if="bug.assigned_developer"
+            class="my-folder-btn"
+            style="margin-top:12px;width:100%;"
+            @click="openMyFolder"
+          >
+            📁 View My Ticket Folder
+          </button>
         </div>
 
         <!-- Bug Metadata -->
@@ -279,6 +288,40 @@
             <div v-if="bug.ticket_sent_at" class="ticket-meta-row">
               <span class="ticket-meta-key">Sent</span>
               <span style="font-size:13px;color:#334155;">{{ formatDate(bug.ticket_sent_at) }}</span>
+            </div>
+            <div class="ticket-meta-row ticket-meta-row--date" style="flex-direction:column;align-items:flex-start;gap:6px;">
+              <span class="ticket-meta-key">Due Date</span>
+              <div class="date-accomplish-wrap">
+                <input
+                  v-if="editingDate"
+                  type="date"
+                  class="date-accomplish-input"
+                  v-model="dateInput"
+                  @change="saveDateToAccomplish"
+                  @blur="editingDate = false"
+                  autofocus
+                />
+                <template v-else>
+                  <template v-if="bug.date_to_accomplish">
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <span
+                          class="date-accomplish-value"
+                          :class="{ 'date-accomplish-overdue': isOverdue }"
+                        >{{ formatDate(bug.date_to_accomplish) }}</span>
+                        <button class="date-accomplish-btn" @click="startEditDate" title="Change date">
+                          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      </div>
+                      <span v-if="dueDaysLabel" class="due-days-pill" :style="{ color: dueDaysLabel.color, borderColor: dueDaysLabel.color + '40', background: dueDaysLabel.color + '12' }">{{ dueDaysLabel.text }}</span>
+                    </div>
+                  </template>
+                  <button v-else class="date-set-btn" @click="startEditDate">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Set due date
+                  </button>
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -321,6 +364,8 @@ const authorName     = ref('')
 const posting        = ref(false)
 const currentStatus    = ref('Pending')
 const currentDevStatus = ref('Not Started')
+const editingDate      = ref(false)
+const dateInput        = ref('')
 const activityListEl   = ref(null)
 
 const statuses    = ['Pending', 'Out of Scope', 'Ongoing', 'Completed']
@@ -328,6 +373,21 @@ const devStatuses = ['Not Started', 'In Progress', 'Ready for QA', 'Blocked']
 
 const activityLog = computed(() => bug.value?.activity_log ?? [])
 const isResolved  = computed(() => bug.value?.status === 'Completed')
+const isOverdue   = computed(() => {
+  if (!bug.value?.date_to_accomplish) return false
+  return new Date(bug.value.date_to_accomplish) < new Date(new Date().toDateString())
+})
+const dueDaysLabel = computed(() => {
+  if (!bug.value?.date_to_accomplish) return null
+  const today = new Date(new Date().toDateString())
+  const due   = new Date(bug.value.date_to_accomplish)
+  const diff  = Math.round((due - today) / 86400000)
+  if (diff < 0)   return { text: diff === -1 ? '1 day overdue' : `${Math.abs(diff)} days overdue`, color: '#dc2626' }
+  if (diff === 0) return { text: 'Due today',         color: '#dc2626' }
+  if (diff <= 2)  return { text: `${diff} day${diff === 1 ? '' : 's'} left`, color: '#dc2626' }
+  if (diff <= 7)  return { text: `${diff} days left`, color: '#d97706' }
+  return { text: `${diff} days left`, color: '#16a34a' }
+})
 const commentCount = computed(() => activityLog.value.filter(e => e.type === 'comment').length)
 const statusChangeCount = computed(() => activityLog.value.filter(e => e.type === 'status_change').length)
 
@@ -359,6 +419,7 @@ const loadTicket = async () => {
     bug.value = await $fetch(`${apiBase}/bugs/${route.params.id}/ticket`)
     currentStatus.value    = bug.value.status
     currentDevStatus.value = bug.value.dev_status || 'Not Started'
+    dateInput.value        = bug.value.date_to_accomplish ?? ''
     scrollToBottom()
   } catch (e) {
     error.value = 'This ticket does not exist or could not be loaded.'
@@ -415,6 +476,26 @@ const updateDevStatus = async () => {
   }
 }
 
+const startEditDate = () => {
+  dateInput.value = bug.value.date_to_accomplish ?? ''
+  editingDate.value = true
+}
+
+const saveDateToAccomplish = async () => {
+  editingDate.value = false
+  try {
+    bug.value = await $fetch(`${apiBase}/bugs/${bug.value.id}/date-to-accomplish`, {
+      method: 'PATCH',
+      body: { date_to_accomplish: dateInput.value || null, author: authorName.value || 'Developer' },
+    })
+    dateInput.value = bug.value.date_to_accomplish ?? ''
+    scrollToBottom()
+  } catch (e) {
+    console.error('Failed to update date to accomplish', e)
+    dateInput.value = bug.value?.date_to_accomplish ?? ''
+  }
+}
+
 const markResolved = async () => {
   if (posting.value) return
   posting.value = true
@@ -429,6 +510,28 @@ const markResolved = async () => {
     console.error('Failed to resolve ticket', e)
   } finally {
     posting.value = false
+  }
+}
+
+async function openMyFolder() {
+  if (!bug.value?.assigned_developer) return
+  const dev = bug.value.assigned_developer
+  try {
+    const body = {
+      developer_email: dev.email,
+      developer_name:  dev.name,
+      visibility:      'private',
+    }
+    if (bug.value.project_id) body.project_id = bug.value.project_id
+
+    const data = await $fetch(`${apiBase}/dev-folders`, {
+      method: 'POST',
+      body,
+    })
+    window.open(data.url, '_blank')
+  } catch (e) {
+    const msg = e?.data?.message || e?.message || JSON.stringify(e?.data) || 'Unknown error'
+    alert(`Could not open folder.\n\nError: ${msg}\n\nMake sure you ran: php artisan migrate`)
   }
 }
 
@@ -506,6 +609,8 @@ onMounted(loadTicket)
 .ticket-sidebar-person-name { font-size: 14px; font-weight: 600; color: #1e293b; }
 .ticket-sidebar-person-email { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 .ticket-sidebar-empty { font-size: 13px; color: #94a3b8; font-style: italic; }
+.my-folder-btn { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4f46e5; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: background .15s; }
+.my-folder-btn:hover { background: #e0e7ff; }
 .ticket-meta-list { display: flex; flex-direction: column; gap: 0; }
 .ticket-meta-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
 .ticket-meta-row:last-child { border-bottom: none; }
@@ -531,6 +636,19 @@ onMounted(loadTicket)
 .ticket-dev-status-notice--ready   { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
 .ticket-dev-status-notice--blocked { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .ticket-activity-dev_status_change .ticket-activity-icon { background: #f5f3ff; color: #7c3aed; }
+.ticket-activity-date_to_accomplish_change .ticket-activity-icon { background: #fff7ed; color: #c2410c; }
+
+/* Date to accomplish */
+.ticket-meta-row--date { align-items: flex-start !important; }
+.date-accomplish-wrap { display: flex; align-items: center; gap: 6px; }
+.date-accomplish-value { font-size: 13px; color: #334155; }
+.date-accomplish-overdue { color: #dc2626; font-weight: 600; }
+.date-accomplish-btn { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; border-radius: 4px; }
+.date-accomplish-btn:hover { color: #4f46e5; background: #f1f5f9; }
+.date-accomplish-input { font-size: 13px; border: 1px solid #c7d2fe; border-radius: 6px; padding: 3px 8px; color: #1e293b; outline: none; }
+.date-set-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; border: 1px dashed #c7d2fe; background: #f8faff; color: #6366f1; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
+.date-set-btn:hover { background: #eef2ff; border-color: #818cf8; color: #4f46e5; }
+.due-days-pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px; border: 1px solid; width: fit-content; }
 
 /* Subtitles */
 .ticket-subtitle-list { display: flex; flex-direction: column; gap: 8px; }

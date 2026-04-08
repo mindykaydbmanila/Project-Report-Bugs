@@ -25,6 +25,8 @@ class Bug extends Model
         'guest_developer_name',
         'assigned_developers',   // new: JSON array of {id,name,email,avatar}
         'dev_status',
+        'date_to_accomplish',
+        'resolved_by',
         'ticket_sent_at',
         'activity_log',
     ];
@@ -37,6 +39,7 @@ class Bug extends Model
         'dev_comments'         => 'array',
         'activity_log'         => 'array',
         'assigned_developers'  => 'array',
+        'date_to_accomplish'   => 'date:Y-m-d',
         'ticket_sent_at'       => 'datetime',
     ];
 

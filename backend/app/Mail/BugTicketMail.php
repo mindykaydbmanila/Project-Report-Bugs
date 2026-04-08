@@ -52,8 +52,9 @@ class BugTicketMail extends Mailable
               <div style="max-width:560px;margin:0 auto;">
                 <!-- Header -->
                 <div style="background:#4f46e5;border-radius:12px 12px 0 0;padding:24px 32px;">
-                  <div style="color:#c7d2fe;font-size:13px;font-weight:500;letter-spacing:.5px;margin-bottom:4px;">BUG TICKET ASSIGNED</div>
-                  <div style="color:#fff;font-size:22px;font-weight:700;">#{$this->bug->sequence} — {$this->bug->title}</div>
+                  <div style="color:#c7d2fe;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">BUG TICKET ASSIGNED</div>
+                  <div style="color:#fff;font-size:24px;font-weight:800;line-height:1.2;margin-bottom:6px;">#{$this->bug->sequence} — {$this->bug->title}</div>
+                  <div style="color:#a5b4fc;font-size:13px;">{$this->bug->scenario_type}</div>
                 </div>
 
                 <!-- Body -->
