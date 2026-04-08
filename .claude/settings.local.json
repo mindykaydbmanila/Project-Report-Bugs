@@ -101,7 +101,16 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/api/bugs)",
       "Bash(cmd.exe /c \"cd /d \"\"c:\\\\Users\\\\DBmanila\\\\Desktop\\\\Report Bugs\\\\backend\"\" && php artisan migrate 2>&1\")",
       "Bash(cmd.exe /c \"cd /d \"\"c:\\\\Users\\\\DBmanila\\\\Desktop\\\\Report Bugs\\\\backend\"\" && php artisan migrate\")",
-      "Bash(cmd.exe /c \"C: && cd \"\"C:\\\\Users\\\\DBmanila\\\\Desktop\\\\Report Bugs\\\\backend\"\" && php artisan migrate\")"
+      "Bash(cmd.exe /c \"C: && cd \"\"C:\\\\Users\\\\DBmanila\\\\Desktop\\\\Report Bugs\\\\backend\"\" && php artisan migrate\")",
+      "Bash(powershell -Command \"Get-Command php -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\php\\\\php.exe','C:\\\\xampp\\\\php\\\\php.exe','C:\\\\laragon\\\\bin\\\\php\\\\php-8*\\\\php.exe','C:\\\\wamp64\\\\bin\\\\php\\\\php*\\\\php.exe' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName\")",
+      "Bash(/c/xampp/php/php artisan:*)",
+      "Bash(winpty php:*)",
+      "Bash(where.exe php:*)",
+      "Bash(find /c -name php.exe -maxdepth 5)",
+      "Bash(gh auth:*)",
+      "Bash(C:\\\\php\\\\php.exe artisan:*)",
+      "Bash(/c/php/php.exe --version)"
     ]
   }
 }

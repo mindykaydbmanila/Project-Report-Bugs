@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BugController;
 use App\Http\Controllers\DevFolderController;
+use App\Http\Controllers\MaintenanceProjectController;
+use App\Http\Controllers\MaintenanceTicketController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectShareController;
@@ -41,6 +43,18 @@ Route::middleware('api.auth:optional')->group(function () {
 
     // Team members list
     Route::get('team-members', [BugController::class, 'teamMembers']);
+});
+
+// ── Maintenance module ────────────────────────────────────────────────────
+Route::middleware('api.auth:optional')->group(function () {
+    Route::apiResource('maintenance/projects', MaintenanceProjectController::class)
+        ->parameters(['projects' => 'maintenanceProject']);
+    Route::get('maintenance/projects/{maintenanceProject}/tickets', [MaintenanceTicketController::class, 'index']);
+    Route::post('maintenance/projects/{maintenanceProject}/tickets', [MaintenanceTicketController::class, 'store']);
+    Route::get('maintenance/projects/{maintenanceProject}/tickets/{maintenanceTicket}', [MaintenanceTicketController::class, 'show']);
+    Route::match(['PUT', 'POST'], 'maintenance/projects/{maintenanceProject}/tickets/{maintenanceTicket}', [MaintenanceTicketController::class, 'update']);
+    Route::delete('maintenance/projects/{maintenanceProject}/tickets/{maintenanceTicket}', [MaintenanceTicketController::class, 'destroy']);
+    Route::post('maintenance/projects/{maintenanceProject}/tickets/{maintenanceTicket}/notify', [MaintenanceTicketController::class, 'notify']);
 });
 
 // ── Ticket detail (public — accessible via email link) ────────────────────

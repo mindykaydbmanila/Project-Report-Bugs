@@ -2,12 +2,15 @@
 echo Starting QA Bug Tracker...
 echo.
 
-echo [1/2] Starting Laravel backend on http://localhost:8000
-start "Laravel Backend" cmd /k "cd /d "%~dp0backend" && php artisan serve"
+echo [1/3] Starting Laravel backend on http://localhost:8000
+start "Laravel Backend" cmd /k "cd /d "%~dp0backend" && C:\php\php.exe artisan serve"
 
 timeout /t 2 /nobreak >nul
 
-echo [2/2] Starting Nuxt frontend on http://localhost:3000
+echo [2/3] Starting queue worker (for email notifications)
+start "Laravel Queue" cmd /k "cd /d "%~dp0backend" && C:\php\php.exe artisan queue:work --tries=3"
+
+echo [3/3] Starting Nuxt frontend on http://localhost:3000
 start "Nuxt Frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
 
 echo.

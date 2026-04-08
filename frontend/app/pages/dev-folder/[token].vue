@@ -43,6 +43,7 @@
       <p>Loading your tickets…</p>
     </div>
 
+
     <!-- Error -->
     <div v-else-if="error && !requiresAuth" class="folder-error">
       <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
@@ -153,9 +154,27 @@
 </template>
 
 <script setup>
-const route  = useRoute()
-const config = useRuntimeConfig()
-const api    = config.public.apiBase
+const route      = useRoute()
+const config     = useRuntimeConfig()
+const api        = config.public.apiBase
+
+useHead({
+  style: [{
+    innerHTML: `
+      body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;}
+      .folder-page{min-height:100vh;background:#f8fafc;}
+      .folder-header{background:linear-gradient(135deg,#4338ca 0%,#5b21b6 100%);padding:28px 24px 24px;}
+      .folder-header-inner{max-width:900px;margin:0 auto;}
+      .folder-header-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;color:#c4b5fd;text-transform:uppercase;margin-bottom:8px;}
+      .folder-header-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:4px;line-height:1.2;}
+      .folder-header-sub{font-size:13px;color:#ddd6fe;}
+      .folder-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 120px);color:#64748b;gap:14px;}
+      .folder-loading p{margin:0;font-size:14px;}
+      .folder-spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;}
+      @keyframes spin{to{transform:rotate(360deg);}}
+    `
+  }]
+})
 
 const token      = route.params.token
 const loading    = ref(true)
@@ -262,6 +281,7 @@ const STATUS_ORDER = ['Ongoing', 'Pending', 'Out of Scope', 'Completed']
 const groupedBugs = computed(() => {
   const byProject = {}
   for (const bug of bugs.value) {
+    if (bug.status === 'Completed') continue
     const key = bug.project_id ?? 0
     const name = bug.project?.name ?? 'No Project'
     if (!byProject[key]) byProject[key] = { id: key, name, statusGroups: {} }
@@ -379,8 +399,18 @@ onMounted(() => loadFolder())
 .folder-gate-btn:hover { background: #4338ca; }
 
 /* ── Loading / Error ────────────────────────────────────────────────────── */
-.folder-loading, .folder-error { text-align: center; padding: 80px 24px; color: #64748b; }
-.folder-spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
+.folder-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+  color: #64748b;
+  gap: 14px;
+}
+.folder-loading p { margin: 0; font-size: 14px; }
+.folder-error { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 120px); text-align: center; padding: 24px; color: #64748b; }
+.folder-spinner { width: 36px; height: 36px; border: 3px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Content ────────────────────────────────────────────────────────────── */

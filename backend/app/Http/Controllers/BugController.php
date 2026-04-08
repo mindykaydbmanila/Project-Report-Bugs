@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Mail\BugTicketMail;
 use App\Models\AppNotification;
 use App\Models\Bug;
+use App\Models\DevFolder;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class BugController extends Controller
 {
@@ -333,7 +335,7 @@ class BugController extends Controller
         ];
         $bug->update(['activity_log' => $log]);
 
-        // Send email to each assigned developer
+        // Send email to each assigned developer and ensure dev folder exists
         foreach ($devs as $devData) {
             $developer = new User([
                 'name'   => $devData['name'],
@@ -345,6 +347,15 @@ class BugController extends Controller
             } catch (\Exception $e) {
                 \Log::error('BugTicketMail failed: ' . $e->getMessage());
             }
+
+            DevFolder::firstOrCreate(
+                ['developer_email' => strtolower($devData['email'])],
+                [
+                    'token'          => Str::random(48),
+                    'developer_name' => $devData['name'],
+                    'visibility'     => 'public',
+                ]
+            );
         }
 
         return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
@@ -384,6 +395,15 @@ class BugController extends Controller
             } catch (\Exception $e) {
                 \Log::error('BugTicketMail resend failed: ' . $e->getMessage());
             }
+
+            DevFolder::firstOrCreate(
+                ['developer_email' => strtolower($devData['email'])],
+                [
+                    'token'          => Str::random(48),
+                    'developer_name' => $devData['name'],
+                    'visibility'     => 'public',
+                ]
+            );
         }
 
         return response()->json($bug->fresh());
