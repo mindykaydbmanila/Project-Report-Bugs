@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 
 // ── Authentication (Google OAuth) ──────────────────────────────────────────
 Route::get('auth/google', [AuthController::class, 'redirectToGoogle']);
+Route::get('auth/google/dev-folder/{token}', [AuthController::class, 'redirectToGoogleDevFolder']);
 Route::get('auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 Route::get('auth/me', [AuthController::class, 'me'])->middleware('api.auth:optional');
 Route::post('auth/logout', [AuthController::class, 'logout'])->middleware('api.auth');
@@ -71,6 +72,7 @@ Route::patch('notifications/{id}/read', [NotificationController::class, 'markRea
 Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead']);
 
 Route::get('dev-folders', [DevFolderController::class, 'index']);
+Route::get('dev-folders/summary', [DevFolderController::class, 'summary']);
 Route::post('dev-folders', [DevFolderController::class, 'store']);
 Route::patch('dev-folders/{token}', [DevFolderController::class, 'update']);
 Route::delete('dev-folders/{token}', [DevFolderController::class, 'destroy']);

@@ -26,8 +26,30 @@ class AuthController extends Controller
         return $this->socialiteGoogle()->redirect();
     }
 
-    public function handleGoogleCallback()
+    public function redirectToGoogleDevFolder(string $token)
     {
+        return $this->socialiteGoogle()
+            ->with(['state' => 'dev_folder:' . $token])
+            ->redirect();
+    }
+
+    public function handleGoogleCallback(Request $request)
+    {
+        // Check if this is a dev folder email verification (not a login)
+        $state = $request->input('state', '');
+        if (str_starts_with($state, 'dev_folder:')) {
+            $folderToken = substr($state, strlen('dev_folder:'));
+            $frontend    = env('FRONTEND_URL', 'http://localhost:3000');
+            try {
+                $googleUser = $this->socialiteGoogle()->user();
+                $email      = $googleUser->getEmail();
+                return redirect($frontend . '/dev-folder/' . $folderToken . '?verified_email=' . urlencode($email));
+            } catch (\Exception $e) {
+                \Log::error('Google OAuth dev-folder verification failed: ' . $e->getMessage());
+                return redirect($frontend . '/dev-folder/' . $folderToken . '?auth_error=1');
+            }
+        }
+
         try {
             $googleUser = $this->socialiteGoogle()->user();
         } catch (\Exception $e) {

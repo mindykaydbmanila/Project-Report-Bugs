@@ -81,6 +81,54 @@ class DevFolderController extends Controller
     }
 
     /**
+     * Aggregate summary for the Dev Folders dashboard.
+     * GET /api/dev-folders/summary
+     */
+    public function summary()
+    {
+        $bugs    = Bug::all();
+        $folders = DevFolder::orderBy('developer_name')->get();
+
+        $overall = [
+            'total_active'    => $bugs->whereIn('dev_status', ['In Progress', 'Ready for QA'])->count(),
+            'pending'         => $bugs->where('status', 'Pending')->count(),
+            'ongoing_fixing'  => $bugs->where('dev_status', 'In Progress')->count(),
+            'ongoing_qa'      => $bugs->where('status', 'Ongoing')->count(),
+            'sent_back'       => $bugs->where('dev_status', 'Blocked')->count(),
+            'total_completed' => $bugs->where('status', 'Completed')->count(),
+            'critical'        => $bugs->where('priority', 'Critical')->count(),
+            'high'            => $bugs->where('priority', 'High')->count(),
+            'medium'          => $bugs->where('priority', 'Medium')->count(),
+            'low'             => $bugs->where('priority', 'Low')->count(),
+        ];
+
+        $developers = $folders->map(function ($folder) use ($bugs) {
+            $devBugs = $bugs->filter(function ($bug) use ($folder) {
+                foreach ($bug->assigned_developers ?? [] as $dev) {
+                    if (strtolower($dev['email'] ?? '') === strtolower($folder->developer_email)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            return [
+                'name'      => $folder->developer_name,
+                'email'     => $folder->developer_email,
+                'pending'   => $devBugs->where('status', 'Pending')->count(),
+                'active'    => $devBugs->where('status', 'Ongoing')->count(),
+                'completed' => $devBugs->where('status', 'Completed')->count(),
+            ];
+        })->values();
+
+        return response()->json([
+            'date'       => now()->format('F j, Y'),
+            'overall'    => $overall,
+            'developers' => $developers,
+        ]);
+    }
+
+    /**
      * Public endpoint — returns all tickets for the dev identified by the token.
      * GET /api/dev-folders/{token}/bugs
      */

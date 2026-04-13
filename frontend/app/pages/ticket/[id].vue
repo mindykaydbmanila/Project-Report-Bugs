@@ -1,10 +1,86 @@
 <template>
+  <!-- Bell Notification (Ready for QA) -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showBellAnim" class="bell-overlay">
+        <div class="bell-scene">
+          <div class="bell-ripple bell-ripple--1"></div>
+          <div class="bell-ripple bell-ripple--2"></div>
+          <div class="bell-ripple bell-ripple--3"></div>
+          <div class="bell-icon">🔔</div>
+          <div class="bell-label">Ready for QA! <span class="bell-check">✓</span></div>
+          <div class="bell-sub">QA team has been notified</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Not Started Animation -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showNotStartedAnim" class="status-anim-overlay status-anim-overlay--notstarted">
+        <div class="status-anim-scene">
+          <div class="status-anim-icon status-anim-icon--float">💤</div>
+          <div class="status-anim-label">Not Started <span class="status-anim-mark status-anim-mark--gray">–</span></div>
+          <div class="status-anim-sub">Ticket is back in the queue</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Blocked Animation -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showBlockedAnim" class="status-anim-overlay status-anim-overlay--blocked">
+        <div class="status-anim-scene">
+          <div class="status-anim-icon status-anim-icon--shake">🚫</div>
+          <div class="status-anim-label">Blocked! <span class="status-anim-mark status-anim-mark--red">!</span></div>
+          <div class="status-anim-sub">This ticket has been flagged as blocked</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- In Progress Animation -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showInProgressAnim" class="status-anim-overlay status-anim-overlay--progress">
+        <div class="status-anim-scene">
+          <div class="status-anim-icon status-anim-icon--spin">⚙️</div>
+          <div class="status-anim-label">In Progress <span class="status-anim-mark status-anim-mark--blue">→</span></div>
+          <div class="status-anim-sub">Let's get to work!</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Bug Squish Celebration -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showSquishAnim" class="squish-overlay">
+        <div class="squish-scene">
+          <div class="squish-foot">🦶</div>
+          <div class="squish-bug">🐛</div>
+          <div class="squish-splat">💥</div>
+          <div class="squish-stars">
+            <span>⭐</span><span>✨</span><span>⭐</span><span>✨</span><span>⭐</span>
+          </div>
+          <div class="squish-label">Bug Squashed! <span class="squish-check">✓</span></div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <div class="ticket-page">
 
     <!-- Header -->
     <header class="ticket-header">
       <div class="ticket-header-inner">
         <div class="ticket-header-logo">
+          <a v-if="route.query.from" :href="`/dev-folder/${route.query.from}`" class="ticket-back-btn">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            My Folder
+          </a>
           <div class="app-logo-icon" style="font-size:20px;">🐛</div>
           <div>
             <div style="font-weight:700;color:#fff;font-size:15px;">QA Bug Tracker</div>
@@ -371,6 +447,46 @@ const activityListEl   = ref(null)
 const statuses    = ['Pending', 'Out of Scope', 'Ongoing', 'Completed']
 const devStatuses = ['Not Started', 'In Progress', 'Ready for QA', 'Blocked']
 
+const showSquishAnim = ref(false)
+let squishTimer = null
+const triggerSquishAnim = () => {
+  showSquishAnim.value = true
+  clearTimeout(squishTimer)
+  squishTimer = setTimeout(() => { showSquishAnim.value = false }, 2400)
+}
+
+const showBellAnim = ref(false)
+let bellTimer = null
+const triggerBellAnim = () => {
+  showBellAnim.value = true
+  clearTimeout(bellTimer)
+  bellTimer = setTimeout(() => { showBellAnim.value = false }, 2600)
+}
+
+const showBlockedAnim = ref(false)
+let blockedTimer = null
+const triggerBlockedAnim = () => {
+  showBlockedAnim.value = true
+  clearTimeout(blockedTimer)
+  blockedTimer = setTimeout(() => { showBlockedAnim.value = false }, 2400)
+}
+
+const showInProgressAnim = ref(false)
+let inProgressTimer = null
+const triggerInProgressAnim = () => {
+  showInProgressAnim.value = true
+  clearTimeout(inProgressTimer)
+  inProgressTimer = setTimeout(() => { showInProgressAnim.value = false }, 2400)
+}
+
+const showNotStartedAnim = ref(false)
+let notStartedTimer = null
+const triggerNotStartedAnim = () => {
+  showNotStartedAnim.value = true
+  clearTimeout(notStartedTimer)
+  notStartedTimer = setTimeout(() => { showNotStartedAnim.value = false }, 2400)
+}
+
 const activityLog = computed(() => bug.value?.activity_log ?? [])
 const isResolved  = computed(() => bug.value?.status === 'Completed')
 const isOverdue   = computed(() => {
@@ -469,6 +585,10 @@ const updateDevStatus = async () => {
       body: { dev_status: currentDevStatus.value, author: authorName.value || 'Developer' },
     })
     currentDevStatus.value = bug.value.dev_status || 'Not Started'
+    if (currentDevStatus.value === 'Ready for QA') triggerBellAnim()
+    else if (currentDevStatus.value === 'Blocked') triggerBlockedAnim()
+    else if (currentDevStatus.value === 'In Progress') triggerInProgressAnim()
+    else if (currentDevStatus.value === 'Not Started') triggerNotStartedAnim()
     scrollToBottom()
   } catch (e) {
     console.error('Failed to update dev status', e)
@@ -505,6 +625,8 @@ const markResolved = async () => {
       body: { author: authorName.value || 'Developer' },
     })
     currentStatus.value = bug.value.status
+    currentDevStatus.value = bug.value.dev_status || 'Ready for QA'
+    triggerSquishAnim()
     scrollToBottom()
   } catch (e) {
     console.error('Failed to resolve ticket', e)
@@ -545,6 +667,8 @@ onMounted(loadTicket)
 .ticket-header { background: #4f46e5; padding: 0; }
 .ticket-header-inner { max-width: 1100px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
 .ticket-header-logo { display: flex; align-items: center; gap: 10px; }
+.ticket-back-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; transition: background .15s; border: 1px solid rgba(255,255,255,0.2); }
+.ticket-back-btn:hover { background: rgba(255,255,255,0.22); }
 .ticket-header-meta { display: flex; gap: 8px; }
 
 /* Loading / Error */

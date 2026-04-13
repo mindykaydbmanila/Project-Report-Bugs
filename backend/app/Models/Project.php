@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
-    protected $fillable = ['name', 'description', 'color', 'owner_id'];
+    protected $fillable = ['name', 'description', 'color', 'owner_id', 'is_active'];
+
+    protected $casts = ['is_active' => 'boolean'];
 
     public function bugs()
     {
