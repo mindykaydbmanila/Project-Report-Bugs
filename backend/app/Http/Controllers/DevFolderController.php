@@ -23,6 +23,19 @@ class DevFolderController extends Controller
      * Generate or retrieve the share token for a developer.
      * POST /api/dev-folders
      */
+    /** Gmail-style palette — deterministic from email, changeable later */
+    private static array $colorPalette = [
+        '#4f46e5','#7c3aed','#db2777','#dc2626','#ea580c',
+        '#d97706','#16a34a','#0891b2','#2563eb','#9333ea',
+        '#0d9488','#65a30d','#be185d','#0369a1','#92400e','#374151',
+    ];
+
+    private static function pickColor(string $email): string
+    {
+        $idx = abs(crc32(strtolower($email))) % count(self::$colorPalette);
+        return self::$colorPalette[$idx];
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -37,6 +50,7 @@ class DevFolderController extends Controller
                 'token'          => Str::random(48),
                 'developer_name' => $validated['developer_name'],
                 'visibility'     => $validated['visibility'] ?? 'public',
+                'avatar_color'   => self::pickColor($validated['developer_email']),
             ]
         );
 
@@ -61,10 +75,11 @@ class DevFolderController extends Controller
         $folder = DevFolder::where('token', $token)->firstOrFail();
 
         $validated = $request->validate([
-            'visibility' => 'required|in:private,public',
+            'visibility'   => 'nullable|in:private,public',
+            'avatar_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
         ]);
 
-        $folder->update($validated);
+        $folder->update(array_filter($validated, fn($v) => $v !== null));
 
         return response()->json(['success' => true, 'visibility' => $folder->visibility]);
     }
@@ -113,11 +128,12 @@ class DevFolderController extends Controller
             });
 
             return [
-                'name'      => $folder->developer_name,
-                'email'     => $folder->developer_email,
-                'pending'   => $devBugs->where('status', 'Pending')->count(),
-                'active'    => $devBugs->where('status', 'Ongoing')->count(),
-                'completed' => $devBugs->where('status', 'Completed')->count(),
+                'name'         => $folder->developer_name,
+                'email'        => $folder->developer_email,
+                'avatar_color' => $folder->avatar_color ?? self::pickColor($folder->developer_email),
+                'pending'      => $devBugs->where('status', 'Pending')->count(),
+                'active'       => $devBugs->where('status', 'Ongoing')->count(),
+                'completed'    => $devBugs->where('status', 'Completed')->count(),
             ];
         })->values();
 

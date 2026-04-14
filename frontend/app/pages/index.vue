@@ -61,7 +61,12 @@
                       <div class="notif-item-msg">{{ n.message }}</div>
                       <div class="notif-item-time">{{ timeAgo(n.created_at) }}</div>
                     </div>
-                    <div v-if="!n.read_at" class="notif-item-dot"></div>
+                    <div class="notif-item-right">
+                      <div v-if="!n.read_at" class="notif-item-dot"></div>
+                      <button class="notif-item-dismiss" title="Remove" @click.stop="dismissNotif(n)">
+                        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -101,9 +106,9 @@
 
       <!-- ── Sidebar ── -->
       <aside class="sidebar">
-        <div class="sidebar-section-label">Active</div>
+        <div class="sidebar-section-label">DB Projects</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen && !inactiveOpen }" @click="selectProject(null); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false">
+          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen && !inactiveOpen }" @click="selectProject(null); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false; projectStatusTab = 'all'">
             <span class="sidebar-item-icon">🏠</span>
             <span class="sidebar-item-name">All Projects</span>
             <span class="sidebar-item-count">{{ activeProjects.length }}</span>
@@ -121,20 +126,10 @@
             <span class="sidebar-item-count">{{ p.bugs_count }}</span>
           </button>
         </nav>
-        <template v-if="inactiveProjects.length">
-          <div class="sidebar-section-label" style="margin-top:10px;">Inactive</div>
-          <nav class="sidebar-nav">
-            <button class="sidebar-item" :class="{ active: inactiveOpen }" @click="openInactiveView">
-              <span class="sidebar-item-icon" style="opacity:.55;">📁</span>
-              <span class="sidebar-item-name" style="opacity:.7;">Inactive Projects</span>
-              <span class="sidebar-item-count">{{ inactiveProjects.length }}</span>
-            </button>
-          </nav>
-        </template>
         <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
         <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: dashboardOpen }" @click="dashboardOpen = true; selectedProject = null; ticketTrackerOpen = false">
+          <button class="sidebar-item" :class="{ active: dashboardOpen }" @click="openDashboard()">
             <span class="sidebar-item-icon">📊</span>
             <span class="sidebar-item-name">Dashboard</span>
           </button>
@@ -165,7 +160,7 @@
       <main class="main-content">
 
         <!-- ══ All Projects view ══ -->
-        <div v-if="!selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen && !inactiveOpen">
+        <div v-if="!selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen">
           <div class="view-header">
             <div>
               <h1 class="view-title">All Projects</h1>
@@ -182,14 +177,12 @@
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input v-model="projectSearch" class="form-control" placeholder="Search projects..." />
             </div>
-            <select v-model="projectFilter" class="form-control">
-              <option value="">All Projects</option>
-              <option value="critical">Critical </option>
-              <option value="pending">Pending </option>
-              <option value="ongoing">Ongoing </option>
-              <option value="completed">Completed</option>
-            </select>
-            <button v-if="projectSearch || projectFilter" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
+            <div class="project-status-tabs">
+              <button :class="['project-status-tab', { active: projectStatusTab === 'all' }]" @click="projectStatusTab = 'all'">All</button>
+              <button :class="['project-status-tab', { active: projectStatusTab === 'active' }]" @click="projectStatusTab = 'active'">Active</button>
+              <button :class="['project-status-tab', { active: projectStatusTab === 'inactive' }]" @click="projectStatusTab = 'inactive'">Inactive</button>
+            </div>
+            <button v-if="projectSearch" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
               Clear
             </button>
@@ -197,7 +190,7 @@
 
           <div v-if="projects.length > 0">
             <!-- Active projects -->
-            <div v-if="filteredActiveProjects.length">
+            <div v-if="filteredActiveProjects.length && projectStatusTab !== 'inactive'">
               <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Active</div>
               <div class="projects-grid" style="margin-bottom:24px;">
                 <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card" @click="selectProject(p)">
@@ -232,8 +225,8 @@
               </div>
             </div>
 
-            <!-- Inactive projects (shown in All Projects when no filter active) -->
-            <div v-if="filteredInactiveProjects.length && !projectFilter">
+            <!-- Inactive projects -->
+            <div v-if="filteredInactiveProjects.length && projectStatusTab !== 'active'">
               <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Inactive</div>
               <div class="projects-grid">
                 <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card" style="opacity:.75;" @click="selectProject(p)">
@@ -272,65 +265,9 @@
           </div>
         </div>
 
-        <!-- ══ Inactive Projects view ══ -->
-        <div v-else-if="inactiveOpen">
-          <div class="view-header">
-            <div>
-              <h1 class="view-title">Inactive Projects</h1>
-              <p class="view-subtitle">{{ filteredInactiveProjects.length }} project{{ filteredInactiveProjects.length !== 1 ? 's' : '' }}</p>
-            </div>
-          </div>
-
-          <div class="filters-bar" style="margin-bottom:20px;">
-            <div class="search-input-wrap">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input v-model="projectSearch" class="form-control" placeholder="Search inactive projects..." />
-            </div>
-            <button v-if="projectSearch" class="btn btn-ghost btn-sm" @click="projectSearch = ''">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              Clear
-            </button>
-          </div>
-
-          <div v-if="filteredInactiveProjects.length > 0">
-            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Inactive</div>
-            <div class="projects-grid">
-              <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card" style="opacity:.8;" @click="selectProject(p)">
-                <div class="project-card-stripe" :style="{ background: '#d1d5db' }"></div>
-                <div class="project-card-body">
-                  <div class="project-card-icon" style="background:#f3f4f6;color:#9ca3af;">📁</div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                    <h3 class="project-card-name" style="margin:0;color:var(--gray-500);">{{ p.name }}</h3>
-                    <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.4px;background:#fee2e2;color:#dc2626;">INACTIVE</span>
-                  </div>
-                  <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
-                  <div class="project-card-stats">
-                    <span class="pstat pstat-total">{{ p.bugs_count }} bugs</span>
-                    <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
-                    <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
-                  </div>
-                </div>
-                <div class="project-card-actions" @click.stop>
-                  <button v-if="canEditProject(p)" class="btn btn-icon action-btn-edit" @click="openProjectModal(p)">
-                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                  <button v-if="canEditProject(p)" class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)">
-                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="empty-state" style="margin-top:60px;">
-            <div class="empty-state-icon">🔍</div>
-            <div class="empty-state-title">No inactive projects found</div>
-            <div class="empty-state-text">Try a different search or clear the filter</div>
-            <button v-if="projectSearch" class="btn btn-ghost btn-sm" style="margin-top:16px;" @click="projectSearch = ''">Clear search</button>
-          </div>
-        </div>
 
         <!-- ══ Dashboard view ══ -->
-        <div v-else-if="dashboardOpen">
+        <div v-else-if="dashboardOpen" :key="dashboardKey">
           <div class="view-header" style="margin-bottom:24px;">
             <div>
               <h1 class="view-title">Dashboard</h1>
@@ -1318,9 +1255,12 @@
         <!-- ══ Dev Folders view ══ -->
         <div v-else-if="devFoldersViewOpen">
           <div class="view-header">
-            <div>
-              <h1 class="view-title">Dev Folders</h1>
-              <p class="view-subtitle">{{ devFolders.length }} folder{{ devFolders.length !== 1 ? 's' : '' }}</p>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="df-page-icon">📁</div>
+              <div>
+                <h1 class="view-title" style="margin:0;">Dev Folders</h1>
+                <p class="view-subtitle" style="margin:2px 0 0;">{{ devFolders.length }} folder{{ devFolders.length !== 1 ? 's' : '' }} · Shared portals for each developer</p>
+              </div>
             </div>
             <button class="btn btn-ghost btn-sm" @click="fetchDevFolders" title="Refresh">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
@@ -1333,78 +1273,96 @@
 
             <!-- Left: overall stats -->
             <div class="dfs-overall">
-              <div class="dfs-section-label">
-                <span>📅</span> {{ devFoldersSummary.date }}
-              </div>
+              <div class="dfs-section-label"><span>📅</span> {{ devFoldersSummary.date }}</div>
 
-              <div class="dfs-stat-pills">
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">Total Active Fixes</span>
-                  <span class="dfs-pill-val" style="color:#4f46e5;">{{ devFoldersSummary.overall.total_active }}</span>
+              <div class="dfs-stat-grid">
+                <div class="dfs-stat-card" style="--sc:#4f46e5;--sc-bg:#eef2ff;--sc-bd:#c7d2fe;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.total_active }}</div>
+                  <div class="dfs-stat-lbl">Active Fixes</div>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">Pending</span>
-                  <span class="dfs-pill-val" style="color:#d97706;">{{ devFoldersSummary.overall.pending }}</span>
+                <div class="dfs-stat-card" style="--sc:#d97706;--sc-bg:#fffbeb;--sc-bd:#fde68a;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.pending }}</div>
+                  <div class="dfs-stat-lbl">Pending</div>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">On-going Fixing</span>
-                  <span class="dfs-pill-val" style="color:#2563eb;">{{ devFoldersSummary.overall.ongoing_fixing }}</span>
+                <div class="dfs-stat-card" style="--sc:#2563eb;--sc-bg:#eff6ff;--sc-bd:#bfdbfe;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.ongoing_fixing }}</div>
+                  <div class="dfs-stat-lbl">Fixing</div>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">On-going QA</span>
-                  <span class="dfs-pill-val" style="color:#7c3aed;">{{ devFoldersSummary.overall.ongoing_qa }}</span>
+                <div class="dfs-stat-card" style="--sc:#7c3aed;--sc-bg:#f5f3ff;--sc-bd:#ddd6fe;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.ongoing_qa }}</div>
+                  <div class="dfs-stat-lbl">In QA</div>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">Sent back to dev</span>
-                  <span class="dfs-pill-val" style="color:#dc2626;">{{ devFoldersSummary.overall.sent_back }}</span>
+                <div class="dfs-stat-card" style="--sc:#dc2626;--sc-bg:#fef2f2;--sc-bd:#fecaca;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.sent_back }}</div>
+                  <div class="dfs-stat-lbl">Blocked</div>
                 </div>
-                <div class="dfs-pill dfs-pill--highlight">
-                  <span class="dfs-pill-label">Total Completed</span>
-                  <span class="dfs-pill-val" style="color:#15803d;">{{ devFoldersSummary.overall.total_completed }}</span>
+                <div class="dfs-stat-card" style="--sc:#15803d;--sc-bg:#f0fdf4;--sc-bd:#bbf7d0;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.total_completed }}</div>
+                  <div class="dfs-stat-lbl">Completed</div>
                 </div>
               </div>
 
-              <div class="dfs-section-label" style="margin-top:14px;"><span>🔥</span> By Priority</div>
-              <div class="dfs-stat-pills">
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">Critical</span>
-                  <span class="dfs-pill-val" style="color:#dc2626;">{{ devFoldersSummary.overall.critical }}</span>
+              <div class="dfs-section-label" style="margin-top:18px;"><span>🔥</span> By Priority</div>
+              <div class="dfs-priority-row">
+                <div class="dfs-priority-item dfs-p--critical">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.critical }}</span>
+                  <span class="dfs-p-label">Critical</span>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">High</span>
-                  <span class="dfs-pill-val" style="color:#d97706;">{{ devFoldersSummary.overall.high }}</span>
+                <div class="dfs-priority-item dfs-p--high">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.high }}</span>
+                  <span class="dfs-p-label">High</span>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">Medium</span>
-                  <span class="dfs-pill-val" style="color:#92400e;">{{ devFoldersSummary.overall.medium }}</span>
+                <div class="dfs-priority-item dfs-p--medium">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.medium }}</span>
+                  <span class="dfs-p-label">Medium</span>
                 </div>
-                <div class="dfs-pill">
-                  <span class="dfs-pill-label">Low</span>
-                  <span class="dfs-pill-val" style="color:#64748b;">{{ devFoldersSummary.overall.low }}</span>
+                <div class="dfs-priority-item dfs-p--low">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.low }}</span>
+                  <span class="dfs-p-label">Low</span>
                 </div>
               </div>
+
+              <!-- Resolution Rate (compact) -->
+              <template v-if="dfsSummaryProgress">
+                <div class="dfs-section-label" style="margin-top:18px;"><span>📊</span> Resolution Rate</div>
+                <div class="dfs-progress-compact">
+                  <div class="dfs-progress-track">
+                    <div v-if="dfsSummaryProgress.done"    class="dfs-pb dfs-pb--done"    :style="{ width: dfsSummaryProgress.done    + '%' }"></div>
+                    <div v-if="dfsSummaryProgress.active"  class="dfs-pb dfs-pb--active"  :style="{ width: dfsSummaryProgress.active  + '%' }"></div>
+                    <div v-if="dfsSummaryProgress.pend"    class="dfs-pb dfs-pb--pend"    :style="{ width: dfsSummaryProgress.pend    + '%' }"></div>
+                    <div v-if="dfsSummaryProgress.blocked" class="dfs-pb dfs-pb--blocked" :style="{ width: dfsSummaryProgress.blocked + '%' }"></div>
+                  </div>
+                  <div class="dfs-progress-compact-row">
+                    <span class="dfs-progress-compact-pct">{{ dfsSummaryProgress.pct }}% resolved</span>
+                    <div class="dfs-progress-legend">
+                      <span class="dfs-pl dfs-pl--done"><i></i>Done</span>
+                      <span class="dfs-pl dfs-pl--active"><i></i>Active</span>
+                      <span class="dfs-pl dfs-pl--pend"><i></i>Pending</span>
+                      <span class="dfs-pl dfs-pl--blocked"><i></i>Blocked</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
 
             <!-- Right: per-developer summary -->
             <div class="dfs-devs">
               <div class="dfs-section-label"><span>👥</span> Developers' Summary</div>
-              <div class="dfs-devs-grid">
-                <div v-for="dev in devFoldersSummary.developers" :key="dev.email" class="dfs-dev-card">
-                  <div class="dfs-dev-avatar">{{ folderInitials(dev.name) }}</div>
-                  <div class="dfs-dev-name">{{ dev.name }}</div>
-                  <div class="dfs-dev-stats">
-                    <div class="dfs-dev-stat">
-                      <span class="dfs-dev-stat-val" style="color:#d97706;">{{ dev.pending }}</span>
-                      <span class="dfs-dev-stat-label">Pending</span>
-                    </div>
-                    <div class="dfs-dev-stat">
-                      <span class="dfs-dev-stat-val" style="color:#2563eb;">{{ dev.active }}</span>
-                      <span class="dfs-dev-stat-label">Active</span>
-                    </div>
-                    <div class="dfs-dev-stat">
-                      <span class="dfs-dev-stat-val" :style="{ color: dev.completed > 0 ? '#15803d' : '#94a3b8' }">{{ dev.completed }}</span>
-                      <span class="dfs-dev-stat-label">Done</span>
-                    </div>
+              <div class="dfs-devs-list">
+                <div v-for="dev in devFoldersSummary.developers" :key="dev.email" class="dfs-dev-row dfs-dev-row--clickable" @click="openFolderDetailByEmail(dev.email)">
+                  <div class="dfs-dev-avatar" :style="{ background: dev.avatar_color || '#4338ca' }">{{ folderInitials(dev.name) }}</div>
+                  <div class="dfs-dev-info">
+                    <div class="dfs-dev-name">{{ dev.name }}</div>
+                    <div class="dfs-dev-email">{{ dev.email }}</div>
+                  </div>
+                  <div class="dfs-dev-badges">
+                    <span class="dfs-dev-badge dfs-dev-badge--pending"><strong>{{ dev.pending }}</strong><span>Pending</span></span>
+                    <span class="dfs-dev-badge dfs-dev-badge--active"><strong>{{ dev.active }}</strong><span>Active</span></span>
+                    <span class="dfs-dev-badge dfs-dev-badge--done"><strong>{{ dev.completed }}</strong><span>Done</span></span>
                   </div>
                 </div>
               </div>
@@ -1424,42 +1382,32 @@
           </div>
 
           <div v-else class="df-grid">
-            <div v-for="folder in devFolders" :key="folder.token" class="df-card">
-              <div class="df-card-stripe"></div>
+            <div v-for="(folder, idx) in devFolders" :key="folder.token" class="df-card df-card--clickable" :style="`--i:${idx}`" @click="openFolderDetail(folder)">
+              <div class="df-card-hero" :style="{ background: folder.avatar_color || '#4f46e5' }">
+                <button
+                  :class="['df-vis-badge', folder.visibility === 'public' ? 'df-vis--pub' : 'df-vis--priv']"
+                  :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
+                  @click.stop="toggleFolderVisibility(folder)"
+                >
+                  <svg v-if="folder.visibility === 'public'" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <svg v-else width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  {{ folder.visibility === 'public' ? 'Public' : 'Private' }}
+                </button>
+              </div>
               <div class="df-card-body">
-                <div class="df-card-top">
-                  <div class="df-avatar">{{ folderInitials(folder.developer_name) }}</div>
-                  <div class="df-card-info">
-                    <div class="df-card-name">{{ folder.developer_name }}</div>
-                    <div class="df-card-email">{{ folder.developer_email }}</div>
-                  </div>
-                  <button
-                    :class="['df-vis-pill', folder.visibility === 'public' ? 'df-vis--public' : 'df-vis--private']"
-                    :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
-                    @click="toggleFolderVisibility(folder)"
-                  >
-                    <span v-if="folder.visibility === 'public'">
-                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                      Public
-                    </span>
-                    <span v-else>
-                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      Private
-                    </span>
-                  </button>
-                </div>
-
+                <div class="df-avatar" :style="{ background: folder.avatar_color || '#4f46e5' }">{{ folderInitials(folder.developer_name) }}</div>
+                <div class="df-card-name">{{ folder.developer_name }}</div>
+                <div class="df-card-email">{{ folder.developer_email }}</div>
                 <div class="df-card-project">
                   <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   All projects
                 </div>
-
                 <div class="df-card-footer">
-                  <button class="df-action-btn df-action-copy" @click="copyFolderLink(folder)" title="Copy link">
+                  <button class="df-action-btn df-action-copy" @click.stop="copyFolderLink(folder)" title="Copy link">
                     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     Copy link
                   </button>
-                  <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open">
+                  <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open" @click.stop>
                     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     Open
                   </a>
@@ -1467,6 +1415,87 @@
               </div>
             </div>
           </div>
+
+          <!-- ── Dev Folder Detail Modal ── -->
+          <Teleport to="body">
+            <Transition name="modal-fade">
+              <div v-if="devFolderDetail" class="df-detail-overlay" @click.self="closeFolderDetail">
+                <div class="df-detail-modal">
+                  <!-- Modal header -->
+                  <div class="df-detail-header" :style="{ background: `linear-gradient(135deg, ${devFolderDetail.avatar_color || '#4f46e5'} 0%, ${devFolderDetail.avatar_color || '#4f46e5'}cc 100%)` }">
+                    <div style="display:flex;align-items:center;gap:14px;">
+                      <div class="df-detail-avatar" :style="{ background: 'rgba(255,255,255,.22)', borderColor: 'rgba(255,255,255,.45)' }">{{ folderInitials(devFolderDetail.developer_name) }}</div>
+                      <div>
+                        <div class="df-detail-name">{{ devFolderDetail.developer_name }}</div>
+                        <div class="df-detail-email">{{ devFolderDetail.developer_email }}</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <!-- Color picker -->
+                      <div class="df-color-picker-wrap" @click.stop>
+                        <button class="df-detail-close" title="Change color" @click.stop="colorPickerOpen = !colorPickerOpen">
+                          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        </button>
+                        <div v-if="colorPickerOpen" class="df-color-swatches">
+                          <button
+                            v-for="c in AVATAR_COLORS" :key="c"
+                            class="df-color-swatch"
+                            :class="{ 'df-color-swatch--active': c === devFolderDetail.avatar_color }"
+                            :style="{ background: c }"
+                            @click.stop="updateFolderColor(devFolderDetail, c)"
+                          ></button>
+                        </div>
+                      </div>
+                      <button class="df-detail-close" @click="closeFolderDetail">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="devFolderDetailLoading" style="text-align:center;padding:36px;color:var(--gray-400);">
+                    <div style="width:26px;height:26px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+                    Loading tickets…
+                  </div>
+
+                  <div v-else class="df-detail-body">
+                    <!-- Stat row -->
+                    <div class="df-detail-stats">
+                      <div class="df-detail-stat" style="--sc:#4f46e5;--sc-bg:#eef2ff;--sc-bd:#c7d2fe;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.total }}</div>
+                        <div class="df-detail-stat-lbl">Total</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#d97706;--sc-bg:#fffbeb;--sc-bd:#fde68a;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.pending }}</div>
+                        <div class="df-detail-stat-lbl">Pending</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#2563eb;--sc-bg:#eff6ff;--sc-bd:#bfdbfe;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.ongoing }}</div>
+                        <div class="df-detail-stat-lbl">Ongoing</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#15803d;--sc-bg:#f0fdf4;--sc-bd:#bbf7d0;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.completed }}</div>
+                        <div class="df-detail-stat-lbl">Completed</div>
+                      </div>
+                    </div>
+
+                    <!-- Bug list -->
+                    <div v-if="devFolderDetailBugs.length" class="df-detail-bugs">
+                      <div class="df-detail-bugs-title">Assigned Tickets</div>
+                      <div v-for="bug in devFolderDetailBugs" :key="bug.id" class="df-detail-bug-row">
+                        <span class="df-detail-bug-seq">#{{ bug.sequence }}</span>
+                        <span class="df-detail-bug-title">{{ bug.title }}</span>
+                        <span :class="['badge', priorityBadgeClass(bug.priority)]">{{ bug.priority }}</span>
+                        <span :class="['badge', statusBadgeClass(bug.status)]">{{ bug.status }}</span>
+                      </div>
+                    </div>
+                    <div v-else style="text-align:center;padding:28px 0;color:var(--gray-400);font-size:13px;">
+                      No tickets assigned yet
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </Teleport>
         </div>
 
         <!-- ══ Project view ══ -->
@@ -2675,11 +2704,19 @@ const openNotif = async (n) => {
   }
   notifDropdownOpen.value = false
   if (n.data?.bug_id) {
-    const bug = bugs.value.find(b => b.id === n.data.bug_id)
-    if (bug) { openBugView(bug); return }
-    // Bug might not be loaded yet — navigate to ticket page directly
-    window.open(`/ticket/${n.data.bug_id}`, '_blank')
+    // Try the already-loaded bugs first
+    let bug = bugs.value.find(b => b.id === n.data.bug_id)
+    if (!bug) {
+      // Bug belongs to a different project — fetch it directly
+      try { bug = await $fetch(`${config.public.apiBase}/bugs/${n.data.bug_id}`) } catch {}
+    }
+    if (bug) { viewBug(bug) }
   }
+}
+
+const dismissNotif = async (n) => {
+  try { await $fetch(`${config.public.apiBase}/notifications/${n.id}`, { method: 'DELETE' }) } catch {}
+  notifications.value = notifications.value.filter(x => x.id !== n.id)
 }
 
 const markAllNotifRead = async () => {
@@ -2823,7 +2860,9 @@ const scenarioColors = { UI: '#8b5cf6', Functionality: '#ec4899', 'UI & Function
 
 // ── Project state ──
 const dashboardOpen          = ref(false)
+const dashboardKey           = ref(0)
 const inactiveOpen           = ref(false)
+const projectStatusTab       = ref('all')
 const projects               = ref([])
 const selectedProject        = ref(null)
 const projectSearch          = ref('')
@@ -3013,6 +3052,12 @@ watch(detailView, async (newView) => {
         responsive: true,
         maintainAspectRatio: false,
         cutout: '68%',
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 900,
+          easing: 'easeInOutQuart',
+        },
         plugins: {
           legend: {
             position: 'bottom',
@@ -3034,6 +3079,13 @@ watch(detailView, async (newView) => {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
+        animation: {
+          duration: 1000,
+          easing: 'easeInOutQuart',
+        },
+        animations: {
+          y: { from: (ctx) => ctx.chart.scales.y.bottom },
+        },
         scales: {
           x: {
             grid: { color: '#f1f5f9' },
@@ -3164,16 +3216,17 @@ const selectProject = async (project) => {
   summary.value            = {}
   clearFilters()
   if (project) await fetchBugs()
+  else await new Promise(r => setTimeout(r, 300))
   appLoading.value = false
 }
 
 const openInactiveView = () => {
-  inactiveOpen.value       = true
+  projectStatusTab.value   = 'inactive'
+  inactiveOpen.value       = false
   dashboardOpen.value      = false
   selectedProject.value    = null
   devFoldersViewOpen.value = false
   ticketTrackerOpen.value  = false
-  bugs.value               = []
 }
 
 const openProjectModal = (project) => {
@@ -3878,8 +3931,22 @@ async function openDevFoldersView() {
   appLoading.value         = true
   devFoldersViewOpen.value = true
   ticketTrackerOpen.value  = false
+  dashboardOpen.value      = false
+  inactiveOpen.value       = false
   selectedProject.value    = null
   await fetchDevFolders()
+  appLoading.value = false
+}
+
+async function openDashboard() {
+  appLoading.value         = true
+  dashboardOpen.value      = true
+  selectedProject.value    = null
+  ticketTrackerOpen.value  = false
+  devFoldersViewOpen.value = false
+  inactiveOpen.value       = false
+  await new Promise(r => setTimeout(r, 300))
+  dashboardKey.value++
   appLoading.value = false
 }
 
@@ -3906,6 +3973,86 @@ async function copyFolderLink(folder) {
   const url = `${window.location.origin}/dev-folder/${folder.token}`
   await navigator.clipboard.writeText(url)
   showToast('Folder link copied!')
+}
+
+// ── Dev Folder Detail Modal ───────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  '#4f46e5','#7c3aed','#db2777','#dc2626','#ea580c',
+  '#d97706','#16a34a','#0891b2','#2563eb','#9333ea',
+  '#0d9488','#65a30d','#be185d','#0369a1','#92400e','#374151',
+]
+
+const devFolderDetail        = ref(null)
+const devFolderDetailBugs    = ref([])
+const devFolderDetailLoading = ref(false)
+const colorPickerOpen        = ref(false)
+
+const folderDetailStats = computed(() => {
+  const bugs = devFolderDetailBugs.value
+  return {
+    total:     bugs.length,
+    pending:   bugs.filter(b => b.status === 'Pending').length,
+    ongoing:   bugs.filter(b => b.status === 'Ongoing').length,
+    completed: bugs.filter(b => b.status === 'Completed').length,
+  }
+})
+
+const dfsSummaryProgress = computed(() => {
+  if (!devFoldersSummary.value) return null
+  const o = devFoldersSummary.value.overall
+  const total = o.total_completed + o.total_active + o.pending + o.sent_back
+  if (!total) return { pct: 0, total: 0, rawCompleted: 0, rawTotal: 0, done: 0, active: 0, pend: 0, blocked: 0 }
+  const pct  = (v) => Math.round(v / total * 100)
+  return {
+    pct:          pct(o.total_completed),
+    rawCompleted: o.total_completed,
+    rawTotal:     total,
+    done:         pct(o.total_completed),
+    active:       pct(o.total_active),
+    pend:         pct(o.pending),
+    blocked:      pct(o.sent_back),
+  }
+})
+
+async function openFolderDetail(folder) {
+  devFolderDetail.value        = folder
+  devFolderDetailBugs.value    = []
+  devFolderDetailLoading.value = true
+  try {
+    const res = await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}/bugs`)
+    devFolderDetailBugs.value = res.bugs || []
+  } catch {
+    devFolderDetailBugs.value = []
+  } finally {
+    devFolderDetailLoading.value = false
+  }
+}
+
+function openFolderDetailByEmail(email) {
+  const folder = devFolders.value.find(f => f.developer_email.toLowerCase() === email.toLowerCase())
+  if (folder) openFolderDetail(folder)
+}
+
+function closeFolderDetail() {
+  devFolderDetail.value = null
+  colorPickerOpen.value = false
+}
+
+async function updateFolderColor(folder, color) {
+  try {
+    await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}`, {
+      method: 'PATCH',
+      body: { avatar_color: color },
+    })
+    folder.avatar_color = color
+    if (devFolderDetail.value?.token === folder.token) {
+      devFolderDetail.value = { ...devFolderDetail.value, avatar_color: color }
+    }
+    colorPickerOpen.value = false
+    showToast('Color updated!')
+  } catch {
+    showToast('Failed to update color', 'error')
+  }
 }
 
 // ── Send Ticket ──────────────────────────────────────────────────────────────

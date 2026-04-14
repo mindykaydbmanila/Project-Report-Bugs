@@ -135,8 +135,6 @@
                 v-for="bug in group.bugs"
                 :key="bug.id"
                 :href="ticketUrl(bug)"
-                target="_blank"
-                rel="noopener"
                 class="folder-ticket-card"
               >
                 <div class="folder-ticket-top">
@@ -191,8 +189,6 @@
                 v-for="bug in project.bugs"
                 :key="bug.id"
                 :href="ticketUrl(bug)"
-                target="_blank"
-                rel="noopener"
                 class="folder-ticket-card folder-ticket-card--done"
               >
                 <div class="folder-ticket-top">
@@ -274,6 +270,9 @@ async function loadFolder(email = null) {
     const data = await $fetch(url)
     folder.value = data.folder
     bugs.value   = data.bugs
+    sessionStorage.setItem('devFolderToken', token)
+    sessionStorage.setItem('devFolderEmail', data.folder.developer_email)
+    sessionStorage.setItem('devFolderName', data.folder.developer_name)
   } catch (e) {
     if (e?.data?.requires_auth) {
       requiresAuth.value = true

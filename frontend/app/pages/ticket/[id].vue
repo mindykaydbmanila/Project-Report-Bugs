@@ -77,10 +77,10 @@
     <header class="ticket-header">
       <div class="ticket-header-inner">
         <div class="ticket-header-logo">
-          <a v-if="route.query.from" :href="`/dev-folder/${route.query.from}`" class="ticket-back-btn">
+          <button class="ticket-back-btn" @click="goBack">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-            My Folder
-          </a>
+            Back
+          </button>
           <div class="app-logo-icon" style="font-size:20px;">🐛</div>
           <div>
             <div style="font-weight:700;color:#fff;font-size:15px;">QA Bug Tracker</div>
@@ -316,26 +316,20 @@
           <span v-else class="badge badge-completed" style="font-size:13px;padding:6px 14px;">Completed</span>
         </div>
 
-        <!-- Assigned Developer -->
+        <!-- Assigned Developers -->
         <div class="ticket-sidebar-card">
-          <div class="ticket-sidebar-label">Assigned Developer</div>
-          <div v-if="bug.assigned_developer" class="ticket-sidebar-person">
-            <div class="ticket-sidebar-avatar">{{ bug.assigned_developer.name?.[0]?.toUpperCase() }}</div>
-            <div>
-              <div class="ticket-sidebar-person-name">{{ bug.assigned_developer.name }}</div>
-              <div class="ticket-sidebar-person-email">{{ bug.assigned_developer.email }}</div>
+          <div class="ticket-sidebar-label">Assigned Developer{{ (bug.assigned_developers || []).length > 1 ? 's' : '' }}</div>
+          <div v-if="(bug.assigned_developers || []).length" style="display:flex;flex-direction:column;gap:10px;">
+            <div v-for="dev in bug.assigned_developers" :key="dev.email" class="ticket-sidebar-person">
+              <div class="ticket-sidebar-avatar">{{ dev.name?.[0]?.toUpperCase() }}</div>
+              <div style="flex:1;min-width:0;">
+                <div class="ticket-sidebar-person-name">{{ dev.name }}</div>
+                <div class="ticket-sidebar-person-email">{{ dev.email }}</div>
+              </div>
+              <button class="dev-folder-icon-btn" title="View ticket folder" @click="openDevFolder(dev)">📁</button>
             </div>
           </div>
           <div v-else class="ticket-sidebar-empty">Not assigned</div>
-          <!-- My Folder link -->
-          <button
-            v-if="bug.assigned_developer"
-            class="my-folder-btn"
-            style="margin-top:12px;width:100%;"
-            @click="openMyFolder"
-          >
-            📁 View My Ticket Folder
-          </button>
         </div>
 
         <!-- Bug Metadata -->
@@ -425,9 +419,35 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const route       = useRoute()
+const router      = useRouter()
+
+async function goBack() {
+  const devs = bug.value?.assigned_developers || []
+  const storedEmail = sessionStorage.getItem('devFolderEmail')
+
+  // Pick the dev matching the stored email, or fall back to the first assigned dev
+  const dev = (storedEmail && devs.find(d => d.email?.toLowerCase() === storedEmail.toLowerCase()))
+    || devs[0]
+    || null
+
+  if (dev) {
+    try {
+      const data = await $fetch(`${apiBase}/dev-folders`, {
+        method: 'POST',
+        body: { developer_email: dev.email, developer_name: dev.name, visibility: 'private' },
+      })
+      window.location.href = data.url
+      return
+    } catch {}
+  }
+
+  // Fallback: use ?from= token or stored token
+  const from = route.query.from || sessionStorage.getItem('devFolderToken')
+  router.push(from ? `/dev-folder/${from}` : '/')
+}
 const config      = useRuntimeConfig()
 const apiBase     = config.public.apiBase          // used for API calls  e.g. /api/bugs/1/ticket
 const storageBase = config.public.apiBase.replace('/api', '') // used for image src  e.g. /storage/bug-images/...
@@ -635,20 +655,11 @@ const markResolved = async () => {
   }
 }
 
-async function openMyFolder() {
-  if (!bug.value?.assigned_developer) return
-  const dev = bug.value.assigned_developer
+async function openDevFolder(dev) {
   try {
-    const body = {
-      developer_email: dev.email,
-      developer_name:  dev.name,
-      visibility:      'private',
-    }
-    if (bug.value.project_id) body.project_id = bug.value.project_id
-
     const data = await $fetch(`${apiBase}/dev-folders`, {
       method: 'POST',
-      body,
+      body: { developer_email: dev.email, developer_name: dev.name, visibility: 'private' },
     })
     window.open(data.url, '_blank')
   } catch (e) {
@@ -733,8 +744,8 @@ onMounted(loadTicket)
 .ticket-sidebar-person-name { font-size: 14px; font-weight: 600; color: #1e293b; }
 .ticket-sidebar-person-email { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 .ticket-sidebar-empty { font-size: 13px; color: #94a3b8; font-style: italic; }
-.my-folder-btn { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4f46e5; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: background .15s; }
-.my-folder-btn:hover { background: #e0e7ff; }
+.dev-folder-icon-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid #c7d2fe; background: #eef2ff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: background .15s; }
+.dev-folder-icon-btn:hover { background: #e0e7ff; }
 .ticket-meta-list { display: flex; flex-direction: column; gap: 0; }
 .ticket-meta-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
 .ticket-meta-row:last-child { border-bottom: none; }

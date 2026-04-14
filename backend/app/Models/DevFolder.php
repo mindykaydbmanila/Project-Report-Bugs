@@ -11,5 +11,6 @@ class DevFolder extends Model
         'developer_email',
         'developer_name',
         'visibility',
+        'avatar_color',
     ];
 }

@@ -28,4 +28,10 @@ class NotificationController extends Controller
         AppNotification::whereNull('read_at')->update(['read_at' => now()]);
         return response()->json(['ok' => true]);
     }
+
+    public function destroy($id)
+    {
+        AppNotification::where('id', $id)->delete();
+        return response()->json(['ok' => true]);
+    }
 }
