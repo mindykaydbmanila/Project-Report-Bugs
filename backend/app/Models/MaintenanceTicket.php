@@ -18,7 +18,9 @@ class MaintenanceTicket extends Model
         'assigned_devs',
         'assigned_qa',
         'status',
+        'dev_status',
         'notes',
+        'comments',
         'attachments',
         'notification_sent_at',
     ];
@@ -26,6 +28,7 @@ class MaintenanceTicket extends Model
     protected $casts = [
         'assigned_devs'        => 'array',
         'assigned_qa'          => 'array',
+        'comments'             => 'array',
         'attachments'          => 'array',
         'date_received'        => 'date:Y-m-d',
         'target_date'          => 'date:Y-m-d',

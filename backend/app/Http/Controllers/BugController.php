@@ -588,4 +588,12 @@ class BugController extends Controller
         $users = User::select('id', 'name', 'email', 'avatar')->orderBy('name')->get();
         return response()->json($users);
     }
+
+    // ── Clear all activity logs ───────────────────────────────────────────────
+
+    public function clearActivityLog()
+    {
+        Bug::query()->update(['activity_log' => null]);
+        return response()->json(['message' => 'Activity log cleared.']);
+    }
 }

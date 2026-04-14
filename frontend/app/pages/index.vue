@@ -628,7 +628,7 @@
               <h1 class="view-title">Ticket Tracker</h1>
               <p class="view-subtitle">Monitor and manage bug tickets across all projects</p>
             </div>
-            <button class="btn btn-ghost btn-sm" @click="fetchAllTickets" title="Refresh">
+            <button class="btn btn-ghost btn-sm" @click="fetchAllTickets(); fetchAllMaintenanceTickets()" title="Refresh">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
               Refresh
             </button>
@@ -652,21 +652,9 @@
               All Tickets
               <span class="tt-tab-chip">{{ allTickets.length }}</span>
             </button>
-            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'sent' }]" @click="ticketTab = 'sent'">
-              Sent
-              <span class="tt-tab-chip tt-tab-chip--blue">{{ sentTickets.length }}</span>
-            </button>
-            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'resolved' }]" @click="ticketTab = 'resolved'">
-              Resolved
-              <span class="tt-tab-chip tt-tab-chip--green">{{ resolvedTickets.length }}</span>
-            </button>
-            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'pending' }]" @click="ticketTab = 'pending'">
-              Pending Action
-              <span v-if="pendingTickets.length" class="tt-tab-chip tt-tab-chip--red">{{ pendingTickets.length }}</span>
-            </button>
-            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'overdue' }]" @click="ticketTab = 'overdue'">
-              Overdue
-              <span v-if="overdueTickets.length" class="tt-tab-chip tt-tab-chip--orange">{{ overdueTickets.length }}</span>
+            <button :class="['tt-tab', { 'tt-tab--active': ticketTab === 'maintenance' }]" @click="ticketTab = 'maintenance'">
+              Maintenance
+              <span v-if="allMaintenanceTickets.length" class="tt-tab-chip" style="background:#d1fae5;color:#065f46;">{{ allMaintenanceTickets.length }}</span>
             </button>
           </div>
 
@@ -713,7 +701,7 @@
                   <h3 class="card-title">Ticket Pipeline</h3>
                 </div>
                 <div class="card-body" style="padding:0;">
-                  <table v-if="allTickets.length">
+                  <table v-if="pipelineTickets.length">
                     <thead>
                       <tr>
                         <th style="width:56px;">#</th>
@@ -728,7 +716,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="t in allTickets" :key="t.id" class="clickable-row" :class="{ 'tt-overdue-row': isOverdue(t) }" @click="openTTDetail(t)">
+                      <tr v-for="t in pipelineTickets" :key="t.id" class="clickable-row" :class="{ 'tt-overdue-row': isOverdue(t) }" @click="openTTDetail(t)">
                         <td>
                           <div style="display:flex;align-items:center;gap:5px;">
                             <span v-if="isOverdue(t)" class="tt-overdue-dot" title="Overdue"></span>
@@ -768,6 +756,78 @@
                     <div class="empty-state-icon">🎫</div>
                     <div class="empty-state-title">No tickets yet</div>
                     <div class="empty-state-text">Assign developers to bugs to start tracking tickets</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Maintenance Pipeline Table -->
+              <div class="card" style="grid-column:1/-1;">
+                <div class="card-header">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;">🔧</span>
+                    <h3 class="card-title">Maintenance Pipeline</h3>
+                  </div>
+                  <span class="result-chip" style="background:#ecfdf5;color:#065f46;">{{ allMaintenanceTickets.filter(t => t.status !== 'Completed').length }} ticket{{ allMaintenanceTickets.filter(t => t.status !== 'Completed').length !== 1 ? 's' : '' }}</span>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <table v-if="allMaintenanceTickets.filter(t => t.status !== 'Completed').length">
+                    <thead>
+                      <tr>
+                        <th style="width:80px;">Ticket #</th>
+                        <th style="width:130px;">Project</th>
+                        <th style="width:120px;">Client</th>
+                        <th>Request</th>
+                        <th style="width:90px;">Sent Thru</th>
+                        <th style="width:100px;">Target</th>
+                        <th style="width:130px;">Dev(s)</th>
+                        <th style="width:120px;">Dev Status</th>
+                        <th style="width:110px;">Status</th>
+                        <th style="width:65px;">Age</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="t in allMaintenanceTickets.filter(t => t.status !== 'Completed')" :key="'mto-' + t.id"
+                          class="clickable-row"
+                          :class="{ 'tt-overdue-row': mtIsOverdue(t) }"
+                          @click="selectedMtTicket = t">
+                        <td>
+                          <span class="bug-seq" style="font-size:11px;background:#ecfdf5;color:#059669;">{{ t.ticket_number }}</span>
+                        </td>
+                        <td>
+                          <span v-if="t._project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t._project.color || '#10b981' }"></span>
+                            {{ t._project.name }}
+                          </span>
+                        </td>
+                        <td><span style="font-weight:600;font-size:13px;color:var(--gray-800);">{{ t.client }}</span></td>
+                        <td>
+                          <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" :title="t.request">{{ t.request }}</div>
+                        </td>
+                        <td><span style="display:inline-flex;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">{{ t.sent_thru }}</span></td>
+                        <td>
+                          <span style="font-size:12px;" :style="{ color: mtIsOverdue(t) ? '#ef4444' : 'var(--gray-600)', fontWeight: mtIsOverdue(t) ? '600' : '400' }">
+                            {{ t.target_date ? t.target_date.slice(0, 10) : '—' }}
+                          </span>
+                        </td>
+                        <td>
+                          <div style="display:flex;gap:3px;flex-wrap:wrap;">
+                            <span v-for="email in (t.assigned_devs || [])" :key="email" :title="email"
+                              style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-size:10px;font-weight:700;flex-shrink:0;">
+                              {{ mtEmailInitials(email) }}
+                            </span>
+                            <span v-if="!t.assigned_devs?.length" style="font-size:11px;color:var(--gray-400);">—</span>
+                          </div>
+                        </td>
+                        <td><span :class="['tt-dev-status-badge', 'tt-dev-status--' + (t.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]">{{ t.dev_status || 'Not Started' }}</span></td>
+                        <td><span :class="['badge', mtStatusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                        <td><span :class="['age-badge', mtAgeBadgeClass(t)]">{{ mtAgeDays(t) }}d</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div v-else class="empty-state" style="padding:32px;">
+                    <div class="empty-state-icon">🔧</div>
+                    <div class="empty-state-title">No maintenance tickets</div>
+                    <div class="empty-state-text">Maintenance tickets will appear here once created</div>
                   </div>
                 </div>
               </div>
@@ -818,7 +878,13 @@
 
               <!-- Recent Activity -->
               <div class="card" style="grid-column:1/-1;">
-                <div class="card-header"><h3 class="card-title">Recent Activity</h3></div>
+                <div class="card-header">
+                  <h3 class="card-title">Recent Activity</h3>
+                  <button v-if="recentActivity.length" class="btn btn-ghost btn-sm" @click="clearActivityLog">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    Clear
+                  </button>
+                </div>
                 <div class="card-body" style="padding:0 20px;">
                   <div v-if="!recentActivity.length" class="empty-state" style="padding:32px;"><div class="empty-state-title">No activity yet</div></div>
                   <div v-for="(entry, i) in recentActivity" :key="i" class="tt-activity-row">
@@ -850,6 +916,7 @@
                   <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'in-progress' }]" @click="ttFilterPill = 'in-progress'">In Progress <span class="tt-pill-count">{{ inProgressTickets.length }}</span></button>
                   <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'resolved' }]" @click="ttFilterPill = 'resolved'">Resolved <span class="tt-pill-count tt-pill-count--green">{{ resolvedTickets.length }}</span></button>
                   <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'overdue' }]" @click="ttFilterPill = 'overdue'">Overdue <span v-if="overdueTickets.length" class="tt-pill-count tt-pill-count--red">{{ overdueTickets.length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': ttFilterPill === 'sent' }]" @click="ttFilterPill = 'sent'">Sent <span class="tt-pill-count tt-pill-count--blue">{{ sentTickets.length }}</span></button>
                 </div>
                 <!-- Dropdown filters -->
                 <div class="filters-bar">
@@ -1190,6 +1257,103 @@
             </template>
           </div>
 
+          <!-- ── Maintenance Tab ── -->
+          <div v-else-if="ticketTab === 'maintenance'">
+            <div class="card">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span class="sidebar-item-icon" style="font-size:16px;">🔧</span>
+                  <h3 class="card-title">Maintenance Tickets</h3>
+                </div>
+                <span class="result-chip">{{ filteredMtTickets.length }} ticket{{ filteredMtTickets.length !== 1 ? 's' : '' }}</span>
+              </div>
+              <div class="card-body">
+                <!-- Status pills -->
+                <div class="tt-pill-bar">
+                  <button :class="['tt-pill', { 'tt-pill--active': mtStatusPill === 'all' }]" @click="mtStatusPill = 'all'">All <span class="tt-pill-count">{{ allMaintenanceTickets.length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': mtStatusPill === 'pending' }]" @click="mtStatusPill = 'pending'">Pending <span class="tt-pill-count">{{ allMaintenanceTickets.filter(t => t.status === 'Pending').length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': mtStatusPill === 'in-progress' }]" @click="mtStatusPill = 'in-progress'">In Progress <span class="tt-pill-count">{{ allMaintenanceTickets.filter(t => t.status === 'In Progress').length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': mtStatusPill === 'on-hold' }]" @click="mtStatusPill = 'on-hold'">On Hold <span class="tt-pill-count">{{ allMaintenanceTickets.filter(t => t.status === 'On Hold').length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': mtStatusPill === 'completed' }]" @click="mtStatusPill = 'completed'">Completed <span class="tt-pill-count tt-pill-count--green">{{ allMaintenanceTickets.filter(t => t.status === 'Completed').length }}</span></button>
+                  <button :class="['tt-pill', { 'tt-pill--active': mtStatusPill === 'overdue' }]" @click="mtStatusPill = 'overdue'">Overdue <span v-if="allMaintenanceTickets.filter(mtIsOverdue).length" class="tt-pill-count tt-pill-count--red">{{ allMaintenanceTickets.filter(mtIsOverdue).length }}</span></button>
+                </div>
+                <!-- Search bar -->
+                <div class="filters-bar" style="margin-bottom:0;">
+                  <div class="search-input-wrap">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input v-model="mtSearch" class="form-control" placeholder="Search by title, assignee, or ticket #..." />
+                  </div>
+                  <button v-if="mtSearch || mtStatusPill !== 'all'" class="btn btn-ghost btn-sm" @click="mtSearch = ''; mtStatusPill = 'all'">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div style="padding:0 0 0 0;">
+                <table v-if="filteredMtTickets.length">
+                  <thead>
+                    <tr>
+                      <th style="width:80px;">Ticket #</th>
+                      <th style="width:120px;">Project</th>
+                      <th style="width:120px;">Client</th>
+                      <th>Request</th>
+                      <th style="width:90px;">Sent Thru</th>
+                      <th style="width:100px;">Target</th>
+                      <th style="width:130px;">Dev(s)</th>
+                      <th style="width:120px;">Dev Status</th>
+                      <th style="width:110px;">Status</th>
+                      <th style="width:65px;">Age</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="t in filteredMtTickets" :key="'mt-' + t.id"
+                        class="clickable-row"
+                        :class="{ 'tt-overdue-row': mtIsOverdue(t) }"
+                        @click="selectedMtTicket = t">
+                      <td>
+                        <span class="bug-seq" style="font-size:11px;background:#ecfdf5;color:#059669;">{{ t.ticket_number }}</span>
+                      </td>
+                      <td>
+                        <span v-if="t._project" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                          <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;" :style="{ background: t._project.color || '#10b981' }"></span>
+                          {{ t._project.name }}
+                        </span>
+                      </td>
+                      <td><span style="font-weight:600;font-size:13px;color:var(--gray-800);">{{ t.client }}</span></td>
+                      <td>
+                        <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" :title="t.request">{{ t.request }}</div>
+                      </td>
+                      <td><span style="display:inline-flex;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">{{ t.sent_thru }}</span></td>
+                      <td>
+                        <span style="font-size:12px;" :style="{ color: mtIsOverdue(t) ? '#ef4444' : 'var(--gray-600)', fontWeight: mtIsOverdue(t) ? '600' : '400' }">
+                          {{ t.target_date ? t.target_date.slice(0, 10) : '—' }}
+                        </span>
+                      </td>
+                      <td>
+                        <div style="display:flex;gap:3px;flex-wrap:wrap;">
+                          <span v-for="email in (t.assigned_devs || [])" :key="email" :title="email"
+                            style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-size:10px;font-weight:700;flex-shrink:0;">
+                            {{ mtEmailInitials(email) }}
+                          </span>
+                          <span v-if="!t.assigned_devs?.length" style="font-size:11px;color:var(--gray-400);">—</span>
+                        </div>
+                      </td>
+                      <td><span :class="['tt-dev-status-badge', 'tt-dev-status--' + (t.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]">{{ t.dev_status || 'Not Started' }}</span></td>
+                      <td><span :class="['badge', mtStatusBadgeClass(t.status)]">{{ t.status }}</span></td>
+                      <td><span :class="['age-badge', mtAgeBadgeClass(t)]">{{ mtAgeDays(t) }}d</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-else class="empty-state" style="padding:40px;">
+                  <div class="empty-state-icon">🔧</div>
+                  <div class="empty-state-title">{{ allMaintenanceTickets.length ? 'No tickets match your filters' : 'No maintenance tickets' }}</div>
+                  <div class="empty-state-text">{{ allMaintenanceTickets.length ? 'Try a different search or clear the filters' : 'Maintenance tickets will appear here once created' }}</div>
+                  <button v-if="mtSearch || mtStatusPill !== 'all'" class="btn btn-ghost btn-sm" style="margin-top:12px;" @click="mtSearch = ''; mtStatusPill = 'all'">Clear filters</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           </template><!-- end v-else tracker list -->
 
         </div>
@@ -1199,7 +1363,7 @@
           <div class="view-header">
             <div>
               <h1 class="view-title">Dev Folders</h1>
-              <p class="view-subtitle">{{ devFolders.length }} folder{{ devFolders.length !== 1 ? 's' : '' }}</p>
+              <p class="view-subtitle">{{ devFolders.length + maintenanceDevs.length }} folder{{ (devFolders.length + maintenanceDevs.length) !== 1 ? 's' : '' }}</p>
             </div>
             <button class="btn btn-ghost btn-sm" @click="fetchDevFolders" title="Refresh">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
@@ -1212,56 +1376,107 @@
             Loading folders…
           </div>
 
-          <div v-else-if="!devFolders.length" class="empty-state">
-            <div class="empty-state-icon">📭</div>
-            <div class="empty-state-title">No folders yet</div>
-            <div class="empty-state-text">Folders are created automatically when you assign a developer to a bug and generate their link.</div>
-          </div>
+          <template v-else>
+            <!-- ── Bug Tracker Folders ── -->
+            <div v-if="devFolders.length" class="df-section-label">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              Bug Tracker
+            </div>
 
-          <div v-else class="df-grid">
-            <div v-for="folder in devFolders" :key="folder.token" class="df-card">
-              <div class="df-card-stripe"></div>
-              <div class="df-card-body">
-                <div class="df-card-top">
-                  <div class="df-avatar">{{ folderInitials(folder.developer_name) }}</div>
-                  <div class="df-card-info">
-                    <div class="df-card-name">{{ folder.developer_name }}</div>
-                    <div class="df-card-email">{{ folder.developer_email }}</div>
+            <div v-if="devFolders.length" class="df-grid">
+              <div v-for="folder in devFolders" :key="folder.token" class="df-card">
+                <div class="df-card-stripe"></div>
+                <div class="df-card-body">
+                  <div class="df-card-top">
+                    <div class="df-avatar">{{ folderInitials(folder.developer_name) }}</div>
+                    <div class="df-card-info">
+                      <div class="df-card-name">{{ folder.developer_name }}</div>
+                      <div class="df-card-email">{{ folder.developer_email }}</div>
+                    </div>
+                    <button
+                      :class="['df-vis-pill', folder.visibility === 'public' ? 'df-vis--public' : 'df-vis--private']"
+                      :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
+                      @click="toggleFolderVisibility(folder)"
+                    >
+                      <span v-if="folder.visibility === 'public'">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        Public
+                      </span>
+                      <span v-else>
+                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Private
+                      </span>
+                    </button>
                   </div>
-                  <button
-                    :class="['df-vis-pill', folder.visibility === 'public' ? 'df-vis--public' : 'df-vis--private']"
-                    :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
-                    @click="toggleFolderVisibility(folder)"
-                  >
-                    <span v-if="folder.visibility === 'public'">
-                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                      Public
-                    </span>
-                    <span v-else>
-                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      Private
-                    </span>
-                  </button>
-                </div>
 
-                <div class="df-card-project">
-                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  All projects
-                </div>
+                  <div class="df-card-project">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    All projects
+                  </div>
 
-                <div class="df-card-footer">
-                  <button class="df-action-btn df-action-copy" @click="copyFolderLink(folder)" title="Copy link">
-                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    Copy link
-                  </button>
-                  <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open">
-                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    Open
-                  </a>
+                  <div class="df-card-footer">
+                    <button class="df-action-btn df-action-copy" @click="copyFolderLink(folder)" title="Copy link">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      Copy link
+                    </button>
+                    <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      Open
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+
+            <!-- ── Maintenance Developers ── -->
+            <div v-if="maintenanceDevs.length" class="df-section-label" :style="devFolders.length ? 'margin-top:28px;' : ''">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              Maintenance
+            </div>
+
+            <div v-if="maintenanceDevs.length" class="df-grid">
+              <div v-for="dev in maintenanceDevs" :key="dev.email" class="df-card df-card--maintenance">
+                <div class="df-card-stripe df-card-stripe--maintenance"></div>
+                <div class="df-card-body">
+                  <div class="df-card-top">
+                    <div class="df-avatar df-avatar--maintenance">{{ maintenanceDevInitials(dev.email) }}</div>
+                    <div class="df-card-info">
+                      <div class="df-card-name">{{ dev.email.split('@')[0] }}</div>
+                      <div class="df-card-email">{{ dev.email }}</div>
+                    </div>
+                    <div class="df-role-chips">
+                      <span v-if="dev.roles.includes('dev')" class="df-role-chip df-role-dev">Dev</span>
+                      <span v-if="dev.roles.includes('qa')" class="df-role-chip df-role-qa">QA</span>
+                    </div>
+                  </div>
+
+                  <div class="df-card-project">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    {{ dev.projects.join(', ') || 'No project' }}
+                    <span class="df-ticket-count">· {{ dev.ticket_count }} ticket{{ dev.ticket_count !== 1 ? 's' : '' }}</span>
+                  </div>
+
+                  <div class="df-card-footer">
+                    <button class="df-action-btn df-action-copy" @click="copyMaintenanceFolderLink(dev.email)" title="Copy link">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      Copy link
+                    </button>
+                    <a :href="maintenanceFolderUrl(dev.email)" target="_blank" rel="noopener" class="df-action-btn df-action-open df-action-open--maintenance">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      Open
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty state only when both are empty -->
+            <div v-if="!devFolders.length && !maintenanceDevs.length" class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <div class="empty-state-title">No folders yet</div>
+              <div class="empty-state-text">Folders are created automatically when you assign a developer to a bug or maintenance ticket.</div>
+            </div>
+          </template>
         </div>
 
         <!-- ══ Project view ══ -->
@@ -2357,6 +2572,195 @@
       </div>
     </Transition>
 
+    <!-- Maintenance Ticket View Modal -->
+    <Transition name="fade">
+      <div v-if="selectedMtTicket" class="modal-overlay" @click.self="selectedMtTicket = null">
+        <div class="modal" style="max-width:920px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;padding:0;">
+          <!-- Header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #f1f5f9;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="bug-seq" style="background:#ecfdf5;color:#059669;font-size:12px;">{{ selectedMtTicket.ticket_number }}</span>
+              <span style="font-size:14px;font-weight:700;color:#1e293b;">{{ selectedMtTicket.client }}</span>
+              <span v-if="selectedMtTicket._project" style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-500);">
+                <span style="width:7px;height:7px;border-radius:50%;display:inline-block;" :style="{ background: selectedMtTicket._project.color || '#10b981' }"></span>
+                {{ selectedMtTicket._project.name }}
+              </span>
+            </div>
+            <button class="btn btn-ghost btn-icon" @click="selectedMtTicket = null">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- Two-column body -->
+          <div style="display:grid;grid-template-columns:1fr 280px;flex:1;overflow:hidden;min-height:0;">
+
+            <!-- Left: main content -->
+            <div style="padding:24px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;border-right:1px solid #f1f5f9;">
+
+              <!-- Title block -->
+              <div style="display:flex;align-items:flex-start;gap:14px;background:#f8fafc;border-radius:12px;padding:18px 20px;">
+                <span style="font-size:13px;font-weight:700;color:#059669;background:#d1fae5;padding:4px 10px;border-radius:6px;white-space:nowrap;flex-shrink:0;margin-top:2px;">{{ selectedMtTicket.ticket_number }}</span>
+                <div>
+                  <h2 style="font-size:20px;font-weight:700;color:#1e293b;margin:0 0 4px;line-height:1.3;">{{ selectedMtTicket.client }}</h2>
+                  <div style="font-size:14px;color:#64748b;line-height:1.5;">{{ selectedMtTicket.request }}</div>
+                </div>
+              </div>
+
+              <!-- Request -->
+              <div style="background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Request
+                </div>
+                <div style="font-size:14px;color:#334155;line-height:1.7;white-space:pre-wrap;">{{ selectedMtTicket.request }}</div>
+              </div>
+
+              <!-- Notes -->
+              <div v-if="selectedMtTicket.notes" style="background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Notes
+                </div>
+                <div style="font-size:14px;color:#334155;line-height:1.7;white-space:pre-wrap;">{{ selectedMtTicket.notes }}</div>
+              </div>
+
+              <!-- Comments -->
+              <div style="background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                  <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Comments
+                  </div>
+                  <span v-if="selectedMtTicket.comments?.length" style="background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;">{{ selectedMtTicket.comments.length }}</span>
+                </div>
+                <div v-if="selectedMtTicket.comments?.length" style="display:flex;flex-direction:column;gap:10px;">
+                  <div v-for="(msg, i) in selectedMtTicket.comments" :key="i" style="display:flex;flex-direction:column;gap:5px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="width:26px;height:26px;border-radius:50%;background:#059669;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">{{ (msg.author || '?')[0].toUpperCase() }}</span>
+                      <span style="font-size:13px;font-weight:600;color:#1e293b;">{{ msg.author || 'Anonymous' }}</span>
+                      <span style="font-size:11px;color:#94a3b8;">{{ formatBugDate(msg.timestamp) }}</span>
+                    </div>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-size:13px;color:#334155;line-height:1.6;margin-left:34px;">{{ msg.message }}</div>
+                  </div>
+                </div>
+                <div v-else style="color:#94a3b8;font-size:13px;font-style:italic;">No comments yet.</div>
+              </div>
+
+              <!-- Attachments -->
+              <div v-if="selectedMtTicket.attachments?.length" style="background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  Attachments
+                  <span style="background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;">{{ selectedMtTicket.attachments.length }}</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                  <template v-for="(url, idx) in selectedMtTicket.attachments" :key="idx">
+                    <a v-if="/\.pdf$/i.test(url)" :href="apiBase + url" target="_blank"
+                      style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;color:#c2410c;font-size:12px;font-weight:600;text-decoration:none;">
+                      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      {{ url.split('/').pop() }}
+                    </a>
+                    <a v-else :href="apiBase + url" target="_blank"
+                      style="position:relative;width:90px;height:90px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;display:block;">
+                      <img :src="apiBase + url" :alt="`Attachment ${idx+1}`" style="width:100%;height:100%;object-fit:cover;" />
+                    </a>
+                  </template>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Right: sidebar -->
+            <div style="padding:20px;display:flex;flex-direction:column;gap:14px;background:#f8fafc;overflow-y:auto;">
+
+              <!-- Dev Status -->
+              <div style="background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Dev Status</div>
+                <span :class="['tt-dev-status-badge', 'tt-dev-status--' + (selectedMtTicket.dev_status || 'Not Started').toLowerCase().replace(/\s+/g,'-')]">{{ selectedMtTicket.dev_status || 'Not Started' }}</span>
+              </div>
+
+              <!-- Status -->
+              <div style="background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Status</div>
+                <span :class="['badge', mtStatusBadgeClass(selectedMtTicket.status)]">{{ selectedMtTicket.status }}</span>
+              </div>
+
+              <!-- Details -->
+              <div style="background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Details</div>
+                <div style="display:flex;flex-direction:column;gap:0;">
+                  <div v-if="selectedMtTicket._project" style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">
+                    <span style="color:#64748b;font-size:12px;">Project</span>
+                    <span style="color:#1e293b;font-weight:600;text-align:right;">{{ selectedMtTicket._project.name }}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">
+                    <span style="color:#64748b;font-size:12px;">Client</span>
+                    <span style="color:#1e293b;text-align:right;">{{ selectedMtTicket.client }}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">
+                    <span style="color:#64748b;font-size:12px;">Sent Through</span>
+                    <span style="color:#1e293b;text-align:right;">{{ selectedMtTicket.sent_thru || '—' }}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">
+                    <span style="color:#64748b;font-size:12px;">Date Received</span>
+                    <span style="color:#1e293b;text-align:right;">{{ formatBugDate(selectedMtTicket.date_received) || '—' }}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">
+                    <span style="color:#64748b;font-size:12px;">Target Date</span>
+                    <span :style="{ color: mtIsOverdue(selectedMtTicket) ? '#dc2626' : '#1e293b', fontWeight: mtIsOverdue(selectedMtTicket) ? '600' : '400', textAlign:'right' }">{{ formatBugDate(selectedMtTicket.target_date) || '—' }}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;">
+                    <span style="color:#64748b;font-size:12px;">Completion</span>
+                    <span style="color:#1e293b;text-align:right;">{{ formatBugDate(selectedMtTicket.completion_date) || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Assigned -->
+              <div style="background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Assigned</div>
+                <div v-if="selectedMtTicket.assigned_devs?.length" style="margin-bottom:10px;">
+                  <div style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Developers</div>
+                  <div v-for="email in selectedMtTicket.assigned_devs" :key="email" style="display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap;">
+                    <span style="width:26px;height:26px;border-radius:50%;background:#059669;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">{{ email[0].toUpperCase() }}</span>
+                    <span style="font-size:12px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ email }}</span>
+                    <a :href="maintenanceFolderUrl(email)" target="_blank"
+                      style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#059669;text-decoration:none;padding:3px 8px;border-radius:6px;background:#d1fae5;border:1px solid #a7f3d0;white-space:nowrap;flex-shrink:0;">
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      View Folder
+                    </a>
+                  </div>
+                </div>
+                <div v-if="selectedMtTicket.assigned_qa?.length">
+                  <div style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">QA</div>
+                  <div v-for="email in selectedMtTicket.assigned_qa" :key="email" style="display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap;">
+                    <span style="width:26px;height:26px;border-radius:50%;background:#7c3aed;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">{{ email[0].toUpperCase() }}</span>
+                    <span style="font-size:12px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ email }}</span>
+                    <a :href="maintenanceFolderUrl(email)" target="_blank"
+                      style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#059669;text-decoration:none;padding:3px 8px;border-radius:6px;background:#d1fae5;border:1px solid #a7f3d0;white-space:nowrap;flex-shrink:0;">
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      View Folder
+                    </a>
+                  </div>
+                </div>
+                <div v-if="!selectedMtTicket.assigned_devs?.length && !selectedMtTicket.assigned_qa?.length" style="color:#94a3b8;font-size:13px;font-style:italic;">Not assigned</div>
+              </div>
+
+              <!-- Activity Log -->
+              <div style="background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Activity Log</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;">
+                  <span style="color:#64748b;font-size:12px;">Comments</span>
+                  <span style="color:#1e293b;font-weight:600;">{{ selectedMtTicket.comments?.length ?? 0 }}</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
   </div>
 </template>
 
@@ -2433,8 +2837,8 @@ const openNotif = async (n) => {
   notifDropdownOpen.value = false
   if (n.data?.bug_id) {
     const bug = bugs.value.find(b => b.id === n.data.bug_id)
-    if (bug) { openBugView(bug); return }
-    // Bug might not be loaded yet — navigate to ticket page directly
+    if (bug) { viewBug(bug); return }
+    // Bug not in current view — open ticket page in new tab
     window.open(`/ticket/${n.data.bug_id}`, '_blank')
   }
 }
@@ -2476,6 +2880,13 @@ onMounted(async () => {
     if (stored) authToken.value = stored
   }
   if (authToken.value) await fetchCurrentUser()
+
+  // Auto-open views from URL params
+  const view = urlParams.get('view')
+  if (view === 'tickets') {
+    window.history.replaceState({}, '', '/')
+    openTicketTracker()
+  }
 
   // Start notification polling
   fetchNotifications()
@@ -3184,6 +3595,75 @@ const fetchAllTickets = async () => {
   } catch (e) { console.error('Failed to fetch all tickets', e) }
 }
 
+// ── Maintenance tickets in Ticket Tracker ────────────────────────────────────
+const allMaintenanceTickets = ref([])
+const selectedMtTicket      = ref(null)
+const mtSearch              = ref('')
+const mtStatusPill          = ref('all')
+
+const fetchAllMaintenanceTickets = async () => {
+  try {
+    const projects = await apiFetch(`${config.public.apiBase}/maintenance/projects`)
+    const all = []
+    await Promise.all((projects || []).map(async (proj) => {
+      try {
+        const tickets = await apiFetch(`${config.public.apiBase}/maintenance/projects/${proj.id}/tickets`)
+        ;(tickets || []).forEach(t => all.push({ ...t, _project: proj }))
+      } catch {}
+    }))
+    all.sort((a, b) => a._project.name.localeCompare(b._project.name) || a.sequence - b.sequence)
+    allMaintenanceTickets.value = all
+  } catch (e) { console.error('Failed to fetch maintenance tickets', e) }
+}
+
+const mtEmailInitials = (email) => {
+  const local = email.split('@')[0]
+  const parts = local.split(/[._-]/)
+  return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : local.slice(0, 2).toUpperCase()
+}
+
+const mtStatusBadgeClass = (s) => ({
+  Pending: 'badge-pending', 'In Progress': 'badge-ongoing', 'On Hold': 'badge-hold',
+  Completed: 'badge-completed', Cancelled: 'badge-out-of-scope',
+}[s] || '')
+
+const mtAgeDays = (t) => {
+  const start = t.date_received ? new Date(t.date_received) : new Date(t.created_at)
+  const end   = t.completion_date ? new Date(t.completion_date) : new Date()
+  return Math.max(0, Math.floor((end - start) / 86400000))
+}
+
+const mtIsOverdue = (t) => {
+  if (!t.target_date || t.completion_date) return false
+  const [y, m, d] = t.target_date.slice(0, 10).split('-').map(Number)
+  const target = new Date(y, m - 1, d, 23, 59, 59, 999)
+  return new Date() > target
+}
+
+const mtAgeBadgeClass = (t) => {
+  const days = mtAgeDays(t)
+  if (mtIsOverdue(t)) return 'age-badge--critical'
+  if (days > 14) return 'age-badge--high'
+  if (days > 7)  return 'age-badge--medium'
+  return 'age-badge--low'
+}
+
+const filteredMtTickets = computed(() => {
+  const q = mtSearch.value.trim().toLowerCase()
+  return allMaintenanceTickets.value.filter(t => {
+    if (mtStatusPill.value === 'pending'     && t.status !== 'Pending')     return false
+    if (mtStatusPill.value === 'in-progress' && t.status !== 'In Progress') return false
+    if (mtStatusPill.value === 'on-hold'     && t.status !== 'On Hold')     return false
+    if (mtStatusPill.value === 'completed'   && t.status !== 'Completed')   return false
+    if (mtStatusPill.value === 'overdue'     && !mtIsOverdue(t))            return false
+    if (q) {
+      const haystack = [t.ticket_number, t.client, t.request, t._project?.name].join(' ').toLowerCase()
+      if (!haystack.includes(q)) return false
+    }
+    return true
+  })
+})
+
 const ttDevFolders = ref([])
 
 async function fetchTtDevFolders() {
@@ -3206,12 +3686,15 @@ const openTicketTracker = async () => {
   devFoldersViewOpen.value = false
   detailView.value         = null
   ticketTab.value          = 'overview'
-  await Promise.all([fetchAllTickets(), fetchTtDevFolders()])
+  mtSearch.value           = ''
+  mtStatusPill.value       = 'all'
+  await Promise.all([fetchAllTickets(), fetchTtDevFolders(), fetchAllMaintenanceTickets()])
   appLoading.value = false
 }
 
 const sentTickets       = computed(() => allTickets.value.filter(t => t.ticket_sent_at))
 const resolvedTickets   = computed(() => allTickets.value.filter(t => t.status === 'Completed'))
+const pipelineTickets   = computed(() => allTickets.value.filter(t => t.status !== 'Completed'))
 const inProgressTickets = computed(() => allTickets.value.filter(t => t.ticket_sent_at && t.status !== 'Completed'))
 const pendingTickets    = computed(() => allTickets.value.filter(t => !t.has_assignment || !t.ticket_sent_at))
 const needsAssignment   = computed(() => allTickets.value.filter(t => !t.has_assignment))
@@ -3369,6 +3852,7 @@ const filteredAllTickets = computed(() => {
     else if (ttFilterPill.value === 'in-progress') { if (t.status !== 'Ongoing') return false }
     else if (ttFilterPill.value === 'resolved')    { if (t.status !== 'Completed') return false }
     else if (ttFilterPill.value === 'overdue')     { if (!isOverdue(t)) return false }
+    else if (ttFilterPill.value === 'sent')        { if (!t.ticket_sent_at) return false }
     if (ttFilters.project_id && t.project_id !== ttFilters.project_id) return false
     if (ttPriorityFilter.value && t.priority !== ttPriorityFilter.value) return false
     if (ttAssigneeFilter.value) {
@@ -3385,8 +3869,15 @@ const projectBreakdown = computed(() => {
   const counts = {}
   allTickets.value.forEach(t => {
     if (t.project) {
-      const key = t.project.id
-      if (!counts[key]) counts[key] = { name: t.project.name, color: t.project.color, count: 0 }
+      const key = 'bug-' + t.project.id
+      if (!counts[key]) counts[key] = { name: t.project.name, color: t.project.color || '#94a3b8', count: 0, type: 'bug' }
+      counts[key].count++
+    }
+  })
+  allMaintenanceTickets.value.forEach(t => {
+    if (t._project) {
+      const key = 'maint-' + t._project.id
+      if (!counts[key]) counts[key] = { name: t._project.name + ' [M]', color: t._project.color || '#10b981', count: 0, type: 'maint' }
       counts[key].count++
     }
   })
@@ -3399,10 +3890,27 @@ const devWorkload = computed(() => {
   const counts = {}
   allTickets.value.filter(t => t.assigned_developer && t.status !== 'Completed').forEach(t => {
     const dev = t.assigned_developer
-    const key = dev.email || dev.id || dev.name
+    const key = (dev.email || dev.id || dev.name).toString().toLowerCase()
     if (!counts[key]) counts[key] = { name: dev.name, email: dev.email ?? null, count: 0 }
     counts[key].count++
   })
+  // include maintenance devs (email arrays) — exclude Completed/Cancelled tickets
+  allMaintenanceTickets.value
+    .filter(t => !['Completed', 'Cancelled'].includes(t.status))
+    .forEach(t => {
+      ;(t.assigned_devs || []).forEach(email => {
+        const key = email.toLowerCase()
+        if (!counts[key]) {
+          const localPart = email.split('@')[0]
+          const parts     = localPart.split(/[._-]/)
+          const name      = parts.length >= 2
+            ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + ' ' + parts[1].charAt(0).toUpperCase() + parts[1].slice(1)
+            : localPart.charAt(0).toUpperCase() + localPart.slice(1)
+          counts[key] = { name, email, count: 0 }
+        }
+        counts[key].count++
+      })
+    })
   const rows = Object.values(counts).sort((a, b) => b.count - a.count)
   const max  = rows[0]?.count || 1
   return rows.map(r => {
@@ -3423,6 +3931,13 @@ const recentActivity = computed(() => {
   })
   return entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 15)
 })
+
+const clearActivityLog = async () => {
+  try {
+    await apiFetch(`${config.public.apiBase}/activity-log`, { method: 'DELETE' })
+    allTickets.value = allTickets.value.map(t => ({ ...t, activity_log: [] }))
+  } catch (e) { console.error('Failed to clear activity log', e) }
+}
 
 const ticketStage = (t) => {
   if (t.status === 'Completed') return 'Resolved'
@@ -3561,12 +4076,18 @@ onMounted(() => {
 // ── Dev Folders View ──────────────────────────────────────────────────────────
 const devFoldersViewOpen = ref(false)
 const devFolders         = ref([])
+const maintenanceDevs    = ref([])
 const devFoldersLoading  = ref(false)
 
 async function fetchDevFolders() {
   devFoldersLoading.value = true
   try {
-    devFolders.value = await $fetch(`${config.public.apiBase}/dev-folders`)
+    const [folders, mDevs] = await Promise.all([
+      $fetch(`${config.public.apiBase}/dev-folders`),
+      $fetch(`${config.public.apiBase}/maintenance-devs`).catch(() => []),
+    ])
+    devFolders.value      = folders
+    maintenanceDevs.value = mDevs
   } catch (e) {
     console.error('Failed to fetch dev folders', e)
   } finally {
@@ -3581,6 +4102,21 @@ async function openDevFoldersView() {
   selectedProject.value    = null
   await fetchDevFolders()
   appLoading.value = false
+}
+
+function maintenanceDevInitials(email) {
+  if (!email) return '?'
+  return email.split('@')[0].slice(0, 2).toUpperCase()
+}
+
+function maintenanceFolderUrl(email) {
+  return `/maintenance-dev-folder?email=${encodeURIComponent(email)}`
+}
+
+async function copyMaintenanceFolderLink(email) {
+  const url = `${window.location.origin}/maintenance-dev-folder?email=${encodeURIComponent(email)}`
+  await navigator.clipboard.writeText(url)
+  showToast('Folder link copied!')
 }
 
 function folderInitials(name) {

@@ -32,6 +32,7 @@ class MaintenanceTicketController extends Controller
             'assigned_qa'       => 'nullable|array',
             'assigned_qa.*'     => 'email',
             'status'            => 'nullable|string|in:Pending,In Progress,On Hold,Completed,Cancelled',
+            'dev_status'        => 'nullable|string|in:Not Started,In Progress,Ready for QA,Blocked',
             'notes'             => 'nullable|string',
             'attachments'       => 'nullable|array',
             'attachments.*'     => 'file|max:20480|mimes:jpeg,jpg,png,gif,webp,pdf',
@@ -90,12 +91,20 @@ class MaintenanceTicketController extends Controller
             'assigned_qa'               => 'nullable|array',
             'assigned_qa.*'             => 'email',
             'status'                    => 'nullable|string|in:Pending,In Progress,On Hold,Completed,Cancelled',
+            'dev_status'                => 'nullable|string|in:Not Started,In Progress,Ready for QA,Blocked',
             'notes'                     => 'nullable|string',
+            'comments_json'             => 'nullable|string',
             'existing_attachments'      => 'nullable|array',
             'existing_attachments.*'    => 'string',
             'new_attachments'           => 'nullable|array',
             'new_attachments.*'         => 'file|max:20480|mimes:jpeg,jpg,png,gif,webp,pdf',
         ]);
+
+        // Handle comments JSON
+        if (isset($data['comments_json'])) {
+            $data['comments'] = json_decode($data['comments_json'], true) ?? [];
+            unset($data['comments_json']);
+        }
 
         // Build final attachments list: kept existing + newly uploaded
         $kept = $data['existing_attachments'] ?? ($maintenanceTicket->attachments ?? []);
@@ -154,11 +163,117 @@ class MaintenanceTicketController extends Controller
         ]);
     }
 
+    // ── All unique devs across maintenance tickets ────────────────────────────
+
+    public function allDevs()
+    {
+        $tickets = MaintenanceTicket::with('project')
+            ->whereNotNull('assigned_devs')
+            ->orWhereNotNull('assigned_qa')
+            ->get(['assigned_devs', 'assigned_qa', 'maintenance_project_id', 'status']);
+
+        $map = []; // email => { email, roles, ticket_count, projects }
+
+        foreach ($tickets as $ticket) {
+            $projectName = optional($ticket->project)->name ?? 'Unknown';
+
+            foreach ($ticket->assigned_devs ?? [] as $email) {
+                if (!isset($map[$email])) {
+                    $map[$email] = ['email' => $email, 'roles' => [], 'ticket_count' => 0, 'projects' => []];
+                }
+                $map[$email]['ticket_count']++;
+                if (!in_array('dev', $map[$email]['roles'])) $map[$email]['roles'][] = 'dev';
+                if (!in_array($projectName, $map[$email]['projects'])) $map[$email]['projects'][] = $projectName;
+            }
+
+            foreach ($ticket->assigned_qa ?? [] as $email) {
+                if (!isset($map[$email])) {
+                    $map[$email] = ['email' => $email, 'roles' => [], 'ticket_count' => 0, 'projects' => []];
+                }
+                $map[$email]['ticket_count']++;
+                if (!in_array('qa', $map[$email]['roles'])) $map[$email]['roles'][] = 'qa';
+                if (!in_array($projectName, $map[$email]['projects'])) $map[$email]['projects'][] = $projectName;
+            }
+        }
+
+        return response()->json(array_values($map));
+    }
+
+    // ── Dev folder (all maintenance tickets assigned to an email) ─────────────
+
+    public function devFolder(Request $request)
+    {
+        $email = $request->query('email');
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['error' => 'A valid email is required.'], 422);
+        }
+
+        $tickets = MaintenanceTicket::with('project')
+            ->where(function ($q) use ($email) {
+                $q->whereJsonContains('assigned_devs', $email)
+                  ->orWhereJsonContains('assigned_qa', $email);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'email'   => $email,
+            'tickets' => $tickets,
+        ]);
+    }
+
+    // ── Public ticket view (accessible via email link) ────────────────────────
+
+    public function publicShow(MaintenanceTicket $maintenanceTicket)
+    {
+        $maintenanceTicket->load('project');
+        return response()->json($maintenanceTicket);
+    }
+
+    public function addComment(Request $request, MaintenanceTicket $maintenanceTicket)
+    {
+        $data = $request->validate([
+            'message' => 'required|string',
+            'author'  => 'nullable|string|max:100',
+        ]);
+
+        $comments   = $maintenanceTicket->comments ?? [];
+        $comments[] = [
+            'message'   => $data['message'],
+            'author'    => $data['author'] ?? 'Anonymous',
+            'timestamp' => now()->toIso8601String(),
+        ];
+
+        $maintenanceTicket->update(['comments' => $comments]);
+        return response()->json($maintenanceTicket->fresh()->load('project'));
+    }
+
+    public function updateTicketDevStatus(Request $request, MaintenanceTicket $maintenanceTicket)
+    {
+        $data = $request->validate([
+            'dev_status' => 'required|string|in:Not Started,In Progress,Ready for QA,Blocked',
+        ]);
+
+        $maintenanceTicket->update($data);
+        return response()->json($maintenanceTicket->fresh()->load('project'));
+    }
+
+    public function updateTicketStatus(Request $request, MaintenanceTicket $maintenanceTicket)
+    {
+        $data = $request->validate([
+            'status' => 'required|string|in:Pending,In Progress,On Hold,Completed,Cancelled',
+        ]);
+
+        $maintenanceTicket->update($data);
+        return response()->json($maintenanceTicket->fresh()->load('project'));
+    }
+
     private function sendNotifications(MaintenanceTicket $ticket, MaintenanceProject $project, array $emails): void
     {
-        foreach ($emails as $email) {
+        foreach (array_values($emails) as $index => $email) {
             try {
-                Mail::to($email)->queue(new MaintenanceNotificationMail($ticket, $project, $email));
+                $delay = $index * 2; // 2-second gap between each email to avoid rate limiting
+                Mail::to($email)->later(now()->addSeconds($delay), new MaintenanceNotificationMail($ticket, $project, $email));
             } catch (\Exception $e) {
                 \Log::warning("Failed to send maintenance notification to {$email}: " . $e->getMessage());
             }

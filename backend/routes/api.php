@@ -29,6 +29,7 @@ Route::middleware('api.auth:optional')->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::apiResource('bugs', BugController::class);
     Route::get('bugs-summary', [BugController::class, 'summary']);
+    Route::delete('activity-log', [BugController::class, 'clearActivityLog']);
 
     // Assign developer & send ticket
     Route::patch('bugs/{bug}/assign', [BugController::class, 'assign']);
@@ -56,6 +57,16 @@ Route::middleware('api.auth:optional')->group(function () {
     Route::delete('maintenance/projects/{maintenanceProject}/tickets/{maintenanceTicket}', [MaintenanceTicketController::class, 'destroy']);
     Route::post('maintenance/projects/{maintenanceProject}/tickets/{maintenanceTicket}/notify', [MaintenanceTicketController::class, 'notify']);
 });
+
+// ── Maintenance dev folder (public — tickets by developer email) ──────────
+Route::get('maintenance-dev-folder', [MaintenanceTicketController::class, 'devFolder']);
+Route::get('maintenance-devs', [MaintenanceTicketController::class, 'allDevs']);
+
+// ── Maintenance ticket detail (public — accessible via email link) ────────
+Route::get('maintenance-tickets/{maintenanceTicket}', [MaintenanceTicketController::class, 'publicShow']);
+Route::post('maintenance-tickets/{maintenanceTicket}/comments', [MaintenanceTicketController::class, 'addComment']);
+Route::patch('maintenance-tickets/{maintenanceTicket}/dev-status', [MaintenanceTicketController::class, 'updateTicketDevStatus']);
+Route::patch('maintenance-tickets/{maintenanceTicket}/status', [MaintenanceTicketController::class, 'updateTicketStatus']);
 
 // ── Ticket detail (public — accessible via email link) ────────────────────
 Route::get('bugs/{bug}/ticket', [BugController::class, 'ticket']);

@@ -56,7 +56,7 @@
       <!-- ── Sidebar ── -->
       <aside class="sidebar">
         <!-- ACTIVE section -->
-        <div class="sidebar-section-label">Active</div>
+        <div class="sidebar-section-label">Maintenance Projects</div>
         <nav class="sidebar-nav">
           <button class="sidebar-item" :class="{ active: !selectedProject && !dashboardOpen && !inactiveOpen }" @click="selectProject(null); dashboardOpen = false; inactiveOpen = false">
             <span class="sidebar-item-icon">🏠</span>
@@ -77,20 +77,6 @@
           </button>
         </nav>
 
-        <!-- INACTIVE section -->
-        <template v-if="inactiveProjects.length">
-          <div class="sidebar-section-label" style="margin-top:10px;">Inactive</div>
-          <nav class="sidebar-nav">
-            <button
-              class="sidebar-item" :class="{ active: inactiveOpen }"
-              @click="openInactiveView"
-            >
-              <span class="sidebar-item-icon" style="opacity:.55;">📁</span>
-              <span class="sidebar-item-name" style="opacity:.7;">Inactive Projects</span>
-              <span class="sidebar-item-count">{{ inactiveProjects.length }}</span>
-            </button>
-          </nav>
-        </template>
 
         <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
         <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
@@ -351,12 +337,21 @@
                   </div>
                 </div>
                 <div class="project-card-actions" @click.stop>
-                  <button class="btn btn-icon action-btn-edit" @click="openProjectModal(p)" title="Edit project">
-                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                  <button class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)" title="Delete project">
-                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                  </button>
+                  <div class="proj-menu-wrap">
+                    <button class="btn btn-icon proj-menu-btn" @click="openProjectMenuId = openProjectMenuId === p.id ? null : p.id" title="Project actions">
+                      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                    </button>
+                    <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
+                      <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                      </button>
+                      <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -371,29 +366,54 @@
 
         <!-- ══ All Projects View ══ -->
         <div v-else-if="!selectedProject">
-          <div class="view-header">
-            <div>
-              <h1 class="view-title">Maintenance Projects</h1>
-              <p class="view-subtitle">{{ filteredAllProjects.length }} project{{ filteredAllProjects.length !== 1 ? 's' : '' }}</p>
+
+          <!-- Page hero -->
+          <div class="allproj-hero">
+            <div class="allproj-hero-left">
+              <div class="allproj-hero-icon">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <div>
+                <h1 class="allproj-hero-title">Maintenance Projects</h1>
+                <p class="allproj-hero-sub">{{ activeProjects.length }} active · {{ inactiveProjects.length }} inactive</p>
+              </div>
             </div>
-            <button class="btn btn-primary" style="background:linear-gradient(135deg,#059669,#047857);" @click="openProjectModal(null)">
+            <div class="allproj-hero-stats">
+              <div class="allproj-hs">
+                <div class="allproj-hs-val">{{ projects.reduce((s, p) => s + (p.tickets_count ?? 0), 0) }}</div>
+                <div class="allproj-hs-label">Total tickets</div>
+              </div>
+              <div class="allproj-hs">
+                <div class="allproj-hs-val" style="color:#f59e0b;">{{ projects.reduce((s, p) => s + (p.pending_count ?? 0), 0) }}</div>
+                <div class="allproj-hs-label">Pending</div>
+              </div>
+              <div class="allproj-hs">
+                <div class="allproj-hs-val" style="color:#3b82f6;">{{ projects.reduce((s, p) => s + (p.in_progress_count ?? 0), 0) }}</div>
+                <div class="allproj-hs-label">In Progress</div>
+              </div>
+              <div class="allproj-hs">
+                <div class="allproj-hs-val" style="color:#10b981;">{{ projects.reduce((s, p) => s + (p.completed_count ?? 0), 0) }}</div>
+                <div class="allproj-hs-label">Completed</div>
+              </div>
+            </div>
+            <button class="btn-allproj-new" @click="openProjectModal(null)">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
               New Project
             </button>
           </div>
 
-          <!-- Search & filter bar -->
-          <div class="filters-bar" style="margin-bottom:20px;">
-            <div class="search-input-wrap">
+          <!-- Toolbar -->
+          <div class="allproj-toolbar">
+            <div class="search-input-wrap" style="flex:1;max-width:340px;">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input v-model="projectSearch" class="form-control" placeholder="Search projects..." />
             </div>
-            <select v-model="projectStatusFilter" class="form-control" style="max-width:160px;">
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <button v-if="projectSearch || projectStatusFilter" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectStatusFilter = ''">
+            <div class="allproj-filter-pills">
+              <button class="allproj-pill" :class="{ active: projectStatusFilter === '' }" @click="projectStatusFilter = ''">All</button>
+              <button class="allproj-pill" :class="{ active: projectStatusFilter === 'active' }" @click="projectStatusFilter = 'active'">Active</button>
+              <button class="allproj-pill" :class="{ active: projectStatusFilter === 'inactive' }" @click="projectStatusFilter = 'inactive'">Inactive</button>
+            </div>
+            <button v-if="projectSearch" class="btn btn-ghost btn-sm" @click="projectSearch = ''">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
               Clear
             </button>
@@ -401,72 +421,147 @@
 
           <div v-if="projects.length > 0">
             <!-- Active projects -->
-            <div v-if="filteredActiveProjects.length && projectStatusFilter !== 'inactive'">
-              <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Active</div>
-              <div class="projects-grid" style="margin-bottom:24px;">
-                <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card" @click="selectProject(p)">
-                  <div class="project-card-stripe" :style="{ background: p.color }"></div>
-                  <div class="project-card-body">
-                    <div class="project-card-icon" :style="{ background: p.color + '22', color: p.color }">🔧</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                      <h3 class="project-card-name" style="margin:0;">{{ p.name }}</h3>
-                      <span :style="{ fontSize:'10px', fontWeight:'600', padding:'2px 8px', borderRadius:'10px', letterSpacing:'.4px', background:'#d1fae5', color:'#059669' }">ACTIVE</span>
+            <div v-if="filteredActiveProjects.length && projectStatusFilter !== 'inactive'" style="margin-bottom:28px;">
+              <div class="allproj-section-label">
+                <span class="allproj-section-dot" style="background:#10b981;"></span>
+                Active
+                <span class="allproj-section-count">{{ filteredActiveProjects.length }}</span>
+              </div>
+              <div class="projects-grid">
+                <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card2" :style="{ '--pc-color': p.color || '#10b981' }" @click="selectProject(p)">
+                  <div class="pc2-accent"></div>
+                  <div class="pc2-body">
+                    <div class="pc2-top-row">
+                      <div class="pc2-icon" :style="{ background: (p.color||'#10b981')+'18', color: p.color||'#10b981' }">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                      </div>
+                      <div class="pc2-name-block">
+                        <h3 class="pc2-name">{{ p.name }}</h3>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                          <div class="pc2-date">
+                            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <span v-if="p.contract_start || p.contract_end">{{ p.contract_start ? p.contract_start.slice(0,10) : '?' }} → {{ p.contract_end ? p.contract_end.slice(0,10) : '?' }}</span>
+                            <span v-else style="font-style:italic;">No contract set</span>
+                          </div>
+                          <div class="pc2-actions" @click.stop>
+                            <div class="proj-menu-wrap">
+                              <button class="btn btn-icon proj-menu-btn" @click="openProjectMenuId = openProjectMenuId === p.id ? null : p.id" title="Project actions">
+                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                              </button>
+                              <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
+                                <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  Edit
+                                </button>
+                                <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="pc2-badge pc2-badge-active">ACTIVE</span>
                     </div>
-                    <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
-                    <div style="display:flex;align-items:center;gap:6px;margin:4px 0 0;font-size:11px;color:var(--gray-400);">
-                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      <span v-if="p.contract_start || p.contract_end">{{ p.contract_start ? p.contract_start.slice(0, 10) : '?' }} → {{ p.contract_end ? p.contract_end.slice(0, 10) : '?' }}</span>
-                      <span v-else style="font-style:italic;">No contract set</span>
+                    <p v-if="p.description" class="pc2-desc">{{ p.description }}</p>
+                    <div class="pc2-stats-row">
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val">{{ p.tickets_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">Total</div>
+                      </div>
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val" style="color:#f59e0b;">{{ p.pending_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">Pending</div>
+                      </div>
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val" style="color:#3b82f6;">{{ p.in_progress_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">In Progress</div>
+                      </div>
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val" style="color:#10b981;">{{ p.completed_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">Done</div>
+                      </div>
                     </div>
-                    <div class="project-card-stats">
-                      <span class="pstat pstat-total">{{ p.tickets_count ?? 0 }} tickets</span>
-                      <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
-                      <span v-if="p.in_progress_count" class="pstat pstat-ongoing">{{ p.in_progress_count }} in progress</span>
-                      <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
+                    <div class="pc2-progress-row">
+                      <div class="pc2-progress-track">
+                        <div class="pc2-progress-bar" :style="{ width: (p.tickets_count > 0 ? Math.round((p.completed_count??0)/p.tickets_count*100) : 0) + '%', background: p.color||'#10b981' }"></div>
+                      </div>
+                      <span class="pc2-progress-label">{{ p.tickets_count > 0 ? Math.round((p.completed_count??0)/p.tickets_count*100) : 0 }}% done</span>
                     </div>
-                  </div>
-                  <div class="project-card-actions" @click.stop>
-                    <button class="btn btn-icon action-btn-edit" @click="openProjectModal(p)" title="Edit project">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)" title="Delete project">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
             <!-- Inactive projects -->
             <div v-if="filteredInactiveProjects.length && projectStatusFilter !== 'active'">
-              <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Inactive</div>
+              <div class="allproj-section-label">
+                <span class="allproj-section-dot" style="background:#9ca3af;"></span>
+                Inactive
+                <span class="allproj-section-count">{{ filteredInactiveProjects.length }}</span>
+              </div>
               <div class="projects-grid">
-                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card" style="opacity:.75;" @click="selectProject(p)">
-                  <div class="project-card-stripe" :style="{ background: '#d1d5db' }"></div>
-                  <div class="project-card-body">
-                    <div class="project-card-icon" style="background:#f3f4f6;color:#9ca3af;">🔧</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                      <h3 class="project-card-name" style="margin:0;color:var(--gray-500);">{{ p.name }}</h3>
-                      <span :style="{ fontSize:'10px', fontWeight:'600', padding:'2px 8px', borderRadius:'10px', letterSpacing:'.4px', background:'#fee2e2', color:'#dc2626' }">INACTIVE</span>
+                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card2 pc2-inactive" :style="{ '--pc-color': '#9ca3af' }" @click="selectProject(p)">
+                  <div class="pc2-accent"></div>
+                  <div class="pc2-body">
+                    <div class="pc2-top-row">
+                      <div class="pc2-icon" style="background:#f3f4f6;color:#9ca3af;">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                      </div>
+                      <div class="pc2-name-block">
+                        <h3 class="pc2-name" style="color:var(--gray-500);">{{ p.name }}</h3>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                          <div class="pc2-date">
+                            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <span v-if="p.contract_start || p.contract_end">{{ p.contract_start ? p.contract_start.slice(0,10) : '?' }} → {{ p.contract_end ? p.contract_end.slice(0,10) : '?' }}</span>
+                            <span v-else style="font-style:italic;">No contract set</span>
+                          </div>
+                          <div class="pc2-actions" @click.stop>
+                            <div class="proj-menu-wrap">
+                              <button class="btn btn-icon proj-menu-btn" @click="openProjectMenuId = openProjectMenuId === p.id ? null : p.id" title="Project actions">
+                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                              </button>
+                              <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
+                                <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  Edit
+                                </button>
+                                <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="pc2-badge pc2-badge-inactive">INACTIVE</span>
                     </div>
-                    <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
-                    <div style="display:flex;align-items:center;gap:6px;margin:4px 0 0;font-size:11px;color:var(--gray-400);">
-                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      <span v-if="p.contract_start || p.contract_end">{{ p.contract_start ? p.contract_start.slice(0, 10) : '?' }} → {{ p.contract_end ? p.contract_end.slice(0, 10) : '?' }}</span>
-                      <span v-else style="font-style:italic;">No contract set</span>
+                    <p v-if="p.description" class="pc2-desc">{{ p.description }}</p>
+                    <div class="pc2-stats-row">
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val">{{ p.tickets_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">Total</div>
+                      </div>
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val" style="color:#f59e0b;">{{ p.pending_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">Pending</div>
+                      </div>
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val" style="color:#3b82f6;">{{ p.in_progress_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">In Progress</div>
+                      </div>
+                      <div class="pc2-stat">
+                        <div class="pc2-stat-val" style="color:#10b981;">{{ p.completed_count ?? 0 }}</div>
+                        <div class="pc2-stat-label">Done</div>
+                      </div>
                     </div>
-                    <div class="project-card-stats">
-                      <span class="pstat pstat-total">{{ p.tickets_count ?? 0 }} tickets</span>
-                      <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
-                      <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
+                    <div class="pc2-progress-row">
+                      <div class="pc2-progress-track">
+                        <div class="pc2-progress-bar" :style="{ width: (p.tickets_count > 0 ? Math.round((p.completed_count??0)/p.tickets_count*100) : 0) + '%', background: '#9ca3af' }"></div>
+                      </div>
+                      <span class="pc2-progress-label">{{ p.tickets_count > 0 ? Math.round((p.completed_count??0)/p.tickets_count*100) : 0 }}% done</span>
                     </div>
-                  </div>
-                  <div class="project-card-actions" @click.stop>
-                    <button class="btn btn-icon action-btn-edit" @click="openProjectModal(p)" title="Edit project">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)" title="Delete project">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -489,34 +584,125 @@
 
         <!-- ══ Project Detail / Ticket Table ══ -->
         <div v-else-if="selectedProject">
-          <div class="view-header">
-            <div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span class="sidebar-color-dot" :style="{ background: selectedProject.color, width:'12px', height:'12px' }"></span>
-                <h1 class="view-title">{{ selectedProject.name }}</h1>
-                <span :style="{ fontSize:'11px', fontWeight:'600', padding:'2px 10px', borderRadius:'10px', letterSpacing:'.4px', background: selectedProject.is_active !== false ? '#d1fae5' : '#fee2e2', color: selectedProject.is_active !== false ? '#059669' : '#dc2626' }">
-                  {{ selectedProject.is_active !== false ? 'Active' : 'Inactive' }}
-                </span>
+
+          <!-- Project Banner -->
+          <div class="proj-banner" :style="{ '--proj-color': selectedProject.color || '#10b981' }">
+            <div class="proj-banner-accent"></div>
+            <div class="proj-banner-body">
+              <div class="proj-banner-left">
+                <div class="proj-banner-icon" :style="{ background: (selectedProject.color || '#10b981') + '22', color: selectedProject.color || '#10b981' }">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </div>
+                <div>
+                  <div class="proj-banner-title-row">
+                    <h1 class="proj-banner-name">{{ selectedProject.name }}</h1>
+                    <span class="proj-banner-status-badge" :class="selectedProject.is_active !== false ? 'badge-active' : 'badge-inactive'">
+                      {{ selectedProject.is_active !== false ? 'Active' : 'Inactive' }}
+                    </span>
+                  </div>
+                  <div class="proj-banner-meta">
+                    <span class="proj-banner-meta-item">
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                      {{ tickets.length }} ticket{{ tickets.length !== 1 ? 's' : '' }}
+                    </span>
+                    <span v-if="overdueCount" class="proj-banner-meta-item proj-banner-meta-overdue">
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      {{ overdueCount }} overdue
+                    </span>
+                    <span v-if="selectedProject.contract_start || selectedProject.contract_end" class="proj-banner-meta-item">
+                      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      {{ selectedProject.contract_start ? selectedProject.contract_start.slice(0,10) : '?' }} → {{ selectedProject.contract_end ? selectedProject.contract_end.slice(0,10) : '?' }}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p class="view-subtitle">
-                {{ tickets.length }} ticket{{ tickets.length !== 1 ? 's' : '' }}
-                <span v-if="overdueCount" style="color:#ef4444;margin-left:8px;">· {{ overdueCount }} overdue</span>
-                <span v-if="selectedProject.contract_start || selectedProject.contract_end" style="margin-left:10px;color:var(--gray-400);">
-                  · Contract: {{ selectedProject.contract_start ? selectedProject.contract_start.slice(0, 10) : '?' }} → {{ selectedProject.contract_end ? selectedProject.contract_end.slice(0, 10) : '?' }}
-                </span>
-              </p>
+              <div class="proj-banner-right">
+                <span v-if="selectedProject.is_active === false" class="proj-banner-inactive-notice">Project Inactive — tickets cannot be added</span>
+                <button v-else class="btn-new-ticket" @click="openNewTicketModal">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                  New Ticket
+                </button>
+              </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <span v-if="selectedProject.is_active === false" style="font-size:12px;color:#dc2626;background:#fee2e2;padding:6px 12px;border-radius:8px;font-weight:600;">Project Inactive — tickets cannot be added</span>
-              <button v-else class="btn btn-primary" style="background:linear-gradient(135deg,#059669,#047857);" @click="openNewTicketModal">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-                New Ticket
-              </button>
+          </div>
+
+          <!-- Stat cards -->
+          <div class="proj-stat-grid">
+            <!-- Total -->
+            <div class="proj-stat-card proj-stat-total">
+              <div class="proj-stat-card-top">
+                <span class="proj-stat-label">Total</span>
+                <div class="proj-stat-icon proj-stat-icon-total">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                </div>
+              </div>
+              <div class="proj-stat-value">{{ tickets.length }}</div>
+              <div class="proj-stat-pct-row">
+                <div class="proj-stat-pct-bar-track">
+                  <div class="proj-stat-pct-bar" :style="{ width: completionPct + '%' }"></div>
+                </div>
+                <span class="proj-stat-pct-label">{{ completionPct }}% done</span>
+              </div>
+            </div>
+            <!-- Pending -->
+            <div class="proj-stat-card proj-stat-pending">
+              <div class="proj-stat-card-top">
+                <span class="proj-stat-label">Pending</span>
+                <div class="proj-stat-icon proj-stat-icon-pending">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+              </div>
+              <div class="proj-stat-value">{{ tickets.filter(t => t.status === 'Pending').length }}</div>
+              <div class="proj-stat-sub">awaiting start</div>
+            </div>
+            <!-- In Progress -->
+            <div class="proj-stat-card proj-stat-ongoing">
+              <div class="proj-stat-card-top">
+                <span class="proj-stat-label">In Progress</span>
+                <div class="proj-stat-icon proj-stat-icon-ongoing">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </div>
+              </div>
+              <div class="proj-stat-value">{{ tickets.filter(t => t.status === 'In Progress').length }}</div>
+              <div class="proj-stat-sub">active work</div>
+            </div>
+            <!-- On Hold -->
+            <div class="proj-stat-card proj-stat-hold">
+              <div class="proj-stat-card-top">
+                <span class="proj-stat-label">On Hold</span>
+                <div class="proj-stat-icon proj-stat-icon-hold">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </div>
+              </div>
+              <div class="proj-stat-value">{{ tickets.filter(t => t.status === 'On Hold').length }}</div>
+              <div class="proj-stat-sub">paused</div>
+            </div>
+            <!-- Completed -->
+            <div class="proj-stat-card proj-stat-done">
+              <div class="proj-stat-card-top">
+                <span class="proj-stat-label">Completed</span>
+                <div class="proj-stat-icon proj-stat-icon-done">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+              </div>
+              <div class="proj-stat-value">{{ tickets.filter(t => t.status === 'Completed').length }}</div>
+              <div class="proj-stat-sub">finished</div>
+            </div>
+            <!-- Overdue -->
+            <div class="proj-stat-card proj-stat-overdue">
+              <div class="proj-stat-card-top">
+                <span class="proj-stat-label">Overdue</span>
+                <div class="proj-stat-icon proj-stat-icon-overdue">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+              </div>
+              <div class="proj-stat-value">{{ overdueCount }}</div>
+              <div class="proj-stat-sub">needs attention</div>
             </div>
           </div>
 
           <!-- Filters -->
-          <div class="filters-bar" style="margin-bottom:16px;">
+          <div class="proj-filters-bar">
             <div class="search-input-wrap">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input v-model="ticketSearch" class="form-control" placeholder="Search tickets..." />
@@ -537,34 +723,39 @@
 
           <!-- Ticket Table -->
           <div class="table-wrap">
-            <table class="bug-table maint-table">
+            <table class="maint-pipeline-table">
               <thead>
                 <tr>
-                  <th style="width:80px;">Ticket #</th>
+                  <th style="width:90px;">Ticket #</th>
                   <th style="width:120px;">Client</th>
                   <th>Request</th>
                   <th style="width:90px;">Sent Thru</th>
-                  <th style="width:100px;">Received</th>
                   <th style="width:100px;">Target</th>
-                  <th style="width:100px;">Completion</th>
-                  <th style="width:90px;">Age</th>
-                  <th style="width:140px;">Dev(s)</th>
-                  <th style="width:140px;">QA</th>
+                  <th style="width:70px;">Age</th>
+                  <th style="width:130px;">Dev(s)</th>
+                  <th style="width:130px;">QA</th>
+                  <th style="width:120px;">Dev Status</th>
                   <th style="width:110px;">Status</th>
-                  <th style="width:140px;">Notes</th>
+                  <th style="width:150px;">Comment</th>
                   <th style="width:130px;">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="filteredTickets.length === 0">
-                  <td colspan="13" style="text-align:center;padding:40px;color:var(--gray-400);">
+                  <td colspan="12" style="text-align:center;padding:40px;color:var(--gray-400);">
                     {{ tickets.length ? 'No tickets match your filters.' : 'No tickets yet. Create one to get started.' }}
                   </td>
                 </tr>
-                <tr v-for="t in filteredTickets" :key="t.id" :class="{ 'maint-row-overdue': isOverdue(t) }" style="cursor:pointer;" @click="openTicketModal(t, 'view')">
+                <tr v-for="t in filteredTickets" :key="t.id"
+                    class="clickable-row"
+                    :class="{ 'tt-overdue-row': isOverdue(t), 'maint-row-completed': t.status === 'Completed' }"
+                    @click="navigateTo('/maintenance-ticket/' + t.id)">
                   <!-- Ticket # -->
                   <td>
-                    <span class="bug-seq" style="font-size:11px;background:#ecfdf5;color:#059669;">{{ t.ticket_number }}</span>
+                    <div style="display:flex;align-items:center;gap:5px;">
+                      <span v-if="isOverdue(t)" class="tt-overdue-dot" title="Overdue"></span>
+                      <span class="bug-seq" style="font-size:11px;background:#ecfdf5;color:#059669;">{{ t.ticket_number }}</span>
+                    </div>
                   </td>
                   <!-- Client -->
                   <td>
@@ -576,11 +767,7 @@
                   </td>
                   <!-- Sent Thru -->
                   <td>
-                    <span :class="['badge', sentThruBadgeClass(t.sent_thru)]">{{ t.sent_thru }}</span>
-                  </td>
-                  <!-- Received -->
-                  <td>
-                    <span style="font-size:12px;color:var(--gray-600);">{{ formatDate(t.date_received) }}</span>
+                    <span style="display:inline-flex;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">{{ t.sent_thru }}</span>
                   </td>
                   <!-- Target -->
                   <td>
@@ -588,33 +775,42 @@
                       {{ formatDate(t.target_date) || '—' }}
                     </span>
                   </td>
-                  <!-- Completion -->
-                  <td>
-                    <span style="font-size:12px;color:var(--gray-600);">{{ formatDate(t.completion_date) || '—' }}</span>
-                  </td>
                   <!-- Age -->
                   <td>
-                    <div class="maint-age-wrap">
-                      <span class="maint-age-badge" :style="ageStyle(t)">{{ ticketAgeDays(t) }}d</span>
-                      <div v-if="t.target_date && !t.completion_date" class="maint-age-bar-bg">
-                        <div class="maint-age-bar-fill" :style="ageBarStyle(t)"></div>
-                      </div>
-                      <span v-if="isOverdue(t)" class="maint-overdue-flag">Overdue</span>
-                    </div>
+                    <span :class="['age-badge', ageBadgeClass(t)]">{{ ticketAgeDays(t) }}d</span>
                   </td>
                   <!-- Dev(s) -->
                   <td>
-                    <div class="maint-email-tags">
-                      <span v-for="email in (t.assigned_devs || [])" :key="email" class="maint-email-tag dev-tag" :title="email">{{ emailInitials(email) }}</span>
+                    <div style="display:flex;gap:3px;flex-wrap:wrap;">
+                      <div v-for="email in (t.assigned_devs || [])" :key="email" :title="email"
+                        style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#dbeafe;color:#1d4ed8;font-size:10px;font-weight:700;flex-shrink:0;">
+                        {{ emailInitials(email) }}
+                      </div>
                       <span v-if="!t.assigned_devs?.length" style="font-size:11px;color:var(--gray-400);">—</span>
                     </div>
                   </td>
                   <!-- QA -->
                   <td>
-                    <div class="maint-email-tags">
-                      <span v-for="email in (t.assigned_qa || [])" :key="email" class="maint-email-tag qa-tag" :title="email">{{ emailInitials(email) }}</span>
+                    <div style="display:flex;gap:3px;flex-wrap:wrap;">
+                      <div v-for="email in (t.assigned_qa || [])" :key="email" :title="email"
+                        style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#f3e8ff;color:#7c3aed;font-size:10px;font-weight:700;flex-shrink:0;">
+                        {{ emailInitials(email) }}
+                      </div>
                       <span v-if="!t.assigned_qa?.length" style="font-size:11px;color:var(--gray-400);">—</span>
                     </div>
+                  </td>
+                  <!-- Dev Status -->
+                  <td @click.stop>
+                    <select
+                      :value="t.dev_status || 'Not Started'"
+                      :class="['tt-dev-status-badge', 'inline-status-select', 'tt-dev-status--' + (t.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]"
+                      @change="updateTicketDevStatus(t, $event.target.value)"
+                    >
+                      <option value="Not Started">Not Started</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Ready for QA">Ready for QA</option>
+                      <option value="Blocked">Blocked</option>
+                    </select>
                   </td>
                   <!-- Status -->
                   <td @click.stop>
@@ -630,16 +826,20 @@
                       <option value="Cancelled">Cancelled</option>
                     </select>
                   </td>
-                  <!-- Notes -->
-                  <td>
-                    <span v-if="t.notes" class="maint-truncate" :title="t.notes" style="font-size:12px;color:var(--gray-500);">{{ t.notes }}</span>
-                    <span v-else style="font-size:12px;color:var(--gray-300);">—</span>
+                  <!-- Comment -->
+                  <td class="dev-comment-cell" @click.stop="navigateTo('/maintenance-ticket/' + t.id)">
+                    <div class="dev-thread-trigger">
+                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <span v-if="t.comments && t.comments.length" class="dev-thread-count">{{ t.comments.length }}</span>
+                      <span v-if="t.comments && t.comments.length" class="dev-thread-preview">{{ t.comments[t.comments.length - 1].message }}</span>
+                      <span v-else class="dev-comment-empty">Add comment…</span>
+                    </div>
                   </td>
                   <!-- Actions -->
                   <td @click.stop>
                     <div class="maint-actions">
                       <!-- View -->
-                      <button class="btn btn-icon action-btn-view" title="View ticket" @click="openTicketModal(t, 'view')">
+                      <button class="btn btn-icon action-btn-view" title="View ticket" @click.stop="navigateTo('/maintenance-ticket/' + t.id)">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
                       <!-- Edit -->
@@ -833,7 +1033,32 @@
                 <div class="maint-view-field">
                   <div class="maint-view-label">Status</div>
                   <div class="maint-view-value">
-                    <span :class="['badge', maintStatusBadgeClass(activeTicket.status)]">{{ activeTicket.status }}</span>
+                    <select
+                      :value="activeTicket.status"
+                      :class="['badge', 'inline-status-select', maintStatusBadgeClass(activeTicket.status)]"
+                      @change="updateTicketStatus(activeTicket, $event.target.value)"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="On Hold">On Hold</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="maint-view-field">
+                  <div class="maint-view-label">Dev Status</div>
+                  <div class="maint-view-value">
+                    <select
+                      :value="activeTicket.dev_status || 'Not Started'"
+                      :class="['tt-dev-status-badge', 'inline-status-select', 'tt-dev-status--' + (activeTicket.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]"
+                      @change="updateTicketDevStatus(activeTicket, $event.target.value)"
+                    >
+                      <option value="Not Started">Not Started</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Ready for QA">Ready for QA</option>
+                      <option value="Blocked">Blocked</option>
+                    </select>
                   </div>
                 </div>
                 <div class="maint-view-field">
@@ -898,6 +1123,53 @@
               <div class="maint-view-label">Notes</div>
               <div class="maint-view-value" style="white-space:pre-wrap;line-height:1.7;color:var(--gray-600);">{{ activeTicket.notes }}</div>
             </div>
+            <!-- Comments in view modal -->
+            <div class="maint-view-field" style="margin-top:8px;">
+              <div class="maint-view-label" style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:6px;">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Comments
+                </span>
+                <span v-if="activeTicket.comments?.length" class="bug-view-count-pill">{{ activeTicket.comments.length }}</span>
+              </div>
+              <div v-if="activeTicket.comments && activeTicket.comments.length" class="thread-msg-list" style="margin-top:8px;gap:8px;">
+                <div v-for="(msg, i) in activeTicket.comments" :key="i" class="thread-msg-item">
+                  <div class="thread-msg-author-row">
+                    <span class="thread-msg-avatar">{{ (msg.author || '?')[0].toUpperCase() }}</span>
+                    <span class="thread-msg-author-name">{{ msg.author || 'Anonymous' }}</span>
+                    <span class="thread-msg-time-inline">{{ formatThreadTime(msg.timestamp) }}</span>
+                  </div>
+                  <div class="thread-msg-bubble">{{ msg.message }}</div>
+                </div>
+              </div>
+              <div v-else class="bug-view-empty" style="margin-top:6px;">No comments yet.</div>
+              <!-- Inline compose -->
+              <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+                <textarea
+                  v-model="mtNewMessage"
+                  class="form-control"
+                  placeholder="Write a comment… (Ctrl+Enter to post)"
+                  rows="2"
+                  style="font-size:13px;resize:vertical;"
+                  @keydown.ctrl.enter.prevent="addMtComment"
+                ></textarea>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                  <div style="display:flex;align-items:center;gap:6px;border:1px solid #e2e8f0;border-radius:7px;padding:5px 10px;flex:1;min-width:120px;max-width:200px;">
+                    <svg width="12" height="12" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <input v-model="mtNewAuthor" class="email-tag-inner-input" placeholder="Your name" style="font-size:12px;" />
+                  </div>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    style="background:linear-gradient(135deg,#059669,#047857);display:flex;align-items:center;gap:5px;"
+                    :disabled="!mtNewMessage.trim() || !mtNewAuthor.trim() || mtThreadSending"
+                    @click="addMtComment"
+                  >
+                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    {{ mtThreadSending ? 'Posting…' : 'Post comment' }}
+                  </button>
+                </div>
+              </div>
+            </div>
             <div v-if="activeTicket.attachments?.length" class="maint-view-field" style="margin-top:8px;">
               <div class="maint-view-label">Attachments</div>
               <div class="attach-preview-grid" style="margin-top:6px;">
@@ -946,6 +1218,15 @@
                   <option>On Hold</option>
                   <option>Completed</option>
                   <option>Cancelled</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Dev Status</label>
+                <select v-model="editTicketForm.dev_status" :class="['form-control', 'tt-dev-status-badge', 'tt-dev-status--' + (editTicketForm.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]">
+                  <option value="Not Started">Not Started</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Ready for QA">Ready for QA</option>
+                  <option value="Blocked">Blocked</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1136,6 +1417,103 @@
       </div>
     </Transition>
 
+    <!-- ══ Comment Thread Modal ══ -->
+    <Transition name="fade">
+      <div v-if="showMtThreadModal" class="modal-overlay" @click.self="showMtThreadModal = false">
+        <div class="modal thread-modal">
+          <div class="modal-header">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <h3 class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Comments — {{ mtThreadTicket?.ticket_number }}</h3>
+            </div>
+            <button class="btn btn-ghost btn-icon" @click="showMtThreadModal = false">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="modal-body thread-modal-body">
+            <div class="thread-msg-list" ref="mtThreadListEl" @click="mtOpenMenuIdx = null">
+              <div v-if="mtThreadTicket?.comments && mtThreadTicket.comments.length">
+                <div v-for="(msg, i) in mtThreadTicket.comments" :key="i" class="thread-msg-item">
+                  <!-- Edit mode -->
+                  <div v-if="mtEditingMsgIndex === i" class="thread-msg-editing">
+                    <textarea
+                      v-model="mtEditingMsgValue"
+                      class="thread-textarea"
+                      rows="3"
+                      @keydown.ctrl.enter.prevent="saveMtEditMsg(i)"
+                      @keydown.esc="cancelMtEditMsg"
+                    ></textarea>
+                    <div class="thread-edit-actions">
+                      <span style="font-size:11px;color:var(--gray-400);">Ctrl+Enter to save</span>
+                      <div style="display:flex;gap:6px;">
+                        <button class="btn btn-ghost btn-sm" @click="cancelMtEditMsg">Cancel</button>
+                        <button class="btn btn-primary btn-sm" :disabled="!mtEditingMsgValue.trim()" @click="saveMtEditMsg(i)">Save</button>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- View mode -->
+                  <template v-else>
+                    <div class="thread-msg-author-row">
+                      <span class="thread-msg-avatar">{{ (msg.author || '?')[0].toUpperCase() }}</span>
+                      <span class="thread-msg-author-name">{{ msg.author || 'Anonymous' }}</span>
+                      <span class="thread-msg-time-inline">{{ formatThreadTime(msg.timestamp) }}{{ msg.edited ? ' · edited' : '' }}</span>
+                      <div class="thread-msg-menu-wrap" style="margin-left:auto;">
+                        <button class="thread-ellipsis-btn" @click.stop="mtOpenMenuIdx = (mtOpenMenuIdx === i ? null : i)">⋯</button>
+                        <div v-if="mtOpenMenuIdx === i" class="thread-dropdown" @click.stop>
+                          <button class="thread-dropdown-item" @click="startMtEditMsg(i, msg.message); mtOpenMenuIdx = null">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                          </button>
+                          <button class="thread-dropdown-item thread-dropdown-delete" @click="mtDeletingMsgIdx = i; mtOpenMenuIdx = null">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="thread-msg-bubble">{{ msg.message }}</div>
+                    <div v-if="mtDeletingMsgIdx === i" class="thread-delete-confirm">
+                      <span>Delete this comment?</span>
+                      <div style="display:flex;gap:6px;">
+                        <button class="btn btn-ghost btn-sm" @click="mtDeletingMsgIdx = null">Cancel</button>
+                        <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" @click="deleteMtMsg(i); mtDeletingMsgIdx = null">Delete</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <div v-else class="thread-empty">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--gray-300);margin-bottom:8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <div>No comments yet. Be the first to add one.</div>
+              </div>
+            </div>
+          </div>
+          <div class="thread-input-area">
+            <input
+              v-model="mtNewAuthor"
+              class="thread-author-input"
+              placeholder="Your name…"
+              maxlength="80"
+            />
+            <textarea
+              v-model="mtNewMessage"
+              class="thread-textarea"
+              placeholder="Write a comment… (Ctrl+Enter to send)"
+              rows="3"
+              @keydown.ctrl.enter.prevent="addMtComment"
+            ></textarea>
+            <div class="thread-input-footer">
+              <span style="font-size:11px;color:var(--gray-400);">Ctrl + Enter to send</span>
+              <button class="btn btn-primary" :disabled="!mtNewMessage.trim() || !mtNewAuthor.trim() || mtThreadSending" @click="addMtComment">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                {{ mtThreadSending ? 'Sending…' : 'Send' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- ══ Toast ══ -->
     <Transition name="toast-slide">
       <div v-if="toast.show" :class="['toast-notification', `toast-${toast.type}`]">
@@ -1149,16 +1527,18 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, computed, reactive, nextTick, onMounted, onUnmounted } from 'vue'
 
 const config  = useRuntimeConfig()
 const apiBase = config.public.apiBase.replace('/api', '')
+const route   = useRoute()
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 const authToken           = ref(null)
 const currentUser         = ref(null)
 const profileDropdownOpen = ref(false)
 const profileDropdownRef  = ref(null)
+const openProjectMenuId   = ref(null)
 
 const apiFetch = (url, options = {}) => {
   if (authToken.value) {
@@ -1213,6 +1593,20 @@ const notifyingId     = ref(null)
 const submitting      = ref(false)
 
 const toast = reactive({ show: false, message: '', type: 'success' })
+
+// ── Comment thread state ──────────────────────────────────────────────────────
+const showMtThreadModal  = ref(false)
+const mtThreadTicketId   = ref(null)
+const mtNewMessage       = ref('')
+const mtNewAuthor        = ref('')
+const mtThreadSending    = ref(false)
+const mtThreadListEl     = ref(null)
+const mtEditingMsgIndex  = ref(null)
+const mtEditingMsgValue  = ref('')
+const mtOpenMenuIdx      = ref(null)
+const mtDeletingMsgIdx   = ref(null)
+
+const mtThreadTicket = computed(() => tickets.value.find(t => t.id === mtThreadTicketId.value) || null)
 let toastTimer = null
 
 const sentThruOptions = ['Email', 'Slack', 'Phone', 'Teams', 'Viber', 'In-person', 'Other']
@@ -1262,7 +1656,7 @@ const editTicketForm = ref({
   client: '', request: '', sent_thru: 'Email',
   date_received: '', target_date: '', completion_date: '',
   assigned_devs: [], assigned_qa: [],
-  status: 'Pending', notes: ''
+  status: 'Pending', dev_status: 'Not Started', notes: ''
 })
 
 const projectForm = ref({ name: '', description: '', color: '#10b981', is_active: true, contract_start: '', contract_end: '' })
@@ -1281,6 +1675,12 @@ const filteredTickets = computed(() => tickets.value.filter(t => {
 }))
 
 const overdueCount = computed(() => tickets.value.filter(t => isOverdue(t)).length)
+
+// ── Stat completion % ─────────────────────────────────────────────────────────
+const completionPct = computed(() => {
+  if (!tickets.value.length) return 0
+  return Math.round(tickets.value.filter(t => t.status === 'Completed').length / tickets.value.length * 100)
+})
 
 const activeProjects   = computed(() => projects.value.filter(p => p.is_active !== false))
 const inactiveProjects = computed(() => projects.value.filter(p => p.is_active === false))
@@ -1510,6 +1910,15 @@ const ageColor = (t) => {
   return '#ef4444'
 }
 
+const ageBadgeClass = (t) => {
+  if (t.completion_date) return 'age-badge--resolved'
+  if (isOverdue(t))      return 'age-badge--old'
+  const days = ticketAgeDays(t)
+  if (days <= 3)  return 'age-badge--fresh'
+  if (days <= 10) return 'age-badge--aging'
+  return 'age-badge--old'
+}
+
 const ageStyle = (t) => {
   const color = ageColor(t)
   return {
@@ -1560,6 +1969,32 @@ const updateTicketStatus = async (ticket, newStatus) => {
     await fetchProjects()
   } catch (e) {
     console.error('Failed to update status', e)
+  }
+}
+
+const updateTicketDevStatus = async (ticket, newDevStatus) => {
+  const fd = new FormData()
+  fd.append('_method', 'PUT')
+  fd.append('dev_status', newDevStatus)
+  fd.append('client', ticket.client)
+  fd.append('request', ticket.request)
+  fd.append('sent_thru', ticket.sent_thru || 'Email')
+  fd.append('status', ticket.status)
+  if (ticket.date_received) fd.append('date_received', ticket.date_received.slice(0, 10))
+  if (ticket.target_date)   fd.append('target_date',   ticket.target_date.slice(0, 10))
+  if (ticket.completion_date) fd.append('completion_date', ticket.completion_date.slice(0, 10))
+  if (ticket.notes)         fd.append('notes', ticket.notes)
+  ;(ticket.assigned_devs || []).forEach((e, i) => fd.append(`assigned_devs[${i}]`, e))
+  ;(ticket.assigned_qa   || []).forEach((e, i) => fd.append(`assigned_qa[${i}]`,   e))
+  ;(ticket.attachments   || []).forEach((url, i) => fd.append(`existing_attachments[${i}]`, url))
+  try {
+    await apiFetch(
+      `${config.public.apiBase}/maintenance/projects/${selectedProject.value.id}/tickets/${ticket.id}`,
+      { method: 'POST', body: fd }
+    )
+    await fetchTickets()
+  } catch (e) {
+    console.error('Failed to update dev status', e)
   }
 }
 
@@ -1760,6 +2195,8 @@ const submitNewTicket = async () => {
 const openTicketModal = (ticket, mode) => {
   activeTicket.value = ticket
   ticketModalMode.value = mode
+  mtThreadTicketId.value = ticket.id
+  if (!mtNewAuthor.value && currentUser.value?.name) mtNewAuthor.value = currentUser.value.name
   if (mode === 'edit') initEditForm()
   showTicketModal.value = true
 }
@@ -1777,6 +2214,7 @@ const initEditForm = () => {
     assigned_devs:   [...(t.assigned_devs || [])],
     assigned_qa:     [...(t.assigned_qa   || [])],
     status:          t.status,
+    dev_status:      t.dev_status || 'Not Started',
     notes:           t.notes || '',
   }
   editExistingAttachments.value = [...(t.attachments || [])]
@@ -1796,6 +2234,7 @@ const submitEditTicket = async () => {
     fd.append('request',         f.request)
     fd.append('sent_thru',       f.sent_thru || 'Email')
     fd.append('status',          f.status)
+    fd.append('dev_status',      f.dev_status || 'Not Started')
     if (f.date_received)   fd.append('date_received',   f.date_received)
     if (f.target_date)     fd.append('target_date',     f.target_date)
     if (f.completion_date) fd.append('completion_date', f.completion_date)
@@ -1858,10 +2297,86 @@ const sendNotification = async (ticket) => {
   finally { notifyingId.value = null }
 }
 
+// ── Comment thread functions ──────────────────────────────────────────────────
+const formatThreadTime = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+}
+
+const openMtThread = (ticket) => {
+  mtThreadTicketId.value = ticket.id
+  mtNewMessage.value = ''
+  if (!mtNewAuthor.value && currentUser.value?.name) {
+    mtNewAuthor.value = currentUser.value.name
+  }
+  mtEditingMsgIndex.value = null
+  mtOpenMenuIdx.value = null
+  showMtThreadModal.value = true
+  nextTick(() => {
+    if (mtThreadListEl.value) mtThreadListEl.value.scrollTop = mtThreadListEl.value.scrollHeight
+  })
+}
+
+const addMtComment = async () => {
+  if (!mtNewMessage.value.trim() || !mtNewAuthor.value.trim() || mtThreadSending.value || !mtThreadTicket.value) return
+  mtThreadSending.value = true
+  const message = mtNewMessage.value.trim()
+  const author  = mtNewAuthor.value.trim()
+  mtNewMessage.value = ''
+  try {
+    const updated = [
+      ...(mtThreadTicket.value.comments || []),
+      { message, author, timestamp: new Date().toISOString() }
+    ]
+    await saveMtComments(updated)
+    nextTick(() => {
+      if (mtThreadListEl.value) mtThreadListEl.value.scrollTop = mtThreadListEl.value.scrollHeight
+    })
+  } catch (e) {
+    console.error('Failed to add comment', e)
+    mtNewMessage.value = message
+  } finally { mtThreadSending.value = false }
+}
+
+const startMtEditMsg  = (idx, text) => { mtEditingMsgIndex.value = idx; mtEditingMsgValue.value = text }
+const cancelMtEditMsg = () => { mtEditingMsgIndex.value = null; mtEditingMsgValue.value = '' }
+
+const saveMtEditMsg = async (idx) => {
+  if (!mtEditingMsgValue.value.trim() || !mtThreadTicket.value) return
+  const updated = mtThreadTicket.value.comments.map((m, i) =>
+    i === idx ? { ...m, message: mtEditingMsgValue.value.trim(), edited: true } : m
+  )
+  cancelMtEditMsg()
+  await saveMtComments(updated)
+}
+
+const deleteMtMsg = async (idx) => {
+  if (!mtThreadTicket.value) return
+  const updated = mtThreadTicket.value.comments.filter((_, i) => i !== idx)
+  await saveMtComments(updated)
+}
+
+const saveMtComments = async (comments) => {
+  if (!mtThreadTicket.value || !selectedProject.value) return
+  const fd = new FormData()
+  fd.append('_method', 'PUT')
+  fd.append('comments_json', JSON.stringify(comments))
+  await apiFetch(
+    `${config.public.apiBase}/maintenance/projects/${selectedProject.value.id}/tickets/${mtThreadTicket.value.id}`,
+    { method: 'POST', body: fd }
+  )
+  await fetchTickets()
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 const profileClickHandler = (e) => {
   if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
     profileDropdownOpen.value = false
+  }
+  if (openProjectMenuId.value !== null) {
+    openProjectMenuId.value = null
   }
 }
 
@@ -1873,6 +2388,13 @@ onMounted(async () => {
   document.addEventListener('click', profileClickHandler)
 
   await fetchProjects()
+
+  // Auto-select project when coming back from a ticket view
+  const projectId = route.query.project
+  if (projectId) {
+    const match = projects.value.find(p => String(p.id) === String(projectId))
+    if (match) selectProject(match)
+  }
 })
 
 onUnmounted(() => {
@@ -1882,8 +2404,27 @@ onUnmounted(() => {
 
 <style scoped>
 /* ── Maintenance-specific styles ── */
-.maint-table th, .maint-table td {
-  font-size: 12px;
+.maint-pipeline-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.maint-pipeline-table th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gray-500);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+  white-space: nowrap;
+  text-align: left;
+}
+.maint-pipeline-table td {
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
 }
 
 .maint-truncate {
@@ -1928,6 +2469,12 @@ onUnmounted(() => {
 /* Overdue row tint */
 .maint-row-overdue td {
   background: #fff8f8 !important;
+}
+
+/* Completed row gray-out */
+.maint-row-completed td {
+  background: #f8fafc !important;
+  opacity: 0.55;
 }
 
 /* Email tags in table */
@@ -2010,6 +2557,60 @@ onUnmounted(() => {
 .dev-pill { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
 .qa-pill  { background: #ecfdf5; color: #059669; border: 1px solid #6ee7b7; }
 .maint-email-pills-list { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Ellipsis project menu */
+.proj-menu-wrap {
+  position: relative;
+}
+.proj-menu-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--gray-400);
+}
+.proj-menu-btn:hover {
+  background: var(--gray-100);
+  border-color: var(--gray-200);
+  color: var(--gray-600);
+}
+.proj-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  min-width: 120px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.proj-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--gray-700);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.proj-menu-item:hover {
+  background: var(--gray-100);
+}
+.proj-menu-item-delete {
+  color: #dc2626;
+}
+.proj-menu-item-delete:hover {
+  background: #fef2f2;
+}
 
 /* Actions column */
 .maint-actions {
@@ -2192,6 +2793,142 @@ onUnmounted(() => {
   gap: 14px;
   margin-bottom: 20px;
 }
+/* Project detail stat summary */
+/* ── Project Banner ───────────────────────────────────────────────── */
+.proj-banner {
+  position: relative;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.proj-banner-accent {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 5px;
+  background: var(--proj-color, #10b981);
+}
+.proj-banner-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 18px 28px;
+  gap: 16px;
+}
+.proj-banner-left { display: flex; align-items: center; gap: 16px; }
+.proj-banner-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.proj-banner-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.proj-banner-name { font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -.3px; margin: 0; }
+.proj-banner-status-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 9px;
+  border-radius: 99px; letter-spacing: .4px; text-transform: uppercase;
+}
+.badge-active   { background: #d1fae5; color: #059669; }
+.badge-inactive { background: #fee2e2; color: #dc2626; }
+.proj-banner-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.proj-banner-meta-item {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #64748b; font-weight: 500;
+}
+.proj-banner-meta-overdue { color: #ef4444; font-weight: 600; }
+.proj-banner-right { flex-shrink: 0; }
+.proj-banner-inactive-notice {
+  font-size: 12px; color: #dc2626; background: #fee2e2;
+  padding: 7px 14px; border-radius: 8px; font-weight: 600;
+}
+.btn-new-ticket {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white; font-size: 13px; font-weight: 700;
+  padding: 9px 18px; border-radius: 9px; border: none;
+  cursor: pointer; box-shadow: 0 2px 8px rgba(5,150,105,.3);
+  transition: opacity .15s, transform .15s;
+}
+.btn-new-ticket:hover { opacity: .9; transform: translateY(-1px); }
+
+/* ── Stat Cards ────────────────────────────────────────────────────── */
+.proj-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.proj-stat-card {
+  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+}
+.proj-stat-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.proj-stat-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.proj-stat-value { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.proj-stat-sub   { font-size: 10.5px; font-weight: 500; opacity: .65; }
+.proj-stat-icon  { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+
+/* Total */
+.proj-stat-total { background: #f8fafc; border-color: #e2e8f0; }
+.proj-stat-total .proj-stat-label { color: #475569; }
+.proj-stat-total .proj-stat-value { color: #0f172a; }
+.proj-stat-icon-total { background: #e2e8f0; color: #475569; }
+
+/* Pending */
+.proj-stat-pending { background: #fffbeb; border-color: #fde68a; }
+.proj-stat-pending .proj-stat-label { color: #b45309; }
+.proj-stat-pending .proj-stat-value { color: #92400e; }
+.proj-stat-pending .proj-stat-sub   { color: #b45309; }
+.proj-stat-icon-pending { background: #fde68a; color: #b45309; }
+
+/* In Progress */
+.proj-stat-ongoing { background: #eff6ff; border-color: #bfdbfe; }
+.proj-stat-ongoing .proj-stat-label { color: #1d4ed8; }
+.proj-stat-ongoing .proj-stat-value { color: #1e3a8a; }
+.proj-stat-ongoing .proj-stat-sub   { color: #1d4ed8; }
+.proj-stat-icon-ongoing { background: #bfdbfe; color: #1d4ed8; }
+
+/* On Hold */
+.proj-stat-hold { background: #faf5ff; border-color: #ddd6fe; }
+.proj-stat-hold .proj-stat-label { color: #6d28d9; }
+.proj-stat-hold .proj-stat-value { color: #4c1d95; }
+.proj-stat-hold .proj-stat-sub   { color: #6d28d9; }
+.proj-stat-icon-hold { background: #ddd6fe; color: #6d28d9; }
+
+/* Completed */
+.proj-stat-done { background: #f0fdf4; border-color: #bbf7d0; }
+.proj-stat-done .proj-stat-label { color: #15803d; }
+.proj-stat-done .proj-stat-value { color: #14532d; }
+.proj-stat-done .proj-stat-sub   { color: #15803d; }
+.proj-stat-icon-done { background: #bbf7d0; color: #15803d; }
+
+/* Overdue */
+.proj-stat-overdue { background: #fff1f2; border-color: #fecdd3; }
+.proj-stat-overdue .proj-stat-label { color: #be123c; }
+.proj-stat-overdue .proj-stat-value { color: #9f1239; }
+.proj-stat-overdue .proj-stat-sub   { color: #be123c; }
+.proj-stat-icon-overdue { background: #fecdd3; color: #be123c; }
+
+/* Completion % in Total card */
+.proj-stat-pct-row { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+.proj-stat-pct-bar-track { flex: 1; height: 5px; background: #cbd5e1; border-radius: 99px; overflow: hidden; }
+.proj-stat-pct-bar { height: 100%; background: #22c55e; border-radius: 99px; transition: width .4s ease; }
+.proj-stat-pct-label { font-size: 10px; font-weight: 700; color: #15803d; white-space: nowrap; }
+
+/* ── Project Filters Bar ──────────────────────────────────────────── */
+.proj-filters-bar {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.proj-filters-bar .form-control { background: #f8fafc; border-color: #e2e8f0; }
+
+
+
 .mdash-stat-card {
   background: white;
   border-radius: 12px;

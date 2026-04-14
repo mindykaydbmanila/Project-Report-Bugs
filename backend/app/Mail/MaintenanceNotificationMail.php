@@ -135,6 +135,8 @@ class MaintenanceNotificationMail extends Mailable
                 . '</tr>';
         }
 
+        $ticketUrl = 'http://localhost:3000/maintenance-ticket/' . $ticket->id;
+
         $html = '<!DOCTYPE html>'
             . '<html><body style="font-family:Inter,Arial,sans-serif;background:#f1f5f9;margin:0;padding:32px 16px;">'
             . '<div style="max-width:580px;margin:0 auto;">'
@@ -148,6 +150,12 @@ class MaintenanceNotificationMail extends Mailable
             . '<div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08);">'
             . '<p style="margin:0 0 24px;color:#334155;font-size:14px;line-height:1.7;">You have been assigned to a maintenance ticket in <strong>' . htmlspecialchars($project->name) . '</strong>. Please review the details below.</p>'
             . '<table style="width:100%;border-collapse:collapse;margin-bottom:28px;">' . $rows . '</table>'
+
+            . '<div style="text-align:center;margin-bottom:28px;">'
+            . '<a href="' . $ticketUrl . '" style="display:inline-block;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-size:14px;font-weight:700;padding:12px 32px;border-radius:8px;text-decoration:none;letter-spacing:.3px;">View Ticket →</a>'
+            . '<div style="margin-top:10px;font-size:11px;color:#94a3b8;">Or copy this link: <a href="' . $ticketUrl . '" style="color:#059669;">' . $ticketUrl . '</a></div>'
+            . '</div>'
+
             . '<p style="color:#94a3b8;font-size:12px;margin:0;text-align:center;line-height:1.7;">This notification was sent by the QA Maintenance Tracker.<br>Reply to this email or contact your project lead with any questions.</p>'
             . '</div>'
 
