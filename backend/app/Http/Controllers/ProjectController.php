@@ -26,6 +26,7 @@ class ProjectController extends Controller
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
             'color'       => 'nullable|string|max:20',
+            'is_active'   => 'sometimes|boolean',
         ]);
 
         if ($request->user()) {
@@ -48,6 +49,7 @@ class ProjectController extends Controller
             'name'        => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'color'       => 'nullable|string|max:20',
+            'is_active'   => 'sometimes|boolean',
         ]);
 
         $project->update($validated);

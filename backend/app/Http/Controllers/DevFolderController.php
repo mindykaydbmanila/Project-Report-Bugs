@@ -23,6 +23,19 @@ class DevFolderController extends Controller
      * Generate or retrieve the share token for a developer.
      * POST /api/dev-folders
      */
+    /** Gmail-style palette — deterministic from email, changeable later */
+    private static array $colorPalette = [
+        '#4f46e5','#7c3aed','#db2777','#dc2626','#ea580c',
+        '#d97706','#16a34a','#0891b2','#2563eb','#9333ea',
+        '#0d9488','#65a30d','#be185d','#0369a1','#92400e','#374151',
+    ];
+
+    private static function pickColor(string $email): string
+    {
+        $idx = abs(crc32(strtolower($email))) % count(self::$colorPalette);
+        return self::$colorPalette[$idx];
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -37,6 +50,7 @@ class DevFolderController extends Controller
                 'token'          => Str::random(48),
                 'developer_name' => $validated['developer_name'],
                 'visibility'     => $validated['visibility'] ?? 'public',
+                'avatar_color'   => self::pickColor($validated['developer_email']),
             ]
         );
 
@@ -61,10 +75,11 @@ class DevFolderController extends Controller
         $folder = DevFolder::where('token', $token)->firstOrFail();
 
         $validated = $request->validate([
-            'visibility' => 'required|in:private,public',
+            'visibility'   => 'nullable|in:private,public',
+            'avatar_color' => 'nullable|string|max:20|regex:/^#[0-9a-fA-F]{3,8}$/',
         ]);
 
-        $folder->update($validated);
+        $folder->update(array_filter($validated, fn($v) => $v !== null));
 
         return response()->json(['success' => true, 'visibility' => $folder->visibility]);
     }
@@ -78,6 +93,55 @@ class DevFolderController extends Controller
         DevFolder::where('token', $token)->firstOrFail()->delete();
 
         return response()->json(['message' => 'Folder link removed']);
+    }
+
+    /**
+     * Aggregate summary for the Dev Folders dashboard.
+     * GET /api/dev-folders/summary
+     */
+    public function summary()
+    {
+        $bugs    = Bug::all();
+        $folders = DevFolder::orderBy('developer_name')->get();
+
+        $overall = [
+            'total_active'    => $bugs->whereIn('dev_status', ['In Progress', 'Ready for QA'])->count(),
+            'pending'         => $bugs->where('status', 'Pending')->count(),
+            'ongoing_fixing'  => $bugs->where('dev_status', 'In Progress')->count(),
+            'ongoing_qa'      => $bugs->where('status', 'Ongoing')->count(),
+            'sent_back'       => $bugs->where('dev_status', 'Blocked')->count(),
+            'total_completed' => $bugs->where('status', 'Completed')->count(),
+            'critical'        => $bugs->where('priority', 'Critical')->count(),
+            'high'            => $bugs->where('priority', 'High')->count(),
+            'medium'          => $bugs->where('priority', 'Medium')->count(),
+            'low'             => $bugs->where('priority', 'Low')->count(),
+        ];
+
+        $developers = $folders->map(function ($folder) use ($bugs) {
+            $devBugs = $bugs->filter(function ($bug) use ($folder) {
+                foreach ($bug->assigned_developers ?? [] as $dev) {
+                    if (strtolower($dev['email'] ?? '') === strtolower($folder->developer_email)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            return [
+                'name'         => $folder->developer_name,
+                'email'        => $folder->developer_email,
+                'avatar_color' => $folder->avatar_color ?? self::pickColor($folder->developer_email),
+                'pending'      => $devBugs->where('status', 'Pending')->count(),
+                'active'       => $devBugs->where('status', 'Ongoing')->count(),
+                'completed'    => $devBugs->where('status', 'Completed')->count(),
+            ];
+        })->values();
+
+        return response()->json([
+            'date'       => now()->format('F j, Y'),
+            'overall'    => $overall,
+            'developers' => $developers,
+        ]);
     }
 
     /**

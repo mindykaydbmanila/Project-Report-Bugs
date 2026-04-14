@@ -1,4 +1,21 @@
 <template>
+  <!-- Bug Squish Celebration -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showSquishAnim" class="squish-overlay">
+        <div class="squish-scene">
+          <div class="squish-foot">🦶</div>
+          <div class="squish-bug">🐛</div>
+          <div class="squish-splat">💥</div>
+          <div class="squish-stars">
+            <span>⭐</span><span>✨</span><span>⭐</span><span>✨</span><span>⭐</span>
+          </div>
+          <div class="squish-label">Bug Squashed! <span class="squish-check">✓</span></div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <div class="app-layout">
 
     <!-- ── Header ── -->
@@ -12,11 +29,6 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
-          <button v-if="selectedProject && !detailView" class="btn btn-primary" @click="openCreateModal">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-            Report Bug
-          </button>
-
           <!-- Notification Bell -->
           <div class="notif-bell-wrap" ref="notifDropdownRef" @click.stop="toggleNotifDropdown">
             <button class="notif-bell-btn" :class="{ 'notif-bell-btn--active': notifDropdownOpen }">
@@ -49,7 +61,12 @@
                       <div class="notif-item-msg">{{ n.message }}</div>
                       <div class="notif-item-time">{{ timeAgo(n.created_at) }}</div>
                     </div>
-                    <div v-if="!n.read_at" class="notif-item-dot"></div>
+                    <div class="notif-item-right">
+                      <div v-if="!n.read_at" class="notif-item-dot"></div>
+                      <button class="notif-item-dismiss" title="Remove" @click.stop="dismissNotif(n)">
+                        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -89,18 +106,20 @@
 
       <!-- ── Sidebar ── -->
       <aside class="sidebar">
-        <div class="sidebar-section-label">Projects</div>
+        <div class="sidebar-section-label">DB Projects</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen }" @click="selectProject(null); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false">
+          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen && !inactiveOpen }" @click="selectProject(null); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false; projectStatusTab = 'all'">
             <span class="sidebar-item-icon">🏠</span>
             <span class="sidebar-item-name">All Projects</span>
-            <span class="sidebar-item-count">{{ projects.length }}</span>
+            <span class="sidebar-item-count">{{ activeProjects.length }}</span>
           </button>
-          <div v-if="projects.length" class="sidebar-divider"></div>
+        </nav>
+        <div v-if="activeProjects.length" class="sidebar-section-label" style="margin-top:10px;">Projects</div>
+        <nav v-if="activeProjects.length" class="sidebar-nav">
           <button
-            v-for="p in projects" :key="p.id"
+            v-for="p in activeProjects" :key="p.id"
             class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen }"
-            @click="selectProject(p); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false"
+            @click="selectProject(p); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false"
           >
             <span class="sidebar-color-dot" :style="{ background: p.color }"></span>
             <span class="sidebar-item-name">{{ p.name }}</span>
@@ -110,7 +129,7 @@
         <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
         <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: dashboardOpen }" @click="dashboardOpen = true; selectedProject = null; ticketTrackerOpen = false">
+          <button class="sidebar-item" :class="{ active: dashboardOpen }" @click="openDashboard()">
             <span class="sidebar-item-icon">📊</span>
             <span class="sidebar-item-name">Dashboard</span>
           </button>
@@ -145,7 +164,7 @@
           <div class="view-header">
             <div>
               <h1 class="view-title">All Projects</h1>
-              <p class="view-subtitle">{{ filteredProjects.length }} project{{ filteredProjects.length !== 1 ? 's' : '' }}</p>
+              <p class="view-subtitle">{{ activeProjects.length }} active{{ inactiveProjects.length ? `, ${inactiveProjects.length} inactive` : '' }}</p>
             </div>
             <button class="btn btn-primary" @click="openProjectModal(null)">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -158,58 +177,97 @@
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input v-model="projectSearch" class="form-control" placeholder="Search projects..." />
             </div>
-            <select v-model="projectFilter" class="form-control">
-              <option value="">All Projects</option>
-              <option value="critical">Critical </option>
-              <option value="pending">Pending </option>
-              <option value="ongoing">Ongoing </option>
-              <option value="completed">Completed</option>
-            </select>
-            <button v-if="projectSearch || projectFilter" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
+            <div class="project-status-tabs">
+              <button :class="['project-status-tab', { active: projectStatusTab === 'all' }]" @click="projectStatusTab = 'all'">All</button>
+              <button :class="['project-status-tab', { active: projectStatusTab === 'active' }]" @click="projectStatusTab = 'active'">Active</button>
+              <button :class="['project-status-tab', { active: projectStatusTab === 'inactive' }]" @click="projectStatusTab = 'inactive'">Inactive</button>
+            </div>
+            <button v-if="projectSearch" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
               Clear
             </button>
           </div>
 
-          <div v-if="filteredProjects.length > 0" class="projects-grid">
-            <div v-for="p in filteredProjects" :key="p.id" class="project-card" @click="selectProject(p)">
-              <div class="project-card-stripe" :style="{ background: p.color }"></div>
-              <div class="project-card-body">
-                <div class="project-card-icon" :style="{ background: p.color + '22', color: p.color }">📁</div>
-                <h3 class="project-card-name">{{ p.name }}</h3>
-                <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
-                <div class="project-card-stats">
-                  <span class="pstat pstat-total">{{ p.bugs_count }} bugs</span>
-                  <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
-                  <span v-if="p.ongoing_count" class="pstat pstat-ongoing">{{ p.ongoing_count }} ongoing</span>
-                  <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
-                  <span v-if="p.critical_count" class="pstat pstat-critical">{{ p.critical_count }} critical</span>
+          <div v-if="projects.length > 0">
+            <!-- Active projects -->
+            <div v-if="filteredActiveProjects.length && projectStatusTab !== 'inactive'">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Active</div>
+              <div class="projects-grid" style="margin-bottom:24px;">
+                <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card" @click="selectProject(p)">
+                  <div class="project-card-stripe" :style="{ background: p.color }"></div>
+                  <div class="project-card-body">
+                    <div class="project-card-icon" :style="{ background: p.color + '22', color: p.color }">📁</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                      <h3 class="project-card-name" style="margin:0;">{{ p.name }}</h3>
+                      <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.4px;background:#e0e7ff;color:#4338ca;">ACTIVE</span>
+                    </div>
+                    <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
+                    <div class="project-card-stats">
+                      <span class="pstat pstat-total">{{ p.bugs_count }} bugs</span>
+                      <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
+                      <span v-if="p.ongoing_count" class="pstat pstat-ongoing">{{ p.ongoing_count }} ongoing</span>
+                      <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
+                      <span v-if="p.critical_count" class="pstat pstat-critical">{{ p.critical_count }} critical</span>
+                    </div>
+                  </div>
+                  <div class="project-card-actions" @click.stop>
+                    <button class="btn btn-icon action-btn-share" title="Share project" @click="currentUser ? openShareModal(p) : login()">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    </button>
+                    <button v-if="canEditProject(p)" class="btn btn-icon action-btn-edit" @click="openProjectModal(p)">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button v-if="canEditProject(p)" class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="project-card-actions" @click.stop>
-                <button class="btn btn-icon action-btn-share" title="Share project" @click="currentUser ? openShareModal(p) : login()">
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                </button>
-                <button v-if="canEditProject(p)" class="btn btn-icon action-btn-edit" @click="openProjectModal(p)">
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button v-if="canEditProject(p)" class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)">
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                </button>
+            </div>
+
+            <!-- Inactive projects -->
+            <div v-if="filteredInactiveProjects.length && projectStatusTab !== 'active'">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Inactive</div>
+              <div class="projects-grid">
+                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card" style="opacity:.75;" @click="selectProject(p)">
+                  <div class="project-card-stripe" :style="{ background: '#d1d5db' }"></div>
+                  <div class="project-card-body">
+                    <div class="project-card-icon" style="background:#f3f4f6;color:#9ca3af;">📁</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                      <h3 class="project-card-name" style="margin:0;color:var(--gray-500);">{{ p.name }}</h3>
+                      <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.4px;background:#fee2e2;color:#dc2626;">INACTIVE</span>
+                    </div>
+                    <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
+                    <div class="project-card-stats">
+                      <span class="pstat pstat-total">{{ p.bugs_count }} bugs</span>
+                      <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
+                      <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
+                    </div>
+                  </div>
+                  <div class="project-card-actions" @click.stop>
+                    <button v-if="canEditProject(p)" class="btn btn-icon action-btn-edit" @click="openProjectModal(p)">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button v-if="canEditProject(p)" class="btn btn-icon action-btn-delete" @click="confirmDeleteProject(p)">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           <div v-else class="empty-state" style="margin-top:60px;">
-            <div class="empty-state-icon">{{ projects.length ? '🔍' : '📁' }}</div>
-            <div class="empty-state-title">{{ projects.length ? 'No matching projects' : 'No projects yet' }}</div>
-            <div class="empty-state-text">{{ projects.length ? 'Try adjusting your search or filter' : 'Create your first project to start tracking bugs' }}</div>
-            <button v-if="!projects.length" class="btn btn-primary" style="margin-top:20px;" @click="openProjectModal(null)">+ Create Project</button>
+            <div class="empty-state-icon">📁</div>
+            <div class="empty-state-title">No projects yet</div>
+            <div class="empty-state-text">Create your first project to start tracking bugs</div>
+            <button class="btn btn-primary" style="margin-top:20px;" @click="openProjectModal(null)">+ Create Project</button>
           </div>
         </div>
 
+
         <!-- ══ Dashboard view ══ -->
-        <div v-else-if="dashboardOpen">
+        <div v-else-if="dashboardOpen" :key="dashboardKey">
           <div class="view-header" style="margin-bottom:24px;">
             <div>
               <h1 class="view-title">Dashboard</h1>
@@ -1361,14 +1419,119 @@
         <!-- ══ Dev Folders view ══ -->
         <div v-else-if="devFoldersViewOpen">
           <div class="view-header">
-            <div>
-              <h1 class="view-title">Dev Folders</h1>
-              <p class="view-subtitle">{{ devFolders.length + maintenanceDevs.length }} folder{{ (devFolders.length + maintenanceDevs.length) !== 1 ? 's' : '' }}</p>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="df-page-icon">📁</div>
+              <div>
+                <h1 class="view-title" style="margin:0;">Dev Folders</h1>
+                <p class="view-subtitle" style="margin:2px 0 0;">{{ devFolders.length }} folder{{ devFolders.length !== 1 ? 's' : '' }} · Shared portals for each developer</p>
+              </div>
             </div>
             <button class="btn btn-ghost btn-sm" @click="fetchDevFolders" title="Refresh">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
               Refresh
             </button>
+          </div>
+
+          <!-- ── Dev Folders Summary ── -->
+          <div v-if="devFoldersSummary" class="dfs-wrap">
+
+            <!-- Left: overall stats -->
+            <div class="dfs-overall">
+              <div class="dfs-section-label"><span>📅</span> {{ devFoldersSummary.date }}</div>
+
+              <div class="dfs-stat-grid">
+                <div class="dfs-stat-card" style="--sc:#4f46e5;--sc-bg:#eef2ff;--sc-bd:#c7d2fe;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.total_active }}</div>
+                  <div class="dfs-stat-lbl">Active Fixes</div>
+                </div>
+                <div class="dfs-stat-card" style="--sc:#d97706;--sc-bg:#fffbeb;--sc-bd:#fde68a;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.pending }}</div>
+                  <div class="dfs-stat-lbl">Pending</div>
+                </div>
+                <div class="dfs-stat-card" style="--sc:#2563eb;--sc-bg:#eff6ff;--sc-bd:#bfdbfe;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.ongoing_fixing }}</div>
+                  <div class="dfs-stat-lbl">Fixing</div>
+                </div>
+                <div class="dfs-stat-card" style="--sc:#7c3aed;--sc-bg:#f5f3ff;--sc-bd:#ddd6fe;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.ongoing_qa }}</div>
+                  <div class="dfs-stat-lbl">In QA</div>
+                </div>
+                <div class="dfs-stat-card" style="--sc:#dc2626;--sc-bg:#fef2f2;--sc-bd:#fecaca;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.sent_back }}</div>
+                  <div class="dfs-stat-lbl">Blocked</div>
+                </div>
+                <div class="dfs-stat-card" style="--sc:#15803d;--sc-bg:#f0fdf4;--sc-bd:#bbf7d0;">
+                  <div class="dfs-stat-num">{{ devFoldersSummary.overall.total_completed }}</div>
+                  <div class="dfs-stat-lbl">Completed</div>
+                </div>
+              </div>
+
+              <div class="dfs-section-label" style="margin-top:18px;"><span>🔥</span> By Priority</div>
+              <div class="dfs-priority-row">
+                <div class="dfs-priority-item dfs-p--critical">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.critical }}</span>
+                  <span class="dfs-p-label">Critical</span>
+                </div>
+                <div class="dfs-priority-item dfs-p--high">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.high }}</span>
+                  <span class="dfs-p-label">High</span>
+                </div>
+                <div class="dfs-priority-item dfs-p--medium">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.medium }}</span>
+                  <span class="dfs-p-label">Medium</span>
+                </div>
+                <div class="dfs-priority-item dfs-p--low">
+                  <span class="dfs-p-dot"></span>
+                  <span class="dfs-p-val">{{ devFoldersSummary.overall.low }}</span>
+                  <span class="dfs-p-label">Low</span>
+                </div>
+              </div>
+
+              <!-- Resolution Rate (compact) -->
+              <template v-if="dfsSummaryProgress">
+                <div class="dfs-section-label" style="margin-top:18px;"><span>📊</span> Resolution Rate</div>
+                <div class="dfs-progress-compact">
+                  <div class="dfs-progress-track">
+                    <div v-if="dfsSummaryProgress.done"    class="dfs-pb dfs-pb--done"    :style="{ width: dfsSummaryProgress.done    + '%' }"></div>
+                    <div v-if="dfsSummaryProgress.active"  class="dfs-pb dfs-pb--active"  :style="{ width: dfsSummaryProgress.active  + '%' }"></div>
+                    <div v-if="dfsSummaryProgress.pend"    class="dfs-pb dfs-pb--pend"    :style="{ width: dfsSummaryProgress.pend    + '%' }"></div>
+                    <div v-if="dfsSummaryProgress.blocked" class="dfs-pb dfs-pb--blocked" :style="{ width: dfsSummaryProgress.blocked + '%' }"></div>
+                  </div>
+                  <div class="dfs-progress-compact-row">
+                    <span class="dfs-progress-compact-pct">{{ dfsSummaryProgress.pct }}% resolved</span>
+                    <div class="dfs-progress-legend">
+                      <span class="dfs-pl dfs-pl--done"><i></i>Done</span>
+                      <span class="dfs-pl dfs-pl--active"><i></i>Active</span>
+                      <span class="dfs-pl dfs-pl--pend"><i></i>Pending</span>
+                      <span class="dfs-pl dfs-pl--blocked"><i></i>Blocked</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Right: per-developer summary -->
+            <div class="dfs-devs">
+              <div class="dfs-section-label"><span>👥</span> Developers' Summary</div>
+              <div class="dfs-devs-list">
+                <div v-for="dev in devFoldersSummary.developers" :key="dev.email" class="dfs-dev-row dfs-dev-row--clickable" @click="openFolderDetailByEmail(dev.email)">
+                  <div class="dfs-dev-avatar" :style="{ background: dev.avatar_color || '#4338ca' }">{{ folderInitials(dev.name) }}</div>
+                  <div class="dfs-dev-info">
+                    <div class="dfs-dev-name">{{ dev.name }}</div>
+                    <div class="dfs-dev-email">{{ dev.email }}</div>
+                  </div>
+                  <div class="dfs-dev-badges">
+                    <span class="dfs-dev-badge dfs-dev-badge--pending"><strong>{{ dev.pending }}</strong><span>Pending</span></span>
+                    <span class="dfs-dev-badge dfs-dev-badge--active"><strong>{{ dev.active }}</strong><span>Active</span></span>
+                    <span class="dfs-dev-badge dfs-dev-badge--done"><strong>{{ dev.completed }}</strong><span>Done</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div v-if="devFoldersLoading" style="text-align:center;padding:60px;color:var(--gray-400);">
@@ -1383,100 +1546,121 @@
               Bug Tracker
             </div>
 
-            <div v-if="devFolders.length" class="df-grid">
-              <div v-for="folder in devFolders" :key="folder.token" class="df-card">
-                <div class="df-card-stripe"></div>
-                <div class="df-card-body">
-                  <div class="df-card-top">
-                    <div class="df-avatar">{{ folderInitials(folder.developer_name) }}</div>
-                    <div class="df-card-info">
-                      <div class="df-card-name">{{ folder.developer_name }}</div>
-                      <div class="df-card-email">{{ folder.developer_email }}</div>
-                    </div>
-                    <button
-                      :class="['df-vis-pill', folder.visibility === 'public' ? 'df-vis--public' : 'df-vis--private']"
-                      :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
-                      @click="toggleFolderVisibility(folder)"
-                    >
-                      <span v-if="folder.visibility === 'public'">
-                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                        Public
-                      </span>
-                      <span v-else>
-                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Private
-                      </span>
-                    </button>
-                  </div>
-
-                  <div class="df-card-project">
-                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    All projects
-                  </div>
-
-                  <div class="df-card-footer">
-                    <button class="df-action-btn df-action-copy" @click="copyFolderLink(folder)" title="Copy link">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                      Copy link
-                    </button>
-                    <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                      Open
-                    </a>
-                  </div>
+          <div v-else class="df-grid">
+            <div v-for="(folder, idx) in devFolders" :key="folder.token" class="df-card df-card--clickable" :style="`--i:${idx}`" @click="openFolderDetail(folder)">
+              <div class="df-card-hero" :style="{ background: folder.avatar_color || '#4f46e5' }">
+                <button
+                  :class="['df-vis-badge', folder.visibility === 'public' ? 'df-vis--pub' : 'df-vis--priv']"
+                  :title="folder.visibility === 'public' ? 'Click to make private' : 'Click to make public'"
+                  @click.stop="toggleFolderVisibility(folder)"
+                >
+                  <svg v-if="folder.visibility === 'public'" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <svg v-else width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  {{ folder.visibility === 'public' ? 'Public' : 'Private' }}
+                </button>
+              </div>
+              <div class="df-card-body">
+                <div class="df-avatar" :style="{ background: folder.avatar_color || '#4f46e5' }">{{ folderInitials(folder.developer_name) }}</div>
+                <div class="df-card-name">{{ folder.developer_name }}</div>
+                <div class="df-card-email">{{ folder.developer_email }}</div>
+                <div class="df-card-project">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  All projects
+                </div>
+                <div class="df-card-footer">
+                  <button class="df-action-btn df-action-copy" @click.stop="copyFolderLink(folder)" title="Copy link">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy link
+                  </button>
+                  <a :href="'/dev-folder/' + folder.token" target="_blank" rel="noopener" class="df-action-btn df-action-open" @click.stop>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Open
+                  </a>
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- ── Maintenance Developers ── -->
-            <div v-if="maintenanceDevs.length" class="df-section-label" :style="devFolders.length ? 'margin-top:28px;' : ''">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-              Maintenance
-            </div>
-
-            <div v-if="maintenanceDevs.length" class="df-grid">
-              <div v-for="dev in maintenanceDevs" :key="dev.email" class="df-card df-card--maintenance">
-                <div class="df-card-stripe df-card-stripe--maintenance"></div>
-                <div class="df-card-body">
-                  <div class="df-card-top">
-                    <div class="df-avatar df-avatar--maintenance">{{ maintenanceDevInitials(dev.email) }}</div>
-                    <div class="df-card-info">
-                      <div class="df-card-name">{{ dev.email.split('@')[0] }}</div>
-                      <div class="df-card-email">{{ dev.email }}</div>
+          <!-- ── Dev Folder Detail Modal ── -->
+          <Teleport to="body">
+            <Transition name="modal-fade">
+              <div v-if="devFolderDetail" class="df-detail-overlay" @click.self="closeFolderDetail">
+                <div class="df-detail-modal">
+                  <!-- Modal header -->
+                  <div class="df-detail-header" :style="{ background: `linear-gradient(135deg, ${devFolderDetail.avatar_color || '#4f46e5'} 0%, ${devFolderDetail.avatar_color || '#4f46e5'}cc 100%)` }">
+                    <div style="display:flex;align-items:center;gap:14px;">
+                      <div class="df-detail-avatar" :style="{ background: 'rgba(255,255,255,.22)', borderColor: 'rgba(255,255,255,.45)' }">{{ folderInitials(devFolderDetail.developer_name) }}</div>
+                      <div>
+                        <div class="df-detail-name">{{ devFolderDetail.developer_name }}</div>
+                        <div class="df-detail-email">{{ devFolderDetail.developer_email }}</div>
+                      </div>
                     </div>
-                    <div class="df-role-chips">
-                      <span v-if="dev.roles.includes('dev')" class="df-role-chip df-role-dev">Dev</span>
-                      <span v-if="dev.roles.includes('qa')" class="df-role-chip df-role-qa">QA</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <!-- Color picker -->
+                      <div class="df-color-picker-wrap" @click.stop>
+                        <button class="df-detail-close" title="Change color" @click.stop="colorPickerOpen = !colorPickerOpen">
+                          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        </button>
+                        <div v-if="colorPickerOpen" class="df-color-swatches">
+                          <button
+                            v-for="c in AVATAR_COLORS" :key="c"
+                            class="df-color-swatch"
+                            :class="{ 'df-color-swatch--active': c === devFolderDetail.avatar_color }"
+                            :style="{ background: c }"
+                            @click.stop="updateFolderColor(devFolderDetail, c)"
+                          ></button>
+                        </div>
+                      </div>
+                      <button class="df-detail-close" @click="closeFolderDetail">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
                     </div>
                   </div>
 
-                  <div class="df-card-project">
-                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    {{ dev.projects.join(', ') || 'No project' }}
-                    <span class="df-ticket-count">· {{ dev.ticket_count }} ticket{{ dev.ticket_count !== 1 ? 's' : '' }}</span>
+                  <div v-if="devFolderDetailLoading" style="text-align:center;padding:36px;color:var(--gray-400);">
+                    <div style="width:26px;height:26px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+                    Loading tickets…
                   </div>
 
-                  <div class="df-card-footer">
-                    <button class="df-action-btn df-action-copy" @click="copyMaintenanceFolderLink(dev.email)" title="Copy link">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                      Copy link
-                    </button>
-                    <a :href="maintenanceFolderUrl(dev.email)" target="_blank" rel="noopener" class="df-action-btn df-action-open df-action-open--maintenance">
-                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                      Open
-                    </a>
+                  <div v-else class="df-detail-body">
+                    <!-- Stat row -->
+                    <div class="df-detail-stats">
+                      <div class="df-detail-stat" style="--sc:#4f46e5;--sc-bg:#eef2ff;--sc-bd:#c7d2fe;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.total }}</div>
+                        <div class="df-detail-stat-lbl">Total</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#d97706;--sc-bg:#fffbeb;--sc-bd:#fde68a;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.pending }}</div>
+                        <div class="df-detail-stat-lbl">Pending</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#2563eb;--sc-bg:#eff6ff;--sc-bd:#bfdbfe;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.ongoing }}</div>
+                        <div class="df-detail-stat-lbl">Ongoing</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#15803d;--sc-bg:#f0fdf4;--sc-bd:#bbf7d0;">
+                        <div class="df-detail-stat-num">{{ folderDetailStats.completed }}</div>
+                        <div class="df-detail-stat-lbl">Completed</div>
+                      </div>
+                    </div>
+
+                    <!-- Bug list -->
+                    <div v-if="devFolderDetailBugs.length" class="df-detail-bugs">
+                      <div class="df-detail-bugs-title">Assigned Tickets</div>
+                      <div v-for="bug in devFolderDetailBugs" :key="bug.id" class="df-detail-bug-row">
+                        <span class="df-detail-bug-seq">#{{ bug.sequence }}</span>
+                        <span class="df-detail-bug-title">{{ bug.title }}</span>
+                        <span :class="['badge', priorityBadgeClass(bug.priority)]">{{ bug.priority }}</span>
+                        <span :class="['badge', statusBadgeClass(bug.status)]">{{ bug.status }}</span>
+                      </div>
+                    </div>
+                    <div v-else style="text-align:center;padding:28px 0;color:var(--gray-400);font-size:13px;">
+                      No tickets assigned yet
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- Empty state only when both are empty -->
-            <div v-if="!devFolders.length && !maintenanceDevs.length" class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <div class="empty-state-title">No folders yet</div>
-              <div class="empty-state-text">Folders are created automatically when you assign a developer to a bug or maintenance ticket.</div>
-            </div>
-          </template>
+            </Transition>
+          </Teleport>
         </div>
 
         <!-- ══ Project view ══ -->
@@ -1594,9 +1778,24 @@
             <!-- Summary cards -->
             <div class="summary-grid">
               <div class="summary-card">
+                <!-- Completion badge -->
+                <div style="position:absolute;top:14px;right:16px;font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 9px;border-radius:20px;letter-spacing:.01em;">
+                  {{ completionPct }}% done
+                </div>
                 <div class="summary-card-icon">🐛</div>
                 <div class="summary-card-label">Total Bugs</div>
                 <div class="summary-card-value">{{ summary.total || 0 }}</div>
+                <!-- Segmented progress bar -->
+                <div style="margin-top:14px;height:6px;border-radius:999px;background:#f1f5f9;overflow:hidden;display:flex;gap:2px;">
+                  <div v-if="pendingPct"  :style="{ width: pendingPct  + '%', background: '#f59e0b', borderRadius: '999px', flexShrink: 0 }"></div>
+                  <div v-if="ongoingPct"  :style="{ width: ongoingPct  + '%', background: '#3b82f6', borderRadius: '999px', flexShrink: 0 }"></div>
+                  <div v-if="completionPct" :style="{ width: completionPct + '%', background: '#22c55e', borderRadius: '999px', flexShrink: 0 }"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+                  <span style="font-size:10px;color:#92400e;display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0;"></span>Pending</span>
+                  <span style="font-size:10px;color:#1d4ed8;display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;display:inline-block;flex-shrink:0;"></span>Ongoing</span>
+                  <span style="font-size:10px;color:#15803d;display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;"></span>Done</span>
+                </div>
               </div>
 
               <div class="summary-card summary-card-clickable" @click="openDetailView('status')">
@@ -1847,6 +2046,17 @@
                               ⚠️ Blocked
                             </span>
                           </template>
+                          <template v-else-if="bug.dev_status === 'In Progress' && bug.ticket_sent_at">
+                            <button
+                              class="send-ticket-btn send-ticket-btn--resend-dev"
+                              :disabled="!bug.has_assignment"
+                              title="Resend ticket to developer"
+                              @click="openResendTicketModal(bug)"
+                            >
+                              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+                              Send to Dev
+                            </button>
+                          </template>
                           <template v-else>
                             <div v-if="bug.ticket_sent_at" style="display:flex;align-items:center;gap:4px;">
                               <span class="send-ticket-btn send-ticket-btn--sent" style="pointer-events:none;">
@@ -2075,6 +2285,18 @@
                 <div class="color-swatches">
                   <button v-for="c in projectColors" :key="c" type="button" class="color-swatch"
                     :class="{ selected: projectForm.color === c }" :style="{ background: c }" @click="projectForm.color = c"></button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;">
+                  <span style="font-size:13px;color:var(--gray-700);flex:1;">
+                    {{ projectForm.is_active ? 'Active — bugs can be reported' : 'Inactive — project is closed' }}
+                  </span>
+                  <button type="button" @click="projectForm.is_active = !projectForm.is_active"
+                    :style="{ display:'flex', alignItems:'center', width:'44px', height:'24px', borderRadius:'12px', border:'none', cursor:'pointer', padding:'2px', transition:'background .2s', background: projectForm.is_active ? '#4f46e5' : '#d1d5db', justifyContent: projectForm.is_active ? 'flex-end' : 'flex-start' }">
+                    <span style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2836,11 +3058,19 @@ const openNotif = async (n) => {
   }
   notifDropdownOpen.value = false
   if (n.data?.bug_id) {
-    const bug = bugs.value.find(b => b.id === n.data.bug_id)
-    if (bug) { viewBug(bug); return }
-    // Bug not in current view — open ticket page in new tab
-    window.open(`/ticket/${n.data.bug_id}`, '_blank')
+    // Try the already-loaded bugs first
+    let bug = bugs.value.find(b => b.id === n.data.bug_id)
+    if (!bug) {
+      // Bug belongs to a different project — fetch it directly
+      try { bug = await $fetch(`${config.public.apiBase}/bugs/${n.data.bug_id}`) } catch {}
+    }
+    if (bug) { viewBug(bug) }
   }
+}
+
+const dismissNotif = async (n) => {
+  try { await $fetch(`${config.public.apiBase}/notifications/${n.id}`, { method: 'DELETE' }) } catch {}
+  notifications.value = notifications.value.filter(x => x.id !== n.id)
 }
 
 const markAllNotifRead = async () => {
@@ -2991,6 +3221,9 @@ const scenarioColors = { UI: '#8b5cf6', Functionality: '#ec4899', 'UI & Function
 
 // ── Project state ──
 const dashboardOpen          = ref(false)
+const dashboardKey           = ref(0)
+const inactiveOpen           = ref(false)
+const projectStatusTab       = ref('all')
 const projects               = ref([])
 const selectedProject        = ref(null)
 const projectSearch          = ref('')
@@ -2999,11 +3232,37 @@ const showProjectModal       = ref(false)
 const showDeleteProjectModal = ref(false)
 const editingProject         = ref(null)
 const deletingProject        = ref(null)
-const projectForm            = ref({ name: '', description: '', color: '#6366f1' })
+const projectForm            = ref({ name: '', description: '', color: '#6366f1', is_active: true })
 
 // ── Bug state ──
 const bugs            = ref([])
 const summary         = ref({})
+
+// ── Bug squish animation ──────────────────────────────────────────────────
+const showSquishAnim = ref(false)
+let squishTimer = null
+const triggerSquishAnim = () => {
+  showSquishAnim.value = true
+  clearTimeout(squishTimer)
+  squishTimer = setTimeout(() => { showSquishAnim.value = false }, 2400)
+}
+
+const completionPct = computed(() => {
+  const total = summary.value.total || 0
+  if (!total) return 0
+  return Math.round((summary.value.by_status?.Completed || 0) / total * 100)
+})
+const pendingPct = computed(() => {
+  const total = summary.value.total || 0
+  if (!total) return 0
+  return Math.round((summary.value.by_status?.Pending || 0) / total * 100)
+})
+const ongoingPct = computed(() => {
+  const total = summary.value.total || 0
+  if (!total) return 0
+  return Math.round((summary.value.by_status?.Ongoing || 0) / total * 100)
+})
+
 const showModal       = ref(false)
 const showDeleteModal = ref(false)
 const showImagesModal  = ref(false)
@@ -3154,6 +3413,12 @@ watch(detailView, async (newView) => {
         responsive: true,
         maintainAspectRatio: false,
         cutout: '68%',
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 900,
+          easing: 'easeInOutQuart',
+        },
         plugins: {
           legend: {
             position: 'bottom',
@@ -3175,6 +3440,13 @@ watch(detailView, async (newView) => {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
+        animation: {
+          duration: 1000,
+          easing: 'easeInOutQuart',
+        },
+        animations: {
+          y: { from: (ctx) => ctx.chart.scales.y.bottom },
+        },
         scales: {
           x: {
             grid: { color: '#f1f5f9' },
@@ -3233,6 +3505,9 @@ const overallStats = computed(() => {
   return { totalProjects: ps.length, total, critical, pending, ongoing, completed, rate }
 })
 
+const activeProjects   = computed(() => projects.value.filter(p => p.is_active !== false))
+const inactiveProjects = computed(() => projects.value.filter(p => p.is_active === false))
+
 const filteredProjects = computed(() => projects.value.filter(p => {
   if (projectSearch.value) {
     const q = projectSearch.value.toLowerCase()
@@ -3244,6 +3519,15 @@ const filteredProjects = computed(() => projects.value.filter(p => {
   if (projectFilter.value === 'completed') return p.completed_count > 0
   return true
 }))
+
+const filteredActiveProjects = computed(() => filteredProjects.value.filter(p => p.is_active !== false))
+
+const filteredInactiveProjects = computed(() => {
+  const q = projectSearch.value.trim().toLowerCase()
+  return inactiveProjects.value.filter(p =>
+    !q || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
+  )
+})
 
 const imagePreviewList = computed(() => [
   ...existingImages.value.map(url => ({ url: apiBase + url, existing: true, src: url })),
@@ -3288,18 +3572,29 @@ const selectProject = async (project) => {
   selectedProject.value    = project
   detailView.value         = null
   devFoldersViewOpen.value = false
+  inactiveOpen.value       = false
   bugs.value               = []
   summary.value            = {}
   clearFilters()
   if (project) await fetchBugs()
+  else await new Promise(r => setTimeout(r, 300))
   appLoading.value = false
+}
+
+const openInactiveView = () => {
+  projectStatusTab.value   = 'inactive'
+  inactiveOpen.value       = false
+  dashboardOpen.value      = false
+  selectedProject.value    = null
+  devFoldersViewOpen.value = false
+  ticketTrackerOpen.value  = false
 }
 
 const openProjectModal = (project) => {
   editingProject.value = project
   projectForm.value = project
-    ? { name: project.name, description: project.description || '', color: project.color }
-    : { name: '', description: '', color: '#6366f1' }
+    ? { name: project.name, description: project.description || '', color: project.color, is_active: project.is_active !== false }
+    : { name: '', description: '', color: '#6366f1', is_active: true }
   showProjectModal.value = true
 }
 
@@ -3429,6 +3724,7 @@ const updateStatus = async (bug, newStatus) => {
   try {
     const fd = new FormData(); fd.append('_method', 'PUT'); fd.append('status', newStatus)
     await apiFetch(`${config.public.apiBase}/bugs/${bug.id}`, { method: 'POST', body: fd })
+    if (newStatus === 'Completed') triggerSquishAnim()
     await fetchBugs(); await fetchProjects()
   } catch (e) { console.error('Failed to update status', e) }
 }
@@ -3802,6 +4098,7 @@ const ttMarkResolved = async () => {
     ttDetailBug.value = { ...updated, project: ttDetailBug.value.project }
     ttCurrentStatus.value = updated.status
     updateBugInLists(updated)
+    triggerSquishAnim()
     ttScrollBottom()
   } catch (e) { console.error('Failed to resolve ticket', e) }
   finally { ttPosting.value = false }
@@ -4078,16 +4375,17 @@ const devFoldersViewOpen = ref(false)
 const devFolders         = ref([])
 const maintenanceDevs    = ref([])
 const devFoldersLoading  = ref(false)
+const devFoldersSummary  = ref(null)
 
 async function fetchDevFolders() {
   devFoldersLoading.value = true
   try {
-    const [folders, mDevs] = await Promise.all([
+    const [folders, summary] = await Promise.all([
       $fetch(`${config.public.apiBase}/dev-folders`),
-      $fetch(`${config.public.apiBase}/maintenance-devs`).catch(() => []),
+      $fetch(`${config.public.apiBase}/dev-folders/summary`),
     ])
-    devFolders.value      = folders
-    maintenanceDevs.value = mDevs
+    devFolders.value        = folders
+    devFoldersSummary.value = summary
   } catch (e) {
     console.error('Failed to fetch dev folders', e)
   } finally {
@@ -4099,24 +4397,23 @@ async function openDevFoldersView() {
   appLoading.value         = true
   devFoldersViewOpen.value = true
   ticketTrackerOpen.value  = false
+  dashboardOpen.value      = false
+  inactiveOpen.value       = false
   selectedProject.value    = null
   await fetchDevFolders()
   appLoading.value = false
 }
 
-function maintenanceDevInitials(email) {
-  if (!email) return '?'
-  return email.split('@')[0].slice(0, 2).toUpperCase()
-}
-
-function maintenanceFolderUrl(email) {
-  return `/maintenance-dev-folder?email=${encodeURIComponent(email)}`
-}
-
-async function copyMaintenanceFolderLink(email) {
-  const url = `${window.location.origin}/maintenance-dev-folder?email=${encodeURIComponent(email)}`
-  await navigator.clipboard.writeText(url)
-  showToast('Folder link copied!')
+async function openDashboard() {
+  appLoading.value         = true
+  dashboardOpen.value      = true
+  selectedProject.value    = null
+  ticketTrackerOpen.value  = false
+  devFoldersViewOpen.value = false
+  inactiveOpen.value       = false
+  await new Promise(r => setTimeout(r, 300))
+  dashboardKey.value++
+  appLoading.value = false
 }
 
 function folderInitials(name) {
@@ -4142,6 +4439,86 @@ async function copyFolderLink(folder) {
   const url = `${window.location.origin}/dev-folder/${folder.token}`
   await navigator.clipboard.writeText(url)
   showToast('Folder link copied!')
+}
+
+// ── Dev Folder Detail Modal ───────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  '#4f46e5','#7c3aed','#db2777','#dc2626','#ea580c',
+  '#d97706','#16a34a','#0891b2','#2563eb','#9333ea',
+  '#0d9488','#65a30d','#be185d','#0369a1','#92400e','#374151',
+]
+
+const devFolderDetail        = ref(null)
+const devFolderDetailBugs    = ref([])
+const devFolderDetailLoading = ref(false)
+const colorPickerOpen        = ref(false)
+
+const folderDetailStats = computed(() => {
+  const bugs = devFolderDetailBugs.value
+  return {
+    total:     bugs.length,
+    pending:   bugs.filter(b => b.status === 'Pending').length,
+    ongoing:   bugs.filter(b => b.status === 'Ongoing').length,
+    completed: bugs.filter(b => b.status === 'Completed').length,
+  }
+})
+
+const dfsSummaryProgress = computed(() => {
+  if (!devFoldersSummary.value) return null
+  const o = devFoldersSummary.value.overall
+  const total = o.total_completed + o.total_active + o.pending + o.sent_back
+  if (!total) return { pct: 0, total: 0, rawCompleted: 0, rawTotal: 0, done: 0, active: 0, pend: 0, blocked: 0 }
+  const pct  = (v) => Math.round(v / total * 100)
+  return {
+    pct:          pct(o.total_completed),
+    rawCompleted: o.total_completed,
+    rawTotal:     total,
+    done:         pct(o.total_completed),
+    active:       pct(o.total_active),
+    pend:         pct(o.pending),
+    blocked:      pct(o.sent_back),
+  }
+})
+
+async function openFolderDetail(folder) {
+  devFolderDetail.value        = folder
+  devFolderDetailBugs.value    = []
+  devFolderDetailLoading.value = true
+  try {
+    const res = await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}/bugs`)
+    devFolderDetailBugs.value = res.bugs || []
+  } catch {
+    devFolderDetailBugs.value = []
+  } finally {
+    devFolderDetailLoading.value = false
+  }
+}
+
+function openFolderDetailByEmail(email) {
+  const folder = devFolders.value.find(f => f.developer_email.toLowerCase() === email.toLowerCase())
+  if (folder) openFolderDetail(folder)
+}
+
+function closeFolderDetail() {
+  devFolderDetail.value = null
+  colorPickerOpen.value = false
+}
+
+async function updateFolderColor(folder, color) {
+  try {
+    await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}`, {
+      method: 'PATCH',
+      body: { avatar_color: color },
+    })
+    folder.avatar_color = color
+    if (devFolderDetail.value?.token === folder.token) {
+      devFolderDetail.value = { ...devFolderDetail.value, avatar_color: color }
+    }
+    colorPickerOpen.value = false
+    showToast('Color updated!')
+  } catch {
+    showToast('Failed to update color', 'error')
+  }
 }
 
 // ── Send Ticket ──────────────────────────────────────────────────────────────

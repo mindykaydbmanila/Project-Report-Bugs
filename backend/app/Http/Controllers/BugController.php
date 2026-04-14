@@ -482,7 +482,7 @@ class BugController extends Controller
 
         $authorName = $request->input('author', 'Developer');
 
-        $bug->update(['status' => 'Completed', 'resolved_by' => $authorName]);
+        $bug->update(['status' => 'Completed', 'resolved_by' => $authorName, 'dev_status' => 'Ready for QA']);
 
         $log = $bug->activity_log ?? [];
         $log[] = [

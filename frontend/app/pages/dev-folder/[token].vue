@@ -17,23 +17,26 @@
       </div>
     </header>
 
-    <!-- Email Gate (private folders) -->
+    <!-- Google Gate (private folders) -->
     <div v-if="requiresAuth" class="folder-gate">
       <div class="folder-gate-card">
         <div style="font-size:40px;margin-bottom:12px;">🔒</div>
         <h2 style="margin:0 0 6px;font-size:18px;color:#1e293b;">Private Folder</h2>
-        <p style="color:#64748b;font-size:13px;margin:0 0 20px;">
-          This folder is private. Enter your email address to access your tickets.
+        <p style="color:#64748b;font-size:13px;margin:0 0 24px;">
+          This folder is private. Sign in with your Google account to verify access.
         </p>
-        <input
-          v-model="emailInput"
-          type="email"
-          placeholder="your@email.com"
-          class="folder-gate-input"
-          @keydown.enter="verifyEmail"
-        />
-        <div v-if="authError" style="color:#dc2626;font-size:12px;margin-top:6px;">{{ authError }}</div>
-        <button class="folder-gate-btn" @click="verifyEmail">Access My Tickets</button>
+        <div v-if="authError" style="color:#dc2626;font-size:12px;margin-bottom:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;">
+          Your Google account does not match this folder. Please use the correct account.
+        </div>
+        <button class="folder-google-btn" @click="signInWithGoogle">
+          <svg width="16" height="16" viewBox="0 0 48 48" style="flex-shrink:0;">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          Sign in with Google
+        </button>
       </div>
     </div>
 
@@ -62,9 +65,9 @@
           <div class="folder-dev-email">{{ folder.developer_email }}</div>
         </div>
         <div class="folder-stats">
-          <span class="folder-stat-pill" style="background:#fef3c7;color:#92400e;">{{ countByStatus('Pending') }} Pending</span>
-          <span class="folder-stat-pill" style="background:#dbeafe;color:#1e40af;">{{ countByStatus('Ongoing') }} Ongoing</span>
-          <span class="folder-stat-pill" style="background:#dcfce7;color:#166534;">{{ countByStatus('Completed') }} Done</span>
+          <button :class="['folder-stat-pill', activeFilter === 'Pending' && 'folder-stat-pill--active']" style="background:#fef3c7;color:#92400e;" @click="toggleFilter('Pending')">{{ countByStatus('Pending') }} Pending</button>
+          <button :class="['folder-stat-pill', activeFilter === 'Ongoing' && 'folder-stat-pill--active']" style="background:#dbeafe;color:#1e40af;" @click="toggleFilter('Ongoing')">{{ countByStatus('Ongoing') }} Ongoing</button>
+          <button :class="['folder-stat-pill', activeFilter === 'Completed' && 'folder-stat-pill--active']" style="background:#dcfce7;color:#166534;" @click="toggleFilter('Completed')">{{ countByStatus('Completed') }} Done</button>
         </div>
 
         <!-- Dev controls: visibility + copy -->
@@ -85,10 +88,28 @@
         </div>
       </div>
 
+      <!-- Search bar -->
+      <div v-if="bugs.length" class="folder-search-wrap">
+        <span class="folder-search-icon">🔍</span>
+        <input
+          v-model="searchQuery"
+          class="folder-search-input"
+          type="text"
+          placeholder="Search tickets by title, #number, priority…"
+        />
+        <button v-if="searchQuery" class="folder-search-clear" @click="searchQuery = ''">✕</button>
+      </div>
+
       <!-- Empty state -->
       <div v-if="!bugs.length" class="folder-empty">
         <div style="font-size:40px;margin-bottom:12px;">📭</div>
         <p>No tickets assigned yet.</p>
+      </div>
+
+      <!-- No results from search -->
+      <div v-else-if="searchQuery && !groupedBugs.length" class="folder-empty">
+        <div style="font-size:36px;margin-bottom:12px;">🔎</div>
+        <p>No tickets match "<strong>{{ searchQuery }}</strong>"</p>
       </div>
 
       <!-- Ticket groups by project -->
@@ -114,8 +135,6 @@
                 v-for="bug in group.bugs"
                 :key="bug.id"
                 :href="ticketUrl(bug)"
-                target="_blank"
-                rel="noopener"
                 class="folder-ticket-card"
               >
                 <div class="folder-ticket-top">
@@ -148,6 +167,51 @@
         </div>
 
       </div>
+
+      <!-- ── Done section ─────────────────────────────────────────────────── -->
+      <div v-if="countByStatus('Completed') > 0 && !activeFilter" id="folder-done-section" class="folder-done-section">
+        <button class="folder-done-toggle" @click="showDoneSection = !showDoneSection">
+          <span class="folder-done-check">✓</span>
+          <span class="folder-done-label">Done</span>
+          <span class="folder-done-count-badge">{{ countByStatus('Completed') }}</span>
+          <svg class="folder-done-chevron" :style="{ transform: showDoneSection ? 'rotate(180deg)' : 'rotate(0deg)' }" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+
+        <div v-if="showDoneSection" class="folder-done-body">
+          <div v-for="project in completedGrouped" :key="project.id" class="folder-done-project">
+            <div class="folder-done-project-header">
+              <span style="font-size:13px;">📁</span>
+              <span class="folder-done-project-name">{{ project.name }}</span>
+              <span class="folder-done-project-count">{{ project.bugs.length }} ticket{{ project.bugs.length !== 1 ? 's' : '' }}</span>
+            </div>
+            <div class="folder-ticket-list">
+              <a
+                v-for="bug in project.bugs"
+                :key="bug.id"
+                :href="ticketUrl(bug)"
+                class="folder-ticket-card folder-ticket-card--done"
+              >
+                <div class="folder-ticket-top">
+                  <span class="folder-done-tick">✓</span>
+                  <span class="folder-ticket-seq">#{{ bug.sequence }}</span>
+                  <span :class="['folder-ticket-priority', priorityClass(bug.priority)]">{{ bug.priority }}</span>
+                  <span v-if="bug.scenario_type" class="folder-ticket-scenario">{{ bug.scenario_type }}</span>
+                </div>
+                <div class="folder-ticket-title folder-ticket-title--done">{{ bug.title }}</div>
+                <div v-if="bug.subtitles && bug.subtitles.length" class="folder-ticket-subtitles">
+                  <span v-for="(sub, i) in bug.subtitles.slice(0,2)" :key="i" class="folder-ticket-subtitle-chip">
+                    {{ typeof sub === 'string' ? sub : sub.text }}
+                  </span>
+                  <span v-if="bug.subtitles.length > 2" class="folder-ticket-subtitle-chip" style="background:#f1f5f9;color:#64748b;">
+                    +{{ bug.subtitles.length - 2 }} more
+                  </span>
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -182,7 +246,6 @@ const error      = ref(null)
 const folder     = ref(null)
 const bugs       = ref([])
 const requiresAuth = ref(false)
-const emailInput = ref('')
 const authError  = ref('')
 
 // Folder controls
@@ -207,6 +270,9 @@ async function loadFolder(email = null) {
     const data = await $fetch(url)
     folder.value = data.folder
     bugs.value   = data.bugs
+    sessionStorage.setItem('devFolderToken', token)
+    sessionStorage.setItem('devFolderEmail', data.folder.developer_email)
+    sessionStorage.setItem('devFolderName', data.folder.developer_name)
   } catch (e) {
     if (e?.data?.requires_auth) {
       requiresAuth.value = true
@@ -219,29 +285,9 @@ async function loadFolder(email = null) {
   }
 }
 
-async function verifyEmail() {
-  authError.value = ''
-  if (!emailInput.value) {
-    authError.value = 'Please enter your email.'
-    return
-  }
-  loading.value      = true
-  requiresAuth.value = false
-  try {
-    const url = `${api}/dev-folders/${token}/bugs?email=${encodeURIComponent(emailInput.value)}`
-    const data = await $fetch(url)
-    folder.value = data.folder
-    bugs.value   = data.bugs
-  } catch (e) {
-    if (e?.data?.requires_auth) {
-      requiresAuth.value = true
-      authError.value = 'Email does not match. Try again.'
-    } else {
-      error.value = e?.data?.message || 'Something went wrong.'
-    }
-  } finally {
-    loading.value = false
-  }
+function signInWithGoogle() {
+  const base = config.public.apiBase.replace('/api', '')
+  window.location.href = `${base}/api/auth/google/dev-folder/${token}`
 }
 
 async function toggleVisibility() {
@@ -276,12 +322,33 @@ async function copyLink() {
   }
 }
 
-const STATUS_ORDER = ['Ongoing', 'Pending', 'Out of Scope', 'Completed']
+const STATUS_ORDER  = ['Ongoing', 'Pending', 'Out of Scope', 'Completed']
+const activeFilter  = ref(null)
+const searchQuery   = ref('')
+const showDoneSection = ref(true)
+
+function toggleFilter(status) {
+  activeFilter.value = activeFilter.value === status ? null : status
+}
 
 const groupedBugs = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
   const byProject = {}
   for (const bug of bugs.value) {
-    if (bug.status === 'Completed') continue
+    // When no filter: hide Completed (shown in Done section). When filter active: show only that status.
+    if (activeFilter.value) {
+      if (bug.status !== activeFilter.value) continue
+    } else {
+      if (bug.status === 'Completed') continue
+    }
+    // Search filter
+    if (q) {
+      const matchesSeq   = String(bug.sequence).includes(q)
+      const matchesTitle = (bug.title || '').toLowerCase().includes(q)
+      const matchesPrio  = (bug.priority || '').toLowerCase().includes(q)
+      const matchesType  = (bug.scenario_type || '').toLowerCase().includes(q)
+      if (!matchesSeq && !matchesTitle && !matchesPrio && !matchesType) continue
+    }
     const key = bug.project_id ?? 0
     const name = bug.project?.name ?? 'No Project'
     if (!byProject[key]) byProject[key] = { id: key, name, statusGroups: {} }
@@ -296,6 +363,26 @@ const groupedBugs = computed(() => {
   }))
 })
 
+const completedGrouped = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  const byProject = {}
+  for (const bug of bugs.value) {
+    if (bug.status !== 'Completed') continue
+    if (q) {
+      const matchesSeq   = String(bug.sequence).includes(q)
+      const matchesTitle = (bug.title || '').toLowerCase().includes(q)
+      const matchesPrio  = (bug.priority || '').toLowerCase().includes(q)
+      const matchesType  = (bug.scenario_type || '').toLowerCase().includes(q)
+      if (!matchesSeq && !matchesTitle && !matchesPrio && !matchesType) continue
+    }
+    const key = bug.project_id ?? 0
+    const name = bug.project?.name ?? 'No Project'
+    if (!byProject[key]) byProject[key] = { id: key, name, bugs: [] }
+    byProject[key].bugs.push(bug)
+  }
+  return Object.values(byProject).map(p => ({ id: p.id, name: p.name, bugs: p.bugs }))
+})
+
 function countByStatus(status) {
   return bugs.value.filter(b => b.status === status).length
 }
@@ -307,7 +394,7 @@ function initials(name) {
 
 function ticketUrl(bug) {
   const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
-  return `${base}/ticket/${bug.id}`
+  return `${base}/ticket/${bug.id}?from=${token}`
 }
 
 function formatDate(d) {
@@ -335,7 +422,19 @@ function priorityClass(p) {
   return { Critical: 'priority-critical', High: 'priority-high', Medium: 'priority-medium', Low: 'priority-low' }[p] || ''
 }
 
-onMounted(() => loadFolder())
+onMounted(() => {
+  const verifiedEmail = route.query.verified_email
+  const oauthError    = route.query.auth_error
+
+  if (oauthError) {
+    requiresAuth.value = true
+    authError.value    = 'true'
+    loading.value      = false
+    return
+  }
+
+  loadFolder(verifiedEmail || null)
+})
 </script>
 
 <style scoped>
@@ -393,10 +492,24 @@ onMounted(() => loadFolder())
 /* ── Gate ───────────────────────────────────────────────────────────────── */
 .folder-gate { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 100px); padding: 24px; }
 .folder-gate-card { background: #fff; border-radius: 16px; padding: 40px 32px; text-align: center; max-width: 380px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,.08); }
-.folder-gate-input { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; margin-bottom: 4px; }
-.folder-gate-input:focus { border-color: #6366f1; }
-.folder-gate-btn { margin-top: 14px; width: 100%; padding: 10px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.folder-gate-btn:hover { background: #4338ca; }
+.folder-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 20px;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background .15s, box-shadow .15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.folder-google-btn:hover { background: #f8fafc; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 
 /* ── Loading / Error ────────────────────────────────────────────────────── */
 .folder-loading {
@@ -422,7 +535,9 @@ onMounted(() => loadFolder())
 .folder-dev-name { font-weight: 700; font-size: 15px; color: #1e293b; }
 .folder-dev-email { font-size: 12px; color: #64748b; }
 .folder-stats { display: flex; gap: 8px; flex-wrap: wrap; }
-.folder-stat-pill { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+.folder-stat-pill { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; border: none; cursor: pointer; transition: box-shadow .15s, outline .15s; }
+.folder-stat-pill:hover { box-shadow: 0 0 0 2px currentColor; }
+.folder-stat-pill--active { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* ── Dev controls ───────────────────────────────────────────────────────── */
 .folder-dev-controls { display: flex; gap: 8px; margin-left: auto; align-items: center; flex-wrap: wrap; }
@@ -454,6 +569,52 @@ onMounted(() => loadFolder())
   transition: background .15s, color .15s;
 }
 .folder-copy-btn:hover { background: #6366f1; color: #fff; }
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+.folder-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.folder-search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  pointer-events: none;
+  line-height: 1;
+}
+.folder-search-input {
+  width: 100%;
+  padding: 10px 40px 10px 38px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
+}
+.folder-search-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+.folder-search-input::placeholder { color: #94a3b8; }
+.folder-search-clear {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.folder-search-clear:hover { color: #64748b; background: #f1f5f9; }
 
 /* ── Empty ──────────────────────────────────────────────────────────────── */
 .folder-empty { text-align: center; padding: 60px 24px; color: #94a3b8; }
@@ -506,4 +667,47 @@ onMounted(() => loadFolder())
 .folder-ticket-due { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
 .folder-due-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
 .folder-ticket-devstatus { font-size: 11px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+
+/* ── Done section ───────────────────────────────────────────────────────── */
+.folder-done-section { margin-top: 8px; }
+
+.folder-done-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, border-color .15s;
+}
+.folder-done-toggle:hover { background: #dcfce7; border-color: #86efac; }
+
+.folder-done-check { font-size: 14px; color: #16a34a; font-weight: 800; }
+.folder-done-label { font-size: 14px; font-weight: 700; color: #15803d; flex: 1; text-align: left; }
+.folder-done-count-badge { font-size: 11px; font-weight: 700; background: #16a34a; color: #fff; padding: 2px 9px; border-radius: 20px; }
+.folder-done-chevron { color: #16a34a; transition: transform .2s; flex-shrink: 0; }
+
+.folder-done-body { padding-top: 14px; display: flex; flex-direction: column; gap: 20px; }
+
+.folder-done-project-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #f0fdf4;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.folder-done-project-name { font-size: 12px; font-weight: 700; color: #166534; flex: 1; }
+.folder-done-project-count { font-size: 11px; color: #86efac; font-weight: 600; color: #15803d; }
+
+.folder-ticket-card--done { opacity: 0.75; border-color: #dcfce7; }
+.folder-ticket-card--done:hover { opacity: 1; border-color: #16a34a; box-shadow: 0 4px 16px rgba(22,163,74,.1); }
+
+.folder-done-tick { font-size: 11px; color: #16a34a; font-weight: 800; }
+.folder-ticket-title--done { color: #64748b; text-decoration: line-through; text-decoration-color: #94a3b8; }
 </style>

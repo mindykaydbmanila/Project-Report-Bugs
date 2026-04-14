@@ -1,10 +1,86 @@
 <template>
+  <!-- Bell Notification (Ready for QA) -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showBellAnim" class="bell-overlay">
+        <div class="bell-scene">
+          <div class="bell-ripple bell-ripple--1"></div>
+          <div class="bell-ripple bell-ripple--2"></div>
+          <div class="bell-ripple bell-ripple--3"></div>
+          <div class="bell-icon">🔔</div>
+          <div class="bell-label">Ready for QA! <span class="bell-check">✓</span></div>
+          <div class="bell-sub">QA team has been notified</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Not Started Animation -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showNotStartedAnim" class="status-anim-overlay status-anim-overlay--notstarted">
+        <div class="status-anim-scene">
+          <div class="status-anim-icon status-anim-icon--float">💤</div>
+          <div class="status-anim-label">Not Started <span class="status-anim-mark status-anim-mark--gray">–</span></div>
+          <div class="status-anim-sub">Ticket is back in the queue</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Blocked Animation -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showBlockedAnim" class="status-anim-overlay status-anim-overlay--blocked">
+        <div class="status-anim-scene">
+          <div class="status-anim-icon status-anim-icon--shake">🚫</div>
+          <div class="status-anim-label">Blocked! <span class="status-anim-mark status-anim-mark--red">!</span></div>
+          <div class="status-anim-sub">This ticket has been flagged as blocked</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- In Progress Animation -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showInProgressAnim" class="status-anim-overlay status-anim-overlay--progress">
+        <div class="status-anim-scene">
+          <div class="status-anim-icon status-anim-icon--spin">⚙️</div>
+          <div class="status-anim-label">In Progress <span class="status-anim-mark status-anim-mark--blue">→</span></div>
+          <div class="status-anim-sub">Let's get to work!</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Bug Squish Celebration -->
+  <Teleport to="body">
+    <Transition name="squish-fade">
+      <div v-if="showSquishAnim" class="squish-overlay">
+        <div class="squish-scene">
+          <div class="squish-foot">🦶</div>
+          <div class="squish-bug">🐛</div>
+          <div class="squish-splat">💥</div>
+          <div class="squish-stars">
+            <span>⭐</span><span>✨</span><span>⭐</span><span>✨</span><span>⭐</span>
+          </div>
+          <div class="squish-label">Bug Squashed! <span class="squish-check">✓</span></div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <div class="ticket-page">
 
     <!-- Header -->
     <header class="ticket-header">
       <div class="ticket-header-inner">
         <div class="ticket-header-logo">
+          <button class="ticket-back-btn" @click="goBack">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
           <div class="app-logo-icon" style="font-size:20px;">🐛</div>
           <div>
             <div style="font-weight:700;color:#fff;font-size:15px;">QA Bug Tracker</div>
@@ -240,26 +316,20 @@
           <span v-else class="badge badge-completed" style="font-size:13px;padding:6px 14px;">Completed</span>
         </div>
 
-        <!-- Assigned Developer -->
+        <!-- Assigned Developers -->
         <div class="ticket-sidebar-card">
-          <div class="ticket-sidebar-label">Assigned Developer</div>
-          <div v-if="bug.assigned_developer" class="ticket-sidebar-person">
-            <div class="ticket-sidebar-avatar">{{ bug.assigned_developer.name?.[0]?.toUpperCase() }}</div>
-            <div>
-              <div class="ticket-sidebar-person-name">{{ bug.assigned_developer.name }}</div>
-              <div class="ticket-sidebar-person-email">{{ bug.assigned_developer.email }}</div>
+          <div class="ticket-sidebar-label">Assigned Developer{{ (bug.assigned_developers || []).length > 1 ? 's' : '' }}</div>
+          <div v-if="(bug.assigned_developers || []).length" style="display:flex;flex-direction:column;gap:10px;">
+            <div v-for="dev in bug.assigned_developers" :key="dev.email" class="ticket-sidebar-person">
+              <div class="ticket-sidebar-avatar">{{ dev.name?.[0]?.toUpperCase() }}</div>
+              <div style="flex:1;min-width:0;">
+                <div class="ticket-sidebar-person-name">{{ dev.name }}</div>
+                <div class="ticket-sidebar-person-email">{{ dev.email }}</div>
+              </div>
+              <button class="dev-folder-icon-btn" title="View ticket folder" @click="openDevFolder(dev)">📁</button>
             </div>
           </div>
           <div v-else class="ticket-sidebar-empty">Not assigned</div>
-          <!-- My Folder link -->
-          <button
-            v-if="bug.assigned_developer"
-            class="my-folder-btn"
-            style="margin-top:12px;width:100%;"
-            @click="openMyFolder"
-          >
-            📁 View My Ticket Folder
-          </button>
         </div>
 
         <!-- Bug Metadata -->
@@ -349,9 +419,35 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const route       = useRoute()
+const router      = useRouter()
+
+async function goBack() {
+  const devs = bug.value?.assigned_developers || []
+  const storedEmail = sessionStorage.getItem('devFolderEmail')
+
+  // Pick the dev matching the stored email, or fall back to the first assigned dev
+  const dev = (storedEmail && devs.find(d => d.email?.toLowerCase() === storedEmail.toLowerCase()))
+    || devs[0]
+    || null
+
+  if (dev) {
+    try {
+      const data = await $fetch(`${apiBase}/dev-folders`, {
+        method: 'POST',
+        body: { developer_email: dev.email, developer_name: dev.name, visibility: 'private' },
+      })
+      window.location.href = data.url
+      return
+    } catch {}
+  }
+
+  // Fallback: use ?from= token or stored token
+  const from = route.query.from || sessionStorage.getItem('devFolderToken')
+  router.push(from ? `/dev-folder/${from}` : '/')
+}
 const config      = useRuntimeConfig()
 const apiBase     = config.public.apiBase          // used for API calls  e.g. /api/bugs/1/ticket
 const storageBase = config.public.apiBase.replace('/api', '') // used for image src  e.g. /storage/bug-images/...
@@ -370,6 +466,46 @@ const activityListEl   = ref(null)
 
 const statuses    = ['Pending', 'Out of Scope', 'Ongoing', 'Completed']
 const devStatuses = ['Not Started', 'In Progress', 'Ready for QA', 'Blocked']
+
+const showSquishAnim = ref(false)
+let squishTimer = null
+const triggerSquishAnim = () => {
+  showSquishAnim.value = true
+  clearTimeout(squishTimer)
+  squishTimer = setTimeout(() => { showSquishAnim.value = false }, 2400)
+}
+
+const showBellAnim = ref(false)
+let bellTimer = null
+const triggerBellAnim = () => {
+  showBellAnim.value = true
+  clearTimeout(bellTimer)
+  bellTimer = setTimeout(() => { showBellAnim.value = false }, 2600)
+}
+
+const showBlockedAnim = ref(false)
+let blockedTimer = null
+const triggerBlockedAnim = () => {
+  showBlockedAnim.value = true
+  clearTimeout(blockedTimer)
+  blockedTimer = setTimeout(() => { showBlockedAnim.value = false }, 2400)
+}
+
+const showInProgressAnim = ref(false)
+let inProgressTimer = null
+const triggerInProgressAnim = () => {
+  showInProgressAnim.value = true
+  clearTimeout(inProgressTimer)
+  inProgressTimer = setTimeout(() => { showInProgressAnim.value = false }, 2400)
+}
+
+const showNotStartedAnim = ref(false)
+let notStartedTimer = null
+const triggerNotStartedAnim = () => {
+  showNotStartedAnim.value = true
+  clearTimeout(notStartedTimer)
+  notStartedTimer = setTimeout(() => { showNotStartedAnim.value = false }, 2400)
+}
 
 const activityLog = computed(() => bug.value?.activity_log ?? [])
 const isResolved  = computed(() => bug.value?.status === 'Completed')
@@ -469,6 +605,10 @@ const updateDevStatus = async () => {
       body: { dev_status: currentDevStatus.value, author: authorName.value || 'Developer' },
     })
     currentDevStatus.value = bug.value.dev_status || 'Not Started'
+    if (currentDevStatus.value === 'Ready for QA') triggerBellAnim()
+    else if (currentDevStatus.value === 'Blocked') triggerBlockedAnim()
+    else if (currentDevStatus.value === 'In Progress') triggerInProgressAnim()
+    else if (currentDevStatus.value === 'Not Started') triggerNotStartedAnim()
     scrollToBottom()
   } catch (e) {
     console.error('Failed to update dev status', e)
@@ -505,6 +645,8 @@ const markResolved = async () => {
       body: { author: authorName.value || 'Developer' },
     })
     currentStatus.value = bug.value.status
+    currentDevStatus.value = bug.value.dev_status || 'Ready for QA'
+    triggerSquishAnim()
     scrollToBottom()
   } catch (e) {
     console.error('Failed to resolve ticket', e)
@@ -513,20 +655,11 @@ const markResolved = async () => {
   }
 }
 
-async function openMyFolder() {
-  if (!bug.value?.assigned_developer) return
-  const dev = bug.value.assigned_developer
+async function openDevFolder(dev) {
   try {
-    const body = {
-      developer_email: dev.email,
-      developer_name:  dev.name,
-      visibility:      'private',
-    }
-    if (bug.value.project_id) body.project_id = bug.value.project_id
-
     const data = await $fetch(`${apiBase}/dev-folders`, {
       method: 'POST',
-      body,
+      body: { developer_email: dev.email, developer_name: dev.name, visibility: 'private' },
     })
     window.open(data.url, '_blank')
   } catch (e) {
@@ -545,6 +678,8 @@ onMounted(loadTicket)
 .ticket-header { background: #4f46e5; padding: 0; }
 .ticket-header-inner { max-width: 1100px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
 .ticket-header-logo { display: flex; align-items: center; gap: 10px; }
+.ticket-back-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; transition: background .15s; border: 1px solid rgba(255,255,255,0.2); }
+.ticket-back-btn:hover { background: rgba(255,255,255,0.22); }
 .ticket-header-meta { display: flex; gap: 8px; }
 
 /* Loading / Error */
@@ -609,8 +744,8 @@ onMounted(loadTicket)
 .ticket-sidebar-person-name { font-size: 14px; font-weight: 600; color: #1e293b; }
 .ticket-sidebar-person-email { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 .ticket-sidebar-empty { font-size: 13px; color: #94a3b8; font-style: italic; }
-.my-folder-btn { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4f46e5; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: background .15s; }
-.my-folder-btn:hover { background: #e0e7ff; }
+.dev-folder-icon-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid #c7d2fe; background: #eef2ff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: background .15s; }
+.dev-folder-icon-btn:hover { background: #e0e7ff; }
 .ticket-meta-list { display: flex; flex-direction: column; gap: 0; }
 .ticket-meta-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
 .ticket-meta-row:last-child { border-bottom: none; }
