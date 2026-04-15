@@ -172,27 +172,43 @@ class MaintenanceTicketController extends Controller
             ->orWhereNotNull('assigned_qa')
             ->get(['assigned_devs', 'assigned_qa', 'maintenance_project_id', 'status']);
 
-        $map = []; // email => { email, roles, ticket_count, projects }
+        $map = []; // email => { email, roles, ticket_count, pending, in_progress, completed, projects }
 
         foreach ($tickets as $ticket) {
             $projectName = optional($ticket->project)->name ?? 'Unknown';
+            $status      = $ticket->status ?? 'Pending';
 
-            foreach ($ticket->assigned_devs ?? [] as $email) {
+            $allEmails = array_unique(array_merge(
+                $ticket->assigned_devs ?? [],
+                $ticket->assigned_qa   ?? []
+            ));
+
+            foreach ($allEmails as $email) {
                 if (!isset($map[$email])) {
-                    $map[$email] = ['email' => $email, 'roles' => [], 'ticket_count' => 0, 'projects' => []];
+                    $map[$email] = [
+                        'email'        => $email,
+                        'roles'        => [],
+                        'ticket_count' => 0,
+                        'pending'      => 0,
+                        'in_progress'  => 0,
+                        'completed'    => 0,
+                        'projects'     => [],
+                    ];
                 }
                 $map[$email]['ticket_count']++;
-                if (!in_array('dev', $map[$email]['roles'])) $map[$email]['roles'][] = 'dev';
-                if (!in_array($projectName, $map[$email]['projects'])) $map[$email]['projects'][] = $projectName;
+                if ($status === 'Pending')     $map[$email]['pending']++;
+                if ($status === 'In Progress') $map[$email]['in_progress']++;
+                if ($status === 'Completed')   $map[$email]['completed']++;
+                if (!in_array($projectName, $map[$email]['projects'])) {
+                    $map[$email]['projects'][] = $projectName;
+                }
             }
 
+            foreach ($ticket->assigned_devs ?? [] as $email) {
+                if (!in_array('dev', $map[$email]['roles'])) $map[$email]['roles'][] = 'dev';
+            }
             foreach ($ticket->assigned_qa ?? [] as $email) {
-                if (!isset($map[$email])) {
-                    $map[$email] = ['email' => $email, 'roles' => [], 'ticket_count' => 0, 'projects' => []];
-                }
-                $map[$email]['ticket_count']++;
                 if (!in_array('qa', $map[$email]['roles'])) $map[$email]['roles'][] = 'qa';
-                if (!in_array($projectName, $map[$email]['projects'])) $map[$email]['projects'][] = $projectName;
             }
         }
 

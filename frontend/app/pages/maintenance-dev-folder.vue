@@ -1,6 +1,11 @@
 <template>
   <div class="mdf-page">
 
+    <!-- Toast -->
+    <Transition name="mdf-toast-fade">
+      <div v-if="toast" class="mdf-toast">{{ toast }}</div>
+    </Transition>
+
     <!-- Header -->
     <header class="mdf-header">
       <div class="mdf-header-inner">
@@ -40,21 +45,64 @@
       <!-- Dev info bar -->
       <div class="mdf-dev-bar">
         <div class="mdf-dev-avatar">{{ initials(email) }}</div>
-        <div>
-          <div class="mdf-dev-email">{{ email }}</div>
+
+        <!-- Email + stat pills grouped together -->
+        <div class="mdf-dev-info">
+          <div class="mdf-dev-email-row">
+            <span class="mdf-dev-email">{{ email }}</span>
+            <div class="mdf-stats">
+              <button
+                v-for="pill in statusPills"
+                :key="pill.status"
+                :class="['mdf-stat-pill', activeFilter === pill.status ? 'mdf-stat-pill--active' : '']"
+                :style="activeFilter === pill.status ? pill.activeStyle : pill.style"
+                :title="activeFilter === pill.status ? 'Click to show all' : `Filter: ${pill.status}`"
+                @click="toggleFilter(pill.status)"
+              >
+                <span class="mdf-stat-count">{{ countByStatus(pill.status) }}</span>
+                {{ pill.label }}
+                <svg v-if="activeFilter === pill.status" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:2px;opacity:.7;"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
           <div class="mdf-dev-sub">Maintenance Ticket Folder</div>
         </div>
-        <div class="mdf-stats">
-          <span class="mdf-stat-pill" style="background:#fef3c7;color:#92400e;">{{ countByStatus('Pending') }} Pending</span>
-          <span class="mdf-stat-pill" style="background:#dbeafe;color:#1e40af;">{{ countByStatus('In Progress') }} In Progress</span>
-          <span class="mdf-stat-pill" style="background:#dcfce7;color:#166534;">{{ countByStatus('Completed') }} Done</span>
+
+        <!-- Actions: Visibility + Share (icon only) -->
+        <div class="mdf-bar-actions">
+          <button
+            :class="['mdf-vis-btn', visibility === 'public' ? 'mdf-vis-pub' : 'mdf-vis-priv']"
+            :title="visibility === 'public' ? 'Click to make private' : 'Click to make public'"
+            @click="toggleVisibility"
+          >
+            <svg v-if="visibility === 'public'" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <svg v-else width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            {{ visibility === 'public' ? 'Public' : 'Private' }}
+          </button>
+          <button class="mdf-share-btn" @click="shareFolder" title="Copy shareable link">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
         </div>
+      </div>
+
+      <!-- Active filter banner -->
+      <div v-if="activeFilter" class="mdf-filter-banner">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Showing <strong>{{ activeFilter }}</strong> tickets only &nbsp;—&nbsp;
+        <button class="mdf-filter-clear" @click="activeFilter = null">Clear filter</button>
       </div>
 
       <!-- Empty state -->
       <div v-if="!tickets.length" class="mdf-empty">
         <div style="font-size:40px;margin-bottom:12px;">📭</div>
         <p>No maintenance tickets assigned yet.</p>
+      </div>
+
+      <!-- No results for filter -->
+      <div v-else-if="filteredTickets.length === 0" class="mdf-empty">
+        <div style="font-size:36px;margin-bottom:12px;">🔍</div>
+        <p>No <strong>{{ activeFilter }}</strong> tickets.</p>
+        <button class="mdf-filter-clear" style="margin-top:10px;font-size:13px;" @click="activeFilter = null">Show all tickets</button>
       </div>
 
       <!-- Ticket groups by project -->
@@ -120,6 +168,86 @@ const loading = ref(true)
 const error   = ref(null)
 const tickets = ref([])
 
+// ── Toast ─────────────────────────────────────────────────────────────────────
+const toast = ref(null)
+let toastTimer = null
+function showToast(msg) {
+  toast.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value = null }, 2400)
+}
+
+// ── Visibility (synced with index.vue via same localStorage key) ──────────────
+const visibility = ref('public')
+
+function loadVisibility() {
+  try {
+    const stored = localStorage.getItem('maint_dev_visibilities')
+    if (stored && email.value) {
+      const map = JSON.parse(stored)
+      visibility.value = map[email.value] || 'public'
+    }
+  } catch {}
+}
+
+function toggleVisibility() {
+  const next = visibility.value === 'public' ? 'private' : 'public'
+  visibility.value = next
+  try {
+    const stored = localStorage.getItem('maint_dev_visibilities')
+    const map = stored ? JSON.parse(stored) : {}
+    map[email.value] = next
+    localStorage.setItem('maint_dev_visibilities', JSON.stringify(map))
+  } catch {}
+  showToast(`Folder set to ${next}`)
+}
+
+// ── Share ─────────────────────────────────────────────────────────────────────
+async function shareFolder() {
+  const url = typeof window !== 'undefined' ? window.location.href : ''
+  try {
+    await navigator.clipboard.writeText(url)
+    showToast('Link copied to clipboard!')
+  } catch {
+    showToast('Could not copy link')
+  }
+}
+
+// ── Status filter ─────────────────────────────────────────────────────────────
+const activeFilter = ref(null)
+
+const statusPills = [
+  {
+    status:      'Pending',
+    label:       'Pending',
+    style:       'background:#fef3c7;color:#92400e;',
+    activeStyle: 'background:#f59e0b;color:#fff;box-shadow:0 0 0 2px #f59e0b44;',
+  },
+  {
+    status:      'In Progress',
+    label:       'In Progress',
+    style:       'background:#dbeafe;color:#1e40af;',
+    activeStyle: 'background:#2563eb;color:#fff;box-shadow:0 0 0 2px #2563eb44;',
+  },
+  {
+    status:      'Completed',
+    label:       'Done',
+    style:       'background:#dcfce7;color:#166534;',
+    activeStyle: 'background:#16a34a;color:#fff;box-shadow:0 0 0 2px #16a34a44;',
+  },
+]
+
+function toggleFilter(status) {
+  activeFilter.value = activeFilter.value === status ? null : status
+}
+
+// ── Filtered + grouped tickets ────────────────────────────────────────────────
+const filteredTickets = computed(() =>
+  activeFilter.value
+    ? tickets.value.filter(t => t.status === activeFilter.value)
+    : tickets.value
+)
+
 useHead({
   title: computed(() => email.value ? `Dev Folder · ${email.value}` : 'Maintenance Dev Folder'),
 })
@@ -128,7 +256,7 @@ const STATUS_ORDER = ['In Progress', 'Pending', 'On Hold', 'Completed', 'Cancell
 
 const groupedTickets = computed(() => {
   const byProject = {}
-  for (const t of tickets.value) {
+  for (const t of filteredTickets.value) {
     const key  = t.maintenance_project_id ?? 0
     const name = t.project?.name ?? 'No Project'
     if (!byProject[key]) byProject[key] = { id: key, name, statusGroups: {} }
@@ -216,11 +344,24 @@ async function loadTickets() {
   }
 }
 
-onMounted(loadTickets)
+onMounted(() => {
+  loadTickets()
+  loadVisibility()
+})
 </script>
 
 <style scoped>
 .mdf-page { min-height: 100vh; background: #f1f5f9; font-family: Inter, Arial, sans-serif; }
+
+/* Toast */
+.mdf-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1e293b; color: #fff; font-size: 13px; font-weight: 500;
+  padding: 10px 20px; border-radius: 10px; z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0,0,0,.18); white-space: nowrap; pointer-events: none;
+}
+.mdf-toast-fade-enter-active, .mdf-toast-fade-leave-active { transition: opacity .25s, transform .25s; }
+.mdf-toast-fade-enter-from, .mdf-toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
 
 /* Header */
 .mdf-header { background: linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%); padding: 0; }
@@ -239,12 +380,66 @@ onMounted(loadTickets)
 .mdf-content { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
 
 /* Dev bar */
-.mdf-dev-bar { display: flex; align-items: center; gap: 14px; background: #fff; border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; box-shadow: 0 1px 6px rgba(0,0,0,.06); flex-wrap: wrap; }
-.mdf-dev-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #064e3b, #059669); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0; }
-.mdf-dev-email { font-weight: 700; font-size: 15px; color: #1e293b; }
-.mdf-dev-sub { font-size: 12px; color: #64748b; }
-.mdf-stats { display: flex; gap: 8px; flex-wrap: wrap; }
-.mdf-stat-pill { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+.mdf-dev-bar {
+  display: flex; align-items: center; gap: 14px;
+  background: #fff; border-radius: 14px; padding: 16px 20px;
+  margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  flex-wrap: wrap;
+}
+.mdf-dev-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, #064e3b, #059669);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 16px; flex-shrink: 0;
+}
+.mdf-dev-info { flex: 1; min-width: 0; }
+.mdf-dev-email-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mdf-dev-email { font-weight: 700; font-size: 15px; color: #1e293b; white-space: nowrap; }
+.mdf-dev-sub { font-size: 12px; color: #64748b; margin-top: 3px; }
+
+/* Stat pills */
+.mdf-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.mdf-stat-pill {
+  font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 20px;
+  border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  transition: all .15s; white-space: nowrap;
+}
+.mdf-stat-pill:hover { filter: brightness(.93); }
+.mdf-stat-count { font-weight: 800; }
+
+/* Bar actions */
+.mdf-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+
+.mdf-vis-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
+  border: none; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.mdf-share-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: none; cursor: pointer; transition: all .15s; flex-shrink: 0;
+}
+.mdf-vis-pub  { background: #d1fae5; color: #065f46; }
+.mdf-vis-pub:hover  { background: #a7f3d0; }
+.mdf-vis-priv { background: #fee2e2; color: #991b1b; }
+.mdf-vis-priv:hover { background: #fecaca; }
+.mdf-share-btn { background: #ede9fe; color: #5b21b6; }
+.mdf-share-btn:hover { background: #ddd6fe; }
+
+/* Filter banner */
+.mdf-filter-banner {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #475569; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 8px 14px; margin-bottom: 16px;
+}
+.mdf-filter-banner strong { color: #1e293b; }
+.mdf-filter-clear {
+  background: none; border: none; cursor: pointer;
+  color: #059669; font-size: 12px; font-weight: 700; padding: 0; text-decoration: underline;
+}
+.mdf-filter-clear:hover { color: #047857; }
 
 /* Empty */
 .mdf-empty { text-align: center; padding: 60px 24px; color: #94a3b8; }

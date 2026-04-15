@@ -2681,3 +2681,24 @@ tbody tr.bug-row-completed .bug-title-main { text-decoration: line-through; colo
 .dfs-dev-badge--pending { background: #fffbeb; color: #d97706; border-color: #fde68a; }
 .dfs-dev-badge--active  { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
 .dfs-dev-badge--done    { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+
+/* Sub-labels inside the Developers' Summary panel */
+.dfs-sub-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--gray-400);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0 4px;
+}
+
+/* Maintenance detail modal footer */
+.df-detail-footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--gray-100);
+  display: flex;
+  justify-content: flex-end;
+}

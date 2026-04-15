@@ -1517,18 +1517,44 @@
             <div class="dfs-devs">
               <div class="dfs-section-label"><span>👥</span> Developers' Summary</div>
               <div class="dfs-devs-list">
-                <div v-for="dev in devFoldersSummary.developers" :key="dev.email" class="dfs-dev-row dfs-dev-row--clickable" @click="openFolderDetailByEmail(dev.email)">
-                  <div class="dfs-dev-avatar" :style="{ background: dev.avatar_color || '#4338ca' }">{{ folderInitials(dev.name) }}</div>
-                  <div class="dfs-dev-info">
-                    <div class="dfs-dev-name">{{ dev.name }}</div>
-                    <div class="dfs-dev-email">{{ dev.email }}</div>
+                <!-- Bug Tracker devs -->
+                <template v-if="devFoldersSummary.developers.length">
+                  <div class="dfs-sub-label">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    Bug Tracker
                   </div>
-                  <div class="dfs-dev-badges">
-                    <span class="dfs-dev-badge dfs-dev-badge--pending"><strong>{{ dev.pending }}</strong><span>Pending</span></span>
-                    <span class="dfs-dev-badge dfs-dev-badge--active"><strong>{{ dev.active }}</strong><span>Active</span></span>
-                    <span class="dfs-dev-badge dfs-dev-badge--done"><strong>{{ dev.completed }}</strong><span>Done</span></span>
+                  <div v-for="dev in devFoldersSummary.developers" :key="dev.email" class="dfs-dev-row dfs-dev-row--clickable" @click="openFolderDetailByEmail(dev.email)">
+                    <div class="dfs-dev-avatar" :style="{ background: dev.avatar_color || '#4338ca' }">{{ folderInitials(dev.name) }}</div>
+                    <div class="dfs-dev-info">
+                      <div class="dfs-dev-name">{{ dev.name }}</div>
+                      <div class="dfs-dev-email">{{ dev.email }}</div>
+                    </div>
+                    <div class="dfs-dev-badges">
+                      <span class="dfs-dev-badge dfs-dev-badge--pending"><strong>{{ dev.pending }}</strong><span>Pending</span></span>
+                      <span class="dfs-dev-badge dfs-dev-badge--active"><strong>{{ dev.active }}</strong><span>Active</span></span>
+                      <span class="dfs-dev-badge dfs-dev-badge--done"><strong>{{ dev.completed }}</strong><span>Done</span></span>
+                    </div>
                   </div>
-                </div>
+                </template>
+                <!-- Maintenance devs -->
+                <template v-if="maintenanceDevs.length">
+                  <div class="dfs-sub-label" :style="devFoldersSummary.developers.length ? 'margin-top:14px;' : ''">
+                    <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    Maintenance
+                  </div>
+                  <div v-for="(dev, idx) in maintenanceDevs" :key="'m-' + dev.email" class="dfs-dev-row dfs-dev-row--clickable" @click="openMaintenanceDevDetail(dev, idx)">
+                    <div class="dfs-dev-avatar" :style="{ background: getMaintDevColor(dev.email, idx) }">{{ folderInitials(dev.email.split('@')[0]) }}</div>
+                    <div class="dfs-dev-info">
+                      <div class="dfs-dev-name">{{ dev.email.split('@')[0] }}</div>
+                      <div class="dfs-dev-email">{{ dev.email }}</div>
+                    </div>
+                    <div class="dfs-dev-badges">
+                      <span class="dfs-dev-badge dfs-dev-badge--pending"><strong>{{ dev.pending }}</strong><span>Pending</span></span>
+                      <span class="dfs-dev-badge dfs-dev-badge--active"><strong>{{ dev.in_progress }}</strong><span>Active</span></span>
+                      <span class="dfs-dev-badge dfs-dev-badge--done"><strong>{{ dev.completed }}</strong><span>Done</span></span>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
 
@@ -1580,6 +1606,152 @@
               </div>
             </div>
           </div>
+
+          <!-- ── Maintenance Folders ── -->
+          <div class="df-section-label" style="margin-top:28px;">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Maintenance
+          </div>
+
+          <div v-if="maintenanceDevs.length" class="df-grid">
+            <div
+              v-for="(dev, idx) in maintenanceDevs"
+              :key="dev.email"
+              class="df-card df-card--clickable"
+              :style="`--i:${idx}`"
+              @click="openMaintenanceDevDetail(dev, idx)"
+            >
+              <div class="df-card-hero" :style="{ background: getMaintDevColor(dev.email, idx) }">
+                <button
+                  :class="['df-vis-badge', getMaintDevVisibility(dev.email) === 'public' ? 'df-vis--pub' : 'df-vis--priv']"
+                  :title="getMaintDevVisibility(dev.email) === 'public' ? 'Click to make private' : 'Click to make public'"
+                  @click.stop="toggleMaintDevVisibility(dev.email)"
+                >
+                  <svg v-if="getMaintDevVisibility(dev.email) === 'public'" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <svg v-else width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  {{ getMaintDevVisibility(dev.email) === 'public' ? 'Public' : 'Private' }}
+                </button>
+              </div>
+              <div class="df-card-body">
+                <div class="df-avatar" :style="{ background: getMaintDevColor(dev.email, idx) }">{{ folderInitials(dev.email.split('@')[0]) }}</div>
+                <div class="df-card-name">{{ dev.email.split('@')[0] }}</div>
+                <div class="df-card-email">{{ dev.email }}</div>
+                <div style="margin:3px 0 6px;display:flex;gap:4px;flex-wrap:wrap;">
+                  <span v-if="dev.roles.includes('dev')" style="font-size:10px;padding:1px 6px;border-radius:8px;background:#ede9fe;color:#6d28d9;font-weight:600;">Dev</span>
+                  <span v-if="dev.roles.includes('qa')" style="font-size:10px;padding:1px 6px;border-radius:8px;background:#e0f2fe;color:#0369a1;font-weight:600;">QA</span>
+                </div>
+                <div class="df-card-project">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                  {{ dev.ticket_count }} ticket{{ dev.ticket_count !== 1 ? 's' : '' }}
+                </div>
+                <div class="df-card-footer">
+                  <button class="df-action-btn df-action-copy" @click.stop="copyMaintenanceFolderLink(dev.email)" title="Copy link">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy link
+                  </button>
+                  <a :href="maintenanceFolderUrl(dev.email)" target="_blank" rel="noopener" class="df-action-btn df-action-open" @click.stop>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Open
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="!devFoldersLoading" style="font-size:13px;color:var(--gray-400);padding:12px 0;">No maintenance developers found.</div>
+
+          <!-- ── Maintenance Dev Detail Modal ── -->
+          <Teleport to="body">
+            <Transition name="modal-fade">
+              <div v-if="maintDevDetail" class="df-detail-overlay" @click.self="closeMaintDevDetail">
+                <div class="df-detail-modal">
+                  <div class="df-detail-header" :style="{ background: `linear-gradient(135deg, ${maintDevDetail.color} 0%, ${maintDevDetail.color}cc 100%)` }">
+                    <div style="display:flex;align-items:center;gap:14px;">
+                      <div class="df-detail-avatar" :style="{ background: 'rgba(255,255,255,.22)', borderColor: 'rgba(255,255,255,.45)' }">{{ folderInitials(maintDevDetail.dev.email.split('@')[0]) }}</div>
+                      <div>
+                        <div class="df-detail-name">{{ maintDevDetail.dev.email.split('@')[0] }}</div>
+                        <div class="df-detail-email">{{ maintDevDetail.dev.email }}</div>
+                        <button
+                          :class="['df-vis-badge', getMaintDevVisibility(maintDevDetail.dev.email) === 'public' ? 'df-vis--pub' : 'df-vis--priv']"
+                          style="margin-top:5px;"
+                          :title="getMaintDevVisibility(maintDevDetail.dev.email) === 'public' ? 'Click to make private' : 'Click to make public'"
+                          @click.stop="toggleMaintDevVisibility(maintDevDetail.dev.email)"
+                        >
+                          <svg v-if="getMaintDevVisibility(maintDevDetail.dev.email) === 'public'" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                          <svg v-else width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          {{ getMaintDevVisibility(maintDevDetail.dev.email) === 'public' ? 'Public' : 'Private' }}
+                        </button>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <!-- Color picker -->
+                      <div class="df-color-picker-wrap" @click.stop>
+                        <button class="df-detail-close" title="Change color" @click.stop="maintColorPickerOpen = !maintColorPickerOpen">
+                          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        </button>
+                        <div v-if="maintColorPickerOpen" class="df-color-swatches">
+                          <button
+                            v-for="c in MAINT_DEV_COLORS" :key="c"
+                            class="df-color-swatch"
+                            :class="{ 'df-color-swatch--active': c === maintDevDetail.color }"
+                            :style="{ background: c }"
+                            @click.stop="setMaintDevColor(maintDevDetail.dev.email, c)"
+                          ></button>
+                        </div>
+                      </div>
+                      <button class="df-detail-close" @click="closeMaintDevDetail">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="maintDevDetailLoading" style="text-align:center;padding:36px;color:var(--gray-400);">
+                    <div style="width:26px;height:26px;border:3px solid #e2e8f0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+                    Loading tickets…
+                  </div>
+
+                  <div v-else class="df-detail-body">
+                    <div class="df-detail-stats">
+                      <div class="df-detail-stat" style="--sc:#d97706;--sc-bg:#fffbeb;--sc-bd:#fde68a;">
+                        <div class="df-detail-stat-num">{{ maintDevDetailStats.pending }}</div>
+                        <div class="df-detail-stat-lbl">Pending</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#2563eb;--sc-bg:#eff6ff;--sc-bd:#bfdbfe;">
+                        <div class="df-detail-stat-num">{{ maintDevDetailStats.in_progress }}</div>
+                        <div class="df-detail-stat-lbl">In Progress</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#7c3aed;--sc-bg:#f5f3ff;--sc-bd:#ddd6fe;">
+                        <div class="df-detail-stat-num">{{ maintDevDetailStats.on_hold }}</div>
+                        <div class="df-detail-stat-lbl">On Hold</div>
+                      </div>
+                      <div class="df-detail-stat" style="--sc:#15803d;--sc-bg:#f0fdf4;--sc-bd:#bbf7d0;">
+                        <div class="df-detail-stat-num">{{ maintDevDetailStats.completed }}</div>
+                        <div class="df-detail-stat-lbl">Completed</div>
+                      </div>
+                    </div>
+
+                    <div v-if="maintDevDetailTickets.length" class="df-detail-bugs">
+                      <div class="df-detail-bugs-title">Assigned Tickets</div>
+                      <div v-for="t in maintDevDetailTickets" :key="t.id" class="df-detail-bug-row">
+                        <span class="df-detail-bug-seq">{{ t.ticket_number }}</span>
+                        <span class="df-detail-bug-title">{{ t.client }} — {{ t.request }}</span>
+                        <span :class="['badge', maintStatusBadgeClass(t.status)]">{{ t.status }}</span>
+                      </div>
+                    </div>
+                    <div v-else style="text-align:center;padding:28px 0;color:var(--gray-400);font-size:13px;">
+                      No tickets assigned yet
+                    </div>
+                  </div>
+
+                  <div class="df-detail-footer">
+                    <a :href="maintenanceFolderUrl(maintDevDetail.dev.email)" target="_blank" rel="noopener" class="btn btn-sm" style="background:#059669;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+                      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      Open Full Folder
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </Teleport>
 
           <!-- ── Dev Folder Detail Modal ── -->
           <Teleport to="body">
@@ -4381,12 +4553,14 @@ const devFoldersSummary  = ref(null)
 async function fetchDevFolders() {
   devFoldersLoading.value = true
   try {
-    const [folders, summary] = await Promise.all([
+    const [folders, summary, mDevs] = await Promise.all([
       $fetch(`${config.public.apiBase}/dev-folders`),
       $fetch(`${config.public.apiBase}/dev-folders/summary`),
+      $fetch(`${config.public.apiBase}/maintenance-devs`),
     ])
     devFolders.value        = folders
     devFoldersSummary.value = summary
+    maintenanceDevs.value   = mDevs
   } catch (e) {
     console.error('Failed to fetch dev folders', e)
   } finally {
@@ -4505,6 +4679,113 @@ function closeFolderDetail() {
   colorPickerOpen.value = false
 }
 
+function maintenanceFolderUrl(email) {
+  const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+  return `${base}/maintenance-dev-folder?email=${encodeURIComponent(email)}`
+}
+
+async function copyMaintenanceFolderLink(email) {
+  await navigator.clipboard.writeText(maintenanceFolderUrl(email))
+  showToast('Folder link copied!')
+}
+
+const MAINT_DEV_COLORS = [
+  '#059669','#0891b2','#7c3aed','#d97706','#dc2626',
+  '#2563eb','#9333ea','#db2777','#16a34a','#0d9488',
+  '#ea580c','#65a30d','#0369a1','#92400e','#374151',
+]
+
+// ── Maintenance Dev Colors (localStorage-persisted) ───────────────────────────
+const maintDevColorMap = ref({})
+
+function loadMaintDevColors() {
+  try {
+    const stored = localStorage.getItem('maint_dev_colors')
+    if (stored) maintDevColorMap.value = JSON.parse(stored)
+  } catch {}
+}
+
+function getMaintDevColor(email, idx) {
+  return maintDevColorMap.value[email] || MAINT_DEV_COLORS[idx % MAINT_DEV_COLORS.length]
+}
+
+function setMaintDevColor(email, color) {
+  maintDevColorMap.value = { ...maintDevColorMap.value, [email]: color }
+  try { localStorage.setItem('maint_dev_colors', JSON.stringify(maintDevColorMap.value)) } catch {}
+  if (maintDevDetail.value?.dev.email === email) {
+    maintDevDetail.value = { ...maintDevDetail.value, color }
+  }
+  maintColorPickerOpen.value = false
+  showToast('Color updated!')
+}
+
+// ── Maintenance Dev Visibility (localStorage-persisted) ──────────────────────
+const maintDevVisibilityMap = ref({})
+
+function loadMaintDevVisibilities() {
+  try {
+    const stored = localStorage.getItem('maint_dev_visibilities')
+    if (stored) maintDevVisibilityMap.value = JSON.parse(stored)
+  } catch {}
+}
+
+function getMaintDevVisibility(email) {
+  return maintDevVisibilityMap.value[email] || 'public'
+}
+
+function toggleMaintDevVisibility(email) {
+  const next = getMaintDevVisibility(email) === 'public' ? 'private' : 'public'
+  maintDevVisibilityMap.value = { ...maintDevVisibilityMap.value, [email]: next }
+  try { localStorage.setItem('maint_dev_visibilities', JSON.stringify(maintDevVisibilityMap.value)) } catch {}
+  showToast(`Folder set to ${next}`)
+}
+
+// ── Maintenance Dev Detail Modal ──────────────────────────────────────────────
+const maintDevDetail        = ref(null)
+const maintDevDetailTickets = ref([])
+const maintDevDetailLoading = ref(false)
+const maintColorPickerOpen  = ref(false)
+
+const maintDevDetailStats = computed(() => {
+  const tix = maintDevDetailTickets.value
+  return {
+    pending:     tix.filter(t => t.status === 'Pending').length,
+    in_progress: tix.filter(t => t.status === 'In Progress').length,
+    on_hold:     tix.filter(t => t.status === 'On Hold').length,
+    completed:   tix.filter(t => t.status === 'Completed').length,
+  }
+})
+
+async function openMaintenanceDevDetail(dev, idx) {
+  maintDevDetail.value        = { dev, color: getMaintDevColor(dev.email, idx) }
+  maintDevDetailTickets.value = []
+  maintDevDetailLoading.value = true
+  maintColorPickerOpen.value  = false
+  try {
+    const data = await $fetch(`${config.public.apiBase}/maintenance-dev-folder?email=${encodeURIComponent(dev.email)}`)
+    maintDevDetailTickets.value = data.tickets || []
+  } catch {
+    maintDevDetailTickets.value = []
+  } finally {
+    maintDevDetailLoading.value = false
+  }
+}
+
+function closeMaintDevDetail() {
+  maintDevDetail.value       = null
+  maintColorPickerOpen.value = false
+}
+
+function maintStatusBadgeClass(s) {
+  return {
+    'Pending':     'badge-pending',
+    'In Progress': 'badge-ongoing',
+    'On Hold':     'badge-outofscope',
+    'Completed':   'badge-completed',
+    'Cancelled':   'badge-outofscope',
+  }[s] || ''
+}
+
 async function updateFolderColor(folder, color) {
   try {
     await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}`, {
@@ -4608,4 +4889,6 @@ const updateDevStatus = async (bug, newStatus) => {
 
 await fetchTeamMembers()
 await fetchProjects()
+loadMaintDevColors()
+loadMaintDevVisibilities()
 </script>
