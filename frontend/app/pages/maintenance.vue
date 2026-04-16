@@ -18,6 +18,50 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
+          <!-- Notification Bell -->
+          <div class="notif-bell-wrap" ref="maintNotifDropdownRef" @click.stop="toggleMaintNotifDropdown">
+            <button class="notif-bell-btn" :class="{ 'notif-bell-btn--active': maintNotifDropdownOpen }">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span v-if="maintNotifUnreadCount > 0" class="notif-badge">{{ maintNotifUnreadCount > 99 ? '99+' : maintNotifUnreadCount }}</span>
+            </button>
+
+            <!-- Dropdown -->
+            <transition name="notif-drop">
+              <div v-if="maintNotifDropdownOpen" class="notif-dropdown" @click.stop>
+                <div class="notif-dropdown-header">
+                  <span class="notif-dropdown-title">Notifications</span>
+                  <button v-if="maintNotifUnreadCount > 0" class="notif-read-all-btn" @click="markAllMaintNotifRead">Mark all read</button>
+                </div>
+                <div class="notif-list">
+                  <div v-if="!maintNotifications.length" class="notif-empty">No notifications yet</div>
+                  <div
+                    v-for="n in maintNotifications"
+                    :key="n.id"
+                    class="notif-item"
+                    :class="{ 'notif-item--unread': !n.read_at }"
+                    @click="openMaintNotif(n)"
+                  >
+                    <div class="notif-item-icon" :class="maintNotifIconClass(n.type)">{{ maintNotifIcon(n.type) }}</div>
+                    <div class="notif-item-body">
+                      <div class="notif-item-title">{{ n.title }}</div>
+                      <div class="notif-item-msg">{{ n.message }}</div>
+                      <div class="notif-item-time">{{ timeAgo(n.created_at) }}</div>
+                    </div>
+                    <div class="notif-item-right">
+                      <div v-if="!n.read_at" class="notif-item-dot"></div>
+                      <button class="notif-item-dismiss" title="Remove" @click.stop="dismissMaintNotif(n)">
+                        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </transition>
+          </div>
+
           <!-- Auth -->
           <template v-if="currentUser">
             <div class="auth-user" @click.stop="profileDropdownOpen = !profileDropdownOpen" ref="profileDropdownRef">
@@ -376,24 +420,6 @@
               <div>
                 <h1 class="allproj-hero-title">Maintenance Projects</h1>
                 <p class="allproj-hero-sub">{{ activeProjects.length }} active · {{ inactiveProjects.length }} inactive</p>
-              </div>
-            </div>
-            <div class="allproj-hero-stats">
-              <div class="allproj-hs">
-                <div class="allproj-hs-val">{{ projects.reduce((s, p) => s + (p.tickets_count ?? 0), 0) }}</div>
-                <div class="allproj-hs-label">Total tickets</div>
-              </div>
-              <div class="allproj-hs">
-                <div class="allproj-hs-val" style="color:#f59e0b;">{{ projects.reduce((s, p) => s + (p.pending_count ?? 0), 0) }}</div>
-                <div class="allproj-hs-label">Pending</div>
-              </div>
-              <div class="allproj-hs">
-                <div class="allproj-hs-val" style="color:#3b82f6;">{{ projects.reduce((s, p) => s + (p.in_progress_count ?? 0), 0) }}</div>
-                <div class="allproj-hs-label">In Progress</div>
-              </div>
-              <div class="allproj-hs">
-                <div class="allproj-hs-val" style="color:#10b981;">{{ projects.reduce((s, p) => s + (p.completed_count ?? 0), 0) }}</div>
-                <div class="allproj-hs-label">Completed</div>
               </div>
             </div>
             <button class="btn-allproj-new" @click="openProjectModal(null)">
@@ -1592,6 +1618,12 @@ const deletingProject = ref(null)
 const notifyingId     = ref(null)
 const submitting      = ref(false)
 
+// ── Notifications ─────────────────────────────────────────────────────────────
+const maintNotifications     = ref([])
+const maintNotifDropdownOpen = ref(false)
+const maintNotifDropdownRef  = ref(null)
+let   maintNotifPollTimer    = null
+
 const toast = reactive({ show: false, message: '', type: 'success' })
 
 // ── Comment thread state ──────────────────────────────────────────────────────
@@ -1946,25 +1978,13 @@ const emailInitials = (email) => {
 }
 
 const updateTicketStatus = async (ticket, newStatus) => {
-  const fd = new FormData()
-  fd.append('_method', 'PUT')
-  fd.append('status', newStatus)
-  // preserve required fields
-  fd.append('client', ticket.client)
-  fd.append('request', ticket.request)
-  fd.append('sent_thru', ticket.sent_thru || 'Email')
-  if (ticket.date_received) fd.append('date_received', ticket.date_received.slice(0, 10))
-  if (ticket.target_date)   fd.append('target_date',   ticket.target_date.slice(0, 10))
-  if (ticket.completion_date) fd.append('completion_date', ticket.completion_date.slice(0, 10))
-  if (ticket.notes)         fd.append('notes', ticket.notes)
-  ;(ticket.assigned_devs || []).forEach((e, i) => fd.append(`assigned_devs[${i}]`, e))
-  ;(ticket.assigned_qa   || []).forEach((e, i) => fd.append(`assigned_qa[${i}]`,   e))
-  ;(ticket.attachments   || []).forEach((url, i) => fd.append(`existing_attachments[${i}]`, url))
   try {
     await apiFetch(
-      `${config.public.apiBase}/maintenance/projects/${selectedProject.value.id}/tickets/${ticket.id}`,
-      { method: 'POST', body: fd }
+      `${config.public.apiBase}/maintenance-tickets/${ticket.id}/status`,
+      { method: 'PATCH', body: { status: newStatus } }
     )
+    ticket.status = newStatus
+    if (activeTicket.value?.id === ticket.id) activeTicket.value.status = newStatus
     await fetchTickets()
     await fetchProjects()
   } catch (e) {
@@ -1973,25 +1993,13 @@ const updateTicketStatus = async (ticket, newStatus) => {
 }
 
 const updateTicketDevStatus = async (ticket, newDevStatus) => {
-  const fd = new FormData()
-  fd.append('_method', 'PUT')
-  fd.append('dev_status', newDevStatus)
-  fd.append('client', ticket.client)
-  fd.append('request', ticket.request)
-  fd.append('sent_thru', ticket.sent_thru || 'Email')
-  fd.append('status', ticket.status)
-  if (ticket.date_received) fd.append('date_received', ticket.date_received.slice(0, 10))
-  if (ticket.target_date)   fd.append('target_date',   ticket.target_date.slice(0, 10))
-  if (ticket.completion_date) fd.append('completion_date', ticket.completion_date.slice(0, 10))
-  if (ticket.notes)         fd.append('notes', ticket.notes)
-  ;(ticket.assigned_devs || []).forEach((e, i) => fd.append(`assigned_devs[${i}]`, e))
-  ;(ticket.assigned_qa   || []).forEach((e, i) => fd.append(`assigned_qa[${i}]`,   e))
-  ;(ticket.attachments   || []).forEach((url, i) => fd.append(`existing_attachments[${i}]`, url))
   try {
     await apiFetch(
-      `${config.public.apiBase}/maintenance/projects/${selectedProject.value.id}/tickets/${ticket.id}`,
-      { method: 'POST', body: fd }
+      `${config.public.apiBase}/maintenance-tickets/${ticket.id}/dev-status`,
+      { method: 'PATCH', body: { dev_status: newDevStatus } }
     )
+    ticket.dev_status = newDevStatus
+    if (activeTicket.value?.id === ticket.id) activeTicket.value.dev_status = newDevStatus
     await fetchTickets()
   } catch (e) {
     console.error('Failed to update dev status', e)
@@ -2370,10 +2378,82 @@ const saveMtComments = async (comments) => {
   await fetchTickets()
 }
 
+// ── Notification helpers ──────────────────────────────────────────────────────
+const maintNotifUnreadCount = computed(() => maintNotifications.value.filter(n => !n.read_at).length)
+
+const fetchMaintNotifications = async () => {
+  try {
+    const all = await apiFetch(`${config.public.apiBase}/notifications`)
+    maintNotifications.value = all.filter(n => n.type?.startsWith('mt_'))
+  } catch { /* silent */ }
+}
+
+const toggleMaintNotifDropdown = () => {
+  maintNotifDropdownOpen.value = !maintNotifDropdownOpen.value
+}
+
+const openMaintNotif = async (n) => {
+  if (!n.read_at) {
+    try { await apiFetch(`${config.public.apiBase}/notifications/${n.id}/read`, { method: 'PATCH' }) } catch {}
+    n.read_at = new Date().toISOString()
+  }
+  maintNotifDropdownOpen.value = false
+  if (n.data?.project_id && n.data?.ticket_id) {
+    const project = projects.value.find(p => p.id === n.data.project_id)
+    if (project) {
+      await selectProject(project)
+      await nextTick()
+      const ticket = tickets.value.find(t => t.id === n.data.ticket_id)
+      if (ticket) openTicketModal(ticket, 'view')
+    }
+  }
+}
+
+const dismissMaintNotif = async (n) => {
+  try { await apiFetch(`${config.public.apiBase}/notifications/${n.id}`, { method: 'DELETE' }) } catch {}
+  maintNotifications.value = maintNotifications.value.filter(x => x.id !== n.id)
+}
+
+const markAllMaintNotifRead = async () => {
+  const unread = maintNotifications.value.filter(n => !n.read_at)
+  await Promise.all(unread.map(n =>
+    apiFetch(`${config.public.apiBase}/notifications/${n.id}/read`, { method: 'PATCH' }).catch(() => {})
+  ))
+  maintNotifications.value.forEach(n => { if (!n.read_at) n.read_at = new Date().toISOString() })
+}
+
+const maintNotifIcon = (type) => ({
+  mt_ticket_created:   '🔧',
+  mt_ticket_completed: '✅',
+  mt_status_changed:   '🔄',
+  mt_ticket_assigned:  '👤',
+  mt_ticket_overdue:   '⏰',
+}[type] ?? '🔔')
+
+const maintNotifIconClass = (type) => ({
+  mt_ticket_created:   'notif-icon--created',
+  mt_ticket_completed: 'notif-icon--done',
+  mt_status_changed:   'notif-icon--qa',
+  mt_ticket_assigned:  'notif-icon--assigned',
+  mt_ticket_overdue:   'notif-icon--blocked',
+}[type] ?? '')
+
+const timeAgo = (dateStr) => {
+  if (!dateStr) return ''
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+  if (diff < 60)   return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 const profileClickHandler = (e) => {
   if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
     profileDropdownOpen.value = false
+  }
+  if (maintNotifDropdownRef.value && !maintNotifDropdownRef.value.contains(e.target)) {
+    maintNotifDropdownOpen.value = false
   }
   if (openProjectMenuId.value !== null) {
     openProjectMenuId.value = null
@@ -2395,10 +2475,15 @@ onMounted(async () => {
     const match = projects.value.find(p => String(p.id) === String(projectId))
     if (match) selectProject(match)
   }
+
+  // Start notification polling
+  fetchMaintNotifications()
+  maintNotifPollTimer = setInterval(fetchMaintNotifications, 15000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', profileClickHandler)
+  clearInterval(maintNotifPollTimer)
 })
 </script>
 

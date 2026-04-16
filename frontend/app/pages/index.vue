@@ -847,7 +847,7 @@
                       <tr v-for="t in allMaintenanceTickets.filter(t => t.status !== 'Completed')" :key="'mto-' + t.id"
                           class="clickable-row"
                           :class="{ 'tt-overdue-row': mtIsOverdue(t) }"
-                          @click="selectedMtTicket = t">
+                          @click="navigateTo(`/maintenance-ticket/${t.id}?from=dashboard`)">
                         <td>
                           <span class="bug-seq" style="font-size:11px;background:#ecfdf5;color:#059669;">{{ t.ticket_number }}</span>
                         </td>
@@ -1367,7 +1367,7 @@
                     <tr v-for="t in filteredMtTickets" :key="'mt-' + t.id"
                         class="clickable-row"
                         :class="{ 'tt-overdue-row': mtIsOverdue(t) }"
-                        @click="selectedMtTicket = t">
+                        @click="navigateTo(`/maintenance-ticket/${t.id}?from=dashboard`)">
                       <td>
                         <span class="bug-seq" style="font-size:11px;background:#ecfdf5;color:#059669;">{{ t.ticket_number }}</span>
                       </td>
@@ -1589,10 +1589,6 @@
                 <div class="df-avatar" :style="{ background: folder.avatar_color || '#4f46e5' }">{{ folderInitials(folder.developer_name) }}</div>
                 <div class="df-card-name">{{ folder.developer_name }}</div>
                 <div class="df-card-email">{{ folder.developer_email }}</div>
-                <div class="df-card-project">
-                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  All projects
-                </div>
                 <div class="df-card-footer">
                   <button class="df-action-btn df-action-copy" @click.stop="copyFolderLink(folder)" title="Copy link">
                     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -1639,10 +1635,6 @@
                 <div style="margin:3px 0 6px;display:flex;gap:4px;flex-wrap:wrap;">
                   <span v-if="dev.roles.includes('dev')" style="font-size:10px;padding:1px 6px;border-radius:8px;background:#ede9fe;color:#6d28d9;font-weight:600;">Dev</span>
                   <span v-if="dev.roles.includes('qa')" style="font-size:10px;padding:1px 6px;border-radius:8px;background:#e0f2fe;color:#0369a1;font-weight:600;">QA</span>
-                </div>
-                <div class="df-card-project">
-                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                  {{ dev.ticket_count }} ticket{{ dev.ticket_count !== 1 ? 's' : '' }}
                 </div>
                 <div class="df-card-footer">
                   <button class="df-action-btn df-action-copy" @click.stop="copyMaintenanceFolderLink(dev.email)" title="Copy link">

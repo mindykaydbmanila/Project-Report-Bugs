@@ -328,6 +328,9 @@ const backLink = computed(() => {
   if (route.query.from === 'folder' && route.query.email) {
     return `/maintenance-dev-folder?email=${encodeURIComponent(route.query.email)}`
   }
+  if (route.query.from === 'dashboard') {
+    return '/'
+  }
   if (ticket.value?.project?.id) {
     return `/maintenance?project=${ticket.value.project.id}`
   }
@@ -337,6 +340,9 @@ const backLink = computed(() => {
 const backLabel = computed(() => {
   if (route.query.from === 'folder' && route.query.email) {
     return `Back to ${route.query.email.split('@')[0]}'s Folder`
+  }
+  if (route.query.from === 'dashboard') {
+    return 'Back to Dashboard'
   }
   if (ticket.value?.project?.name) {
     return `Back to ${ticket.value.project.name}`

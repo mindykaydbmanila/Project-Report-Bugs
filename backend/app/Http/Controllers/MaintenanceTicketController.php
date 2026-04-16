@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\MaintenanceNotificationMail;
+use App\Models\AppNotification;
 use App\Models\MaintenanceProject;
 use App\Models\MaintenanceTicket;
 use Illuminate\Http\Request;
@@ -54,6 +55,19 @@ class MaintenanceTicketController extends Controller
         $data['status']                 = $data['status'] ?? 'Pending';
 
         $ticket = MaintenanceTicket::create($data);
+
+        AppNotification::create([
+            'type'    => 'mt_ticket_created',
+            'title'   => 'New maintenance ticket',
+            'message' => "{$ticket->ticket_number} · {$ticket->client} — {$maintenanceProject->name}",
+            'data'    => [
+                'ticket_id'     => $ticket->id,
+                'ticket_number' => $ticket->ticket_number,
+                'project_id'    => $maintenanceProject->id,
+                'project_name'  => $maintenanceProject->name,
+                'client'        => $ticket->client,
+            ],
+        ]);
 
         $recipients = array_merge(
             $data['assigned_devs'] ?? [],
@@ -125,7 +139,42 @@ class MaintenanceTicketController extends Controller
         $data['attachments'] = array_merge($kept, $newPaths);
         unset($data['new_attachments']);
 
+        $oldStatus = $maintenanceTicket->status;
         $maintenanceTicket->update($data);
+
+        // Fire in-app notification when status changes
+        $newStatus = $maintenanceTicket->fresh()->status;
+        if (isset($data['status']) && $data['status'] !== $oldStatus) {
+            if ($data['status'] === 'Completed') {
+                AppNotification::create([
+                    'type'    => 'mt_ticket_completed',
+                    'title'   => 'Ticket completed',
+                    'message' => "{$maintenanceTicket->ticket_number} · {$maintenanceTicket->client} — {$maintenanceProject->name}",
+                    'data'    => [
+                        'ticket_id'     => $maintenanceTicket->id,
+                        'ticket_number' => $maintenanceTicket->ticket_number,
+                        'project_id'    => $maintenanceProject->id,
+                        'project_name'  => $maintenanceProject->name,
+                        'client'        => $maintenanceTicket->client,
+                    ],
+                ]);
+            } else {
+                AppNotification::create([
+                    'type'    => 'mt_status_changed',
+                    'title'   => "Status → {$data['status']}",
+                    'message' => "{$maintenanceTicket->ticket_number} · {$maintenanceTicket->client} — {$maintenanceProject->name}",
+                    'data'    => [
+                        'ticket_id'     => $maintenanceTicket->id,
+                        'ticket_number' => $maintenanceTicket->ticket_number,
+                        'project_id'    => $maintenanceProject->id,
+                        'project_name'  => $maintenanceProject->name,
+                        'client'        => $maintenanceTicket->client,
+                        'new_status'    => $data['status'],
+                    ],
+                ]);
+            }
+        }
+
         return response()->json($maintenanceTicket->fresh());
     }
 
@@ -225,6 +274,7 @@ class MaintenanceTicketController extends Controller
         }
 
         $tickets = MaintenanceTicket::with('project')
+            ->whereHas('project', fn($q) => $q->where('is_active', true))
             ->where(function ($q) use ($email) {
                 $q->whereJsonContains('assigned_devs', $email)
                   ->orWhereJsonContains('assigned_qa', $email);
@@ -280,7 +330,41 @@ class MaintenanceTicketController extends Controller
             'status' => 'required|string|in:Pending,In Progress,On Hold,Completed,Cancelled',
         ]);
 
+        $oldStatus = $maintenanceTicket->status;
         $maintenanceTicket->update($data);
+
+        if ($data['status'] !== $oldStatus) {
+            $project = $maintenanceTicket->project;
+            if ($data['status'] === 'Completed') {
+                AppNotification::create([
+                    'type'    => 'mt_ticket_completed',
+                    'title'   => 'Ticket completed',
+                    'message' => "{$maintenanceTicket->ticket_number} · {$maintenanceTicket->client}" . ($project ? " — {$project->name}" : ''),
+                    'data'    => [
+                        'ticket_id'     => $maintenanceTicket->id,
+                        'ticket_number' => $maintenanceTicket->ticket_number,
+                        'project_id'    => $maintenanceTicket->maintenance_project_id,
+                        'project_name'  => $project?->name,
+                        'client'        => $maintenanceTicket->client,
+                    ],
+                ]);
+            } else {
+                AppNotification::create([
+                    'type'    => 'mt_status_changed',
+                    'title'   => "Status → {$data['status']}",
+                    'message' => "{$maintenanceTicket->ticket_number} · {$maintenanceTicket->client}" . ($project ? " — {$project->name}" : ''),
+                    'data'    => [
+                        'ticket_id'     => $maintenanceTicket->id,
+                        'ticket_number' => $maintenanceTicket->ticket_number,
+                        'project_id'    => $maintenanceTicket->maintenance_project_id,
+                        'project_name'  => $project?->name,
+                        'client'        => $maintenanceTicket->client,
+                        'new_status'    => $data['status'],
+                    ],
+                ]);
+            }
+        }
+
         return response()->json($maintenanceTicket->fresh()->load('project'));
     }
 

@@ -101,7 +101,7 @@ class DevFolderController extends Controller
      */
     public function summary()
     {
-        $bugs    = Bug::all();
+        $bugs    = Bug::whereHas('project', fn($q) => $q->where('is_active', true))->get();
         $folders = DevFolder::orderBy('developer_name')->get();
 
         $overall = [
@@ -162,6 +162,7 @@ class DevFolderController extends Controller
 
         $bugs = Bug::query()
             ->with('project')
+            ->whereHas('project', fn($q) => $q->where('is_active', true))
             ->get()
             ->filter(function ($bug) use ($folder) {
                 $devs = $bug->assigned_developers ?? [];
