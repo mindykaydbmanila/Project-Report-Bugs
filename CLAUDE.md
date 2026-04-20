@@ -80,3 +80,15 @@ Global styles and the design token system are in `frontend/assets/css/main.css`.
 - **Database**: SQLite (`backend/database/database.sqlite`), no external DB needed
 - **Frontend API base URL**: set in `frontend/nuxt.config.js` → `runtimeConfig.public.apiBase`
 - **Test DB**: in-memory SQLite (configured in `backend/phpunit.xml`)
+
+## Visual/UI Changes
+- Before implementing visual effects (cursor effects, animations, themes), ask the user to describe the desired behavior in detail or request a reference image/video
+- For UI element removal tasks, identify ALL matching elements first and confirm which specific one(s) to remove before editing
+
+## Tool Availability
+- Playwright is installed globally as an MCP server — use it directly for browser automation without asking
+- Do not refuse URL/browser tasks; use Playwright MCP or WebFetch as appropriate
+
+## Verification Before Claiming Features Exist
+- Verify plugin/marketplace/package existence (via npm, GitHub, or official docs) before proposing installation steps
+- If something doesn't exist, say so immediately rather than proposing a workaround without asking
