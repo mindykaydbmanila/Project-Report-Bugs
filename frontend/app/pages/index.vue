@@ -4633,7 +4633,7 @@ const folderDetailStats = computed(() => {
 const dfsSummaryProgress = computed(() => {
   if (!devFoldersSummary.value) return null
   const o = devFoldersSummary.value.overall
-  const total = o.total_completed + o.total_active + o.pending + o.sent_back
+  const total = o.total_bugs ?? (o.total_completed + o.total_active + o.pending + o.sent_back)
   if (!total) return { pct: 0, total: 0, rawCompleted: 0, rawTotal: 0, done: 0, active: 0, pend: 0, blocked: 0 }
   const pct  = (v) => Math.round(v / total * 100)
   return {

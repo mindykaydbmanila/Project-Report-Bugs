@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BugController;
 use App\Http\Controllers\DevFolderController;
 use App\Http\Controllers\MaintenanceProjectController;
+use App\Http\Controllers\MaintenanceProjectShareController;
 use App\Http\Controllers\MaintenanceTicketController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProjectController;
@@ -45,6 +46,14 @@ Route::middleware('api.auth:optional')->group(function () {
 
     // Team members list
     Route::get('team-members', [BugController::class, 'teamMembers']);
+});
+
+// ── Maintenance project sharing ────────────────────────────────────────────
+Route::middleware('api.auth:optional')->group(function () {
+    Route::get('maintenance/projects/{maintenanceProject}/shares', [MaintenanceProjectShareController::class, 'index']);
+    Route::post('maintenance/projects/{maintenanceProject}/shares', [MaintenanceProjectShareController::class, 'store']);
+    Route::put('maintenance/projects/{maintenanceProject}/shares/{maintenanceProjectShare}', [MaintenanceProjectShareController::class, 'update']);
+    Route::delete('maintenance/projects/{maintenanceProject}/shares/{maintenanceProjectShare}', [MaintenanceProjectShareController::class, 'destroy']);
 });
 
 // ── Maintenance module ────────────────────────────────────────────────────

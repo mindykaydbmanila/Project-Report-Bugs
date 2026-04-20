@@ -26,4 +26,9 @@ class MaintenanceProject extends Model
     {
         return $this->hasMany(MaintenanceTicket::class);
     }
+
+    public function shares()
+    {
+        return $this->hasMany(MaintenanceProjectShare::class);
+    }
 }

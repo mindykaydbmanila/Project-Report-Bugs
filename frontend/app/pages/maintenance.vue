@@ -5,7 +5,7 @@
     <header class="app-header">
       <div class="app-header-inner">
         <div style="display:flex;align-items:center;gap:16px;">
-          <NuxtLink to="/" class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.8);gap:6px;padding:6px 10px;">
+          <NuxtLink v-if="route.query.from !== 'shared'" to="/" class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.8);gap:6px;padding:6px 10px;">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
             Bug Tracker
           </NuxtLink>
@@ -386,11 +386,15 @@
                       <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                     </button>
                     <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
-                      <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                      <button v-if="p.my_permission === 'owner'" class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
                       </button>
-                      <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                      <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        Share
+                      </button>
+                      <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         Delete
                       </button>
@@ -475,11 +479,15 @@
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                               </button>
                               <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
-                                <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                                <button v-if="p.my_permission === 'owner'" class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
                                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   Edit
                                 </button>
-                                <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                                <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
+                                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                  Share
+                                </button>
+                                <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
                                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                                   Delete
                                 </button>
@@ -548,11 +556,15 @@
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                               </button>
                               <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
-                                <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                                <button v-if="p.my_permission === 'owner'" class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
                                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   Edit
                                 </button>
-                                <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                                <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
+                                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                  Share
+                                </button>
+                                <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
                                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                                   Delete
                                 </button>
@@ -644,7 +656,7 @@
               </div>
               <div class="proj-banner-right">
                 <span v-if="selectedProject.is_active === false" class="proj-banner-inactive-notice">Project Inactive — tickets cannot be added</span>
-                <button v-else class="btn-new-ticket" @click="openNewTicketModal">
+                <button v-else-if="canManageTickets" class="btn-new-ticket" @click="openNewTicketModal">
                   <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                   New Ticket
                 </button>
@@ -830,7 +842,8 @@
                     <select
                       :value="t.dev_status || 'Not Started'"
                       :class="['tt-dev-status-badge', 'inline-status-select', 'tt-dev-status--' + (t.dev_status || 'Not Started').toLowerCase().replace(/\s+/g, '-')]"
-                      @change="updateTicketDevStatus(t, $event.target.value)"
+                      :disabled="!canManageTickets"
+                      @change="canManageTickets && updateTicketDevStatus(t, $event.target.value)"
                     >
                       <option value="Not Started">Not Started</option>
                       <option value="In Progress">In Progress</option>
@@ -843,7 +856,8 @@
                     <select
                       :value="t.status"
                       :class="['badge', 'inline-status-select', maintStatusBadgeClass(t.status)]"
-                      @change="updateTicketStatus(t, $event.target.value)"
+                      :disabled="!canManageTickets"
+                      @change="canManageTickets && updateTicketStatus(t, $event.target.value)"
                     >
                       <option value="Pending">Pending</option>
                       <option value="In Progress">In Progress</option>
@@ -869,11 +883,12 @@
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
                       <!-- Edit -->
-                      <button class="btn btn-icon action-btn-edit" title="Edit ticket" @click="openTicketModal(t, 'edit')">
+                      <button v-if="canManageTickets" class="btn btn-icon action-btn-edit" title="Edit ticket" @click="openTicketModal(t, 'edit')">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
                       <!-- Notify -->
                       <button
+                        v-if="canManageTickets"
                         class="btn btn-icon"
                         :class="t.notification_sent_at ? 'action-btn-notify-sent' : 'action-btn-notify'"
                         :title="t.notification_sent_at ? 'Notification sent — click to re-send' : 'Send notification'"
@@ -884,7 +899,7 @@
                         <svg v-else width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12.3 19.79 19.79 0 0 1 1.6 3.68 2 2 0 0 1 3.59 1.5h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.1a16 16 0 0 0 6 6l1.27-.88a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                       </button>
                       <!-- Delete -->
-                      <button class="btn btn-icon action-btn-delete" title="Delete ticket" @click="confirmDeleteTicket(t)">
+                      <button v-if="canManageTickets" class="btn btn-icon action-btn-delete" title="Delete ticket" @click="confirmDeleteTicket(t)">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                       </button>
                     </div>
@@ -1443,6 +1458,103 @@
       </div>
     </Transition>
 
+    <!-- ══ Share Project Modal ══ -->
+    <Transition name="fade">
+      <div v-if="showShareModal" class="modal-overlay" @click.self="showShareModal = false">
+        <div class="modal" style="max-width:460px;">
+          <div class="modal-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <h3 class="modal-title">Share "{{ sharingProject?.name }}"</h3>
+            </div>
+            <button class="btn btn-ghost btn-icon" @click="showShareModal = false">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="modal-body" style="padding-bottom:8px;">
+            <!-- Invite by email -->
+            <div class="share-section">
+              <label class="share-label">Invite people</label>
+              <div class="share-invite-input-group">
+                <input v-model="shareEmail" class="share-email-input" placeholder="Enter email address..." type="email" @keydown.enter.prevent="addShareInvite" />
+                <select v-model="sharePermission" class="share-perm-select">
+                  <option value="view">Can view</option>
+                  <option value="comment">Can comment</option>
+                  <option value="edit">Can edit</option>
+                </select>
+                <button class="btn btn-primary btn-sm share-send-btn" :disabled="!shareEmail.trim()" @click="addShareInvite">
+                  Invite
+                </button>
+              </div>
+            </div>
+
+            <!-- Pending invites (to be sent) -->
+            <div v-if="shareInvites.length" class="share-invites-list">
+              <div v-for="(inv, i) in shareInvites" :key="'new-'+i" class="share-invite-row">
+                <div class="share-invite-avatar">{{ inv.email[0].toUpperCase() }}</div>
+                <span class="share-invite-email">{{ inv.email }}</span>
+                <span class="share-perm-pill" :class="'share-perm-pill-' + inv.permission">
+                  {{ inv.permission === 'edit' ? 'Can edit' : inv.permission === 'comment' ? 'Can comment' : 'Can view' }}
+                </span>
+                <button class="share-invite-remove" title="Remove" @click="shareInvites.splice(i, 1)">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Existing shares (already sent) -->
+            <div v-if="existingShares.length" style="margin-top:12px;">
+              <div class="share-label" style="margin-bottom:6px;">People with access</div>
+              <div class="share-invites-list">
+                <div v-for="s in existingShares" :key="'ex-'+s.id" class="share-invite-row">
+                  <div class="share-invite-avatar" style="background:var(--gray-400);">
+                    {{ s.user?.name?.[0]?.toUpperCase() || s.email[0].toUpperCase() }}
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div v-if="s.user?.name" style="font-size:13px;font-weight:500;color:var(--gray-800);">{{ s.user.name }}</div>
+                    <div style="font-size:12px;color:var(--gray-500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ s.email }}</div>
+                  </div>
+                  <span class="share-perm-pill" :class="'share-perm-pill-' + s.permission">
+                    {{ s.permission === 'edit' ? 'Can edit' : s.permission === 'comment' ? 'Can comment' : 'Can view' }}
+                  </span>
+                  <button class="share-invite-remove" title="Remove access" @click="removeExistingShare(s)">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Link sharing -->
+            <hr class="share-divider" />
+            <div class="share-link-section">
+              <div class="share-link-label-row">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span class="share-link-title">Anyone with the link</span>
+              </div>
+              <div class="share-link-controls">
+                <select v-model="shareLinkPermission" class="share-perm-select" style="flex:1;">
+                  <option value="view">Can view</option>
+                  <option value="comment">Can comment</option>
+                  <option value="edit">Can edit</option>
+                </select>
+                <button class="btn btn-ghost btn-sm share-copy-btn" @click="copyShareLink">
+                  <svg v-if="!shareCopied" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg v-else width="13" height="13" fill="none" stroke="#10b981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  {{ shareCopied ? 'Copied!' : 'Copy link' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" :disabled="shareSubmitting" @click="showShareModal = false">Cancel</button>
+            <button class="btn btn-primary" :disabled="!shareInvites.length || shareSubmitting" @click="submitShare">
+              {{ shareSubmitting ? 'Sending…' : 'Send invites' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- ══ Comment Thread Modal ══ -->
     <Transition name="fade">
       <div v-if="showMtThreadModal" class="modal-overlay" @click.self="showMtThreadModal = false">
@@ -1609,6 +1721,15 @@ const showTicketModal        = ref(false)
 const showProjectModal       = ref(false)
 const showDeleteTicketModal  = ref(false)
 const showDeleteProjectModal = ref(false)
+const showShareModal         = ref(false)
+
+// ── Share modal state ─────────────────────────────────────────────────────────
+const sharingProject      = ref(null)
+const shareEmail          = ref('')
+const sharePermission     = ref('view')
+const shareLinkPermission = ref('view')
+const shareInvites        = ref([])
+const shareCopied         = ref(false)
 
 const activeTicket    = ref(null)
 const ticketModalMode = ref('view') // 'view' | 'edit'
@@ -1640,6 +1761,14 @@ const mtDeletingMsgIdx   = ref(null)
 
 const mtThreadTicket = computed(() => tickets.value.find(t => t.id === mtThreadTicketId.value) || null)
 let toastTimer = null
+
+// ── Permission helpers ────────────────────────────────────────────────────────
+// my_permission values: 'owner' | 'edit' | 'comment' | 'view'
+// canManageProject: edit/delete/share the project itself → owner only
+// canManageTickets: create/edit/delete tickets → owner or editor
+const myPermission     = computed(() => selectedProject.value?.my_permission ?? 'owner')
+const canManageProject = computed(() => myPermission.value === 'owner')
+const canManageTickets = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit')
 
 const sentThruOptions = ['Email', 'Slack', 'Phone', 'Teams', 'Viber', 'In-person', 'Other']
 
@@ -2095,6 +2224,78 @@ const submitProject = async () => {
 }
 
 const confirmDeleteProject = (p) => { deletingProject.value = p; showDeleteProjectModal.value = true }
+
+// ── Share project ──────────────────────────────────────────────────────────────
+const shareSubmitting   = ref(false)
+const existingShares    = ref([])
+
+const openShareModal = async (p) => {
+  sharingProject.value = p
+  shareEmail.value = ''
+  sharePermission.value = 'view'
+  shareLinkPermission.value = 'view'
+  shareInvites.value = []
+  shareCopied.value = false
+  existingShares.value = []
+  showShareModal.value = true
+  // Load current shares
+  try {
+    const data = await apiFetch(`${config.public.apiBase}/maintenance/projects/${p.id}/shares`)
+    existingShares.value = data || []
+  } catch {}
+}
+
+const addShareInvite = () => {
+  const email = shareEmail.value.trim()
+  if (!email) return
+  // Prevent duplicates in the pending list
+  if (shareInvites.value.some(i => i.email.toLowerCase() === email.toLowerCase())) {
+    shareEmail.value = ''
+    return
+  }
+  shareInvites.value.push({ email, permission: sharePermission.value })
+  shareEmail.value = ''
+}
+
+const copyShareLink = () => {
+  const url = `${window.location.origin}/maintenance?project=${sharingProject.value?.id}&access=${shareLinkPermission.value}`
+  navigator.clipboard.writeText(url)
+  shareCopied.value = true
+  setTimeout(() => { shareCopied.value = false }, 2000)
+}
+
+const removeExistingShare = async (share) => {
+  try {
+    await apiFetch(
+      `${config.public.apiBase}/maintenance/projects/${sharingProject.value.id}/shares/${share.id}`,
+      { method: 'DELETE' }
+    )
+    existingShares.value = existingShares.value.filter(s => s.id !== share.id)
+  } catch { showToast('Failed to remove access', 'error') }
+}
+
+const submitShare = async () => {
+  if (!shareInvites.value.length) return
+  shareSubmitting.value = true
+  try {
+    const res = await apiFetch(
+      `${config.public.apiBase}/maintenance/projects/${sharingProject.value.id}/shares`,
+      { method: 'POST', body: { invites: shareInvites.value } }
+    )
+    const count = res.emailed?.length ?? shareInvites.value.length
+    const total = shareInvites.value.length
+    showToast(
+      count > 0
+        ? `Invite${count > 1 ? 's' : ''} sent to ${res.emailed.join(', ')}`
+        : `Shared with ${total} ${total === 1 ? 'person' : 'people'}`
+    )
+    showShareModal.value = false
+  } catch (e) {
+    showToast('Failed to send invites', 'error')
+  } finally {
+    shareSubmitting.value = false
+  }
+}
 
 const deleteProject = async () => {
   submitting.value = true
@@ -2695,6 +2896,149 @@ onUnmounted(() => {
 }
 .proj-menu-item-delete:hover {
   background: #fef2f2;
+}
+.proj-menu-item-share {
+  color: var(--gray-700);
+}
+.proj-menu-item-share:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Share modal */
+.share-section { margin-bottom: 4px; }
+.share-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  display: block;
+  margin-bottom: 8px;
+}
+.share-invite-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.share-email-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--gray-800);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s;
+}
+.share-email-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,.1); }
+.share-email-input::placeholder { color: var(--gray-400); }
+.share-perm-select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--gray-700);
+  background: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.share-perm-select:focus { outline: none; border-color: var(--primary); }
+.share-send-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.share-invites-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.share-invite-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--gray-50);
+  border-radius: 6px;
+}
+.share-invite-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.share-invite-email {
+  flex: 1;
+  font-size: 13px;
+  color: var(--gray-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-perm-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.share-perm-pill-view    { background: #eff6ff; color: #2563eb; }
+.share-perm-pill-comment { background: #f0fdf4; color: #059669; }
+.share-perm-pill-edit    { background: #fef9c3; color: #d97706; }
+.share-invite-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.share-invite-remove:hover { color: #dc2626; background: #fef2f2; }
+.share-divider {
+  border: none;
+  border-top: 1px solid var(--gray-100);
+  margin: 16px 0 14px;
+}
+.share-link-section { display: flex; flex-direction: column; gap: 8px; }
+.share-link-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gray-600);
+}
+.share-link-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+.share-link-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.share-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Actions column */
