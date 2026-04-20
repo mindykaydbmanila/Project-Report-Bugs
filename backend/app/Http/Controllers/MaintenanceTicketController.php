@@ -217,9 +217,9 @@ class MaintenanceTicketController extends Controller
     public function allDevs()
     {
         $tickets = MaintenanceTicket::with('project')
-            ->whereNotNull('assigned_devs')
-            ->orWhereNotNull('assigned_qa')
-            ->get(['assigned_devs', 'assigned_qa', 'maintenance_project_id', 'status']);
+            ->whereHas('project', fn($q) => $q->where('is_active', true))
+            ->where(fn($q) => $q->whereNotNull('assigned_devs')->orWhereNotNull('assigned_qa'))
+            ->get(['id', 'assigned_devs', 'assigned_qa', 'maintenance_project_id', 'status']);
 
         $map = []; // email => { email, roles, ticket_count, pending, in_progress, completed, projects }
 

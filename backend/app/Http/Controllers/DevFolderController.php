@@ -105,6 +105,7 @@ class DevFolderController extends Controller
         $folders = DevFolder::orderBy('developer_name')->get();
 
         $overall = [
+            'total_bugs'      => $bugs->count(),
             'total_active'    => $bugs->whereIn('dev_status', ['In Progress', 'Ready for QA'])->count(),
             'pending'         => $bugs->where('status', 'Pending')->count(),
             'ongoing_fixing'  => $bugs->where('dev_status', 'In Progress')->count(),
@@ -132,7 +133,7 @@ class DevFolderController extends Controller
                 'email'        => $folder->developer_email,
                 'avatar_color' => $folder->avatar_color ?? self::pickColor($folder->developer_email),
                 'pending'      => $devBugs->where('status', 'Pending')->count(),
-                'active'       => $devBugs->where('status', 'Ongoing')->count(),
+                'active'       => $devBugs->whereIn('dev_status', ['In Progress', 'Ready for QA'])->count(),
                 'completed'    => $devBugs->where('status', 'Completed')->count(),
             ];
         })->values();

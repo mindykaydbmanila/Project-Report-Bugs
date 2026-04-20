@@ -201,7 +201,8 @@
           <select
             v-model="currentDevStatus"
             :class="['mt-dev-status-select', 'mt-dev-status--' + currentDevStatus.toLowerCase().replace(/\s+/g, '-')]"
-            @change="updateDevStatus"
+            :disabled="!canEdit"
+            @change="canEdit && updateDevStatus()"
           >
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
@@ -216,7 +217,8 @@
           <select
             v-model="currentStatus"
             :class="['mt-status-select', 'mt-status--' + currentStatus.toLowerCase().replace(/\s+/g, '-')]"
-            @change="updateStatus"
+            :disabled="!canEdit"
+            @change="canEdit && updateStatus()"
           >
             <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
           </select>
@@ -359,6 +361,8 @@ const posting        = ref(false)
 const currentStatus    = ref('Pending')
 const currentDevStatus = ref('Not Started')
 const activityListEl   = ref(null)
+const myPermission     = ref('owner') // default to owner until we know otherwise
+const canEdit = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit')
 
 const statuses = ['Pending', 'In Progress', 'On Hold', 'Completed', 'Cancelled']
 
@@ -452,6 +456,18 @@ const loadTicket = async () => {
     currentStatus.value    = ticket.value.status    || 'Pending'
     currentDevStatus.value = ticket.value.dev_status || 'Not Started'
     scrollToBottom()
+
+    // Determine permission for this project
+    if (ticket.value?.project?.id) {
+      try {
+        const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const proj = await $fetch(`${apiBase}/maintenance/projects/${ticket.value.project.id}`, { headers })
+        myPermission.value = proj.my_permission ?? 'owner'
+      } catch {
+        myPermission.value = 'owner'
+      }
+    }
   } catch (e) {
     error.value = 'This ticket does not exist or could not be loaded.'
   } finally {
@@ -600,6 +616,8 @@ onMounted(loadTicket)
 
 /* Dev Status select */
 .mt-dev-status-select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; }
+.mt-dev-status-select:disabled,
+.mt-status-select:disabled { cursor: not-allowed; opacity: 0.75; pointer-events: none; }
 .mt-dev-status--not-started { background: #f8fafc; color: #64748b; border-color: #cbd5e1; }
 .mt-dev-status--in-progress  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
 .mt-dev-status--ready-for-qa { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
