@@ -19,7 +19,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <!-- Notification Bell -->
-          <div class="notif-bell-wrap" ref="maintNotifDropdownRef" @click.stop="toggleMaintNotifDropdown">
+          <div v-if="!isSharedView" class="notif-bell-wrap" ref="maintNotifDropdownRef" @click.stop="toggleMaintNotifDropdown">
             <button class="notif-bell-btn" :class="{ 'notif-bell-btn--active': maintNotifDropdownOpen }">
               <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -122,20 +122,22 @@
         </nav>
 
 
-        <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
-        <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
-        <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: dashboardOpen }" @click="openDashboard">
-            <span class="sidebar-item-icon">📊</span>
-            <span class="sidebar-item-name">Dashboard</span>
-          </button>
-        </nav>
-        <div class="sidebar-footer">
-          <button class="btn-new-proj" @click="openProjectModal(null)">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-            New Project
-          </button>
-        </div>
+        <template v-if="!isSharedView">
+          <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
+          <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
+          <nav class="sidebar-nav">
+            <button class="sidebar-item" :class="{ active: dashboardOpen }" @click="openDashboard">
+              <span class="sidebar-item-icon">📊</span>
+              <span class="sidebar-item-name">Dashboard</span>
+            </button>
+          </nav>
+          <div class="sidebar-footer">
+            <button class="btn-new-proj" @click="openProjectModal(null)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              New Project
+            </button>
+          </div>
+        </template>
       </aside>
 
       <!-- ── Main ── -->
@@ -1841,8 +1843,12 @@ const completionPct = computed(() => {
   return Math.round(tickets.value.filter(t => t.status === 'Completed').length / tickets.value.length * 100)
 })
 
-const activeProjects   = computed(() => projects.value.filter(p => p.is_active !== false))
-const inactiveProjects = computed(() => projects.value.filter(p => p.is_active === false))
+const isSharedView     = computed(() => route.query.from === 'shared')
+const visibleProjects  = computed(() =>
+  isSharedView.value ? projects.value.filter(p => p.my_permission !== 'owner') : projects.value
+)
+const activeProjects   = computed(() => visibleProjects.value.filter(p => p.is_active !== false))
+const inactiveProjects = computed(() => visibleProjects.value.filter(p => p.is_active === false))
 
 // ── Project search/filter ─────────────────────────────────────────────────────
 const projectSearch      = ref('')
@@ -1850,7 +1856,7 @@ const projectStatusFilter = ref('') // 'active' | 'inactive' | ''
 
 const filteredAllProjects = computed(() => {
   const q = projectSearch.value.trim().toLowerCase()
-  return projects.value.filter(p => {
+  return visibleProjects.value.filter(p => {
     const matchSearch = !q ||
       p.name.toLowerCase().includes(q) ||
       (p.description || '').toLowerCase().includes(q)
@@ -2872,6 +2878,7 @@ onUnmounted(() => {
 /* Ellipsis project menu */
 .proj-menu-wrap {
   position: relative;
+  opacity: 1;
 }
 .proj-menu-btn {
   background: transparent;

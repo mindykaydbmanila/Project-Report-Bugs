@@ -370,7 +370,8 @@ class MaintenanceTicketController extends Controller
 
     private function sendNotifications(MaintenanceTicket $ticket, MaintenanceProject $project, array $emails): void
     {
-        foreach (array_values($emails) as $email) {
+        foreach (array_values($emails) as $i => $email) {
+            if ($i > 0) usleep(1100000); // 1.1s between emails — stays under Mailtrap free-plan rate limit
             try {
                 Mail::to($email)->send(new MaintenanceNotificationMail($ticket, $project, $email));
             } catch (\Exception $e) {

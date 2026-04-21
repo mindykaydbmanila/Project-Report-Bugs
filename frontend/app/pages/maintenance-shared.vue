@@ -70,7 +70,7 @@
       <div class="ms-page-title-row">
         <div>
           <h1 class="ms-page-title">Maintenance Projects</h1>
-          <p class="ms-page-sub">{{ sharedProjects.length }} project{{ sharedProjects.length !== 1 ? 's' : '' }} shared with you</p>
+          <p class="ms-page-sub">{{ `${sharedProjects.length} project${sharedProjects.length !== 1 ? 's' : ''} shared with you` }}</p>
         </div>
         <!-- Search -->
         <div class="ms-search-wrap">
@@ -213,11 +213,9 @@ const loading  = ref(false)
 const projects = ref([])
 const search   = ref('')
 
-// Show only projects the user has been shared (editor, commenter, viewer)
-// If a user is also an owner of some, they appear too — gives full picture.
-const sharedProjects = computed(() =>
-  projects.value.filter(p => p.is_active !== false || p.my_permission !== 'owner')
-)
+// Show only projects explicitly shared with this user (not owned)
+// ?project=ID just highlights/scrolls to that card — all shared projects still show
+const sharedProjects = computed(() => projects.value.filter(p => p.my_permission !== 'owner'))
 
 const filteredProjects = computed(() => {
   const q = search.value.trim().toLowerCase()

@@ -474,14 +474,8 @@ body {
 
 /* ── Project card three-dot menu ────────────────────────────────────────── */
 .proj-menu-wrap {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.15s;
+  position: relative;
 }
-.project-card:hover .proj-menu-wrap { opacity: 1; }
 .proj-menu-btn {
   width: 28px;
   height: 28px;
@@ -526,8 +520,9 @@ body {
   transition: background 0.1s;
 }
 .proj-menu-item:hover { background: var(--gray-50); }
-.proj-menu-item--danger { color: #dc2626; }
-.proj-menu-item--danger:hover { background: #fef2f2; }
+.proj-menu-item-delete { color: #dc2626; }
+.proj-menu-item-delete:hover { background: #fef2f2; }
+.proj-menu-item-share:hover { background: #eff6ff; color: #2563eb; }
 
 /* ══════════════════════════════════
    ALL PROJECTS VIEW — HERO + TOOLBAR

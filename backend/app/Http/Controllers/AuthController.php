@@ -74,6 +74,10 @@ class AuthController extends Controller
                 ->whereNull('user_id')
                 ->update(['user_id' => $user->id, 'accepted_at' => now()]);
 
+            \App\Models\MaintenanceProjectShare::where('invited_email', $user->email)
+                ->whereNull('user_id')
+                ->update(['user_id' => $user->id, 'accepted_at' => now()]);
+
             $token    = $user->generateApiToken();
             $frontend = env('FRONTEND_URL', 'http://localhost:3000');
 
