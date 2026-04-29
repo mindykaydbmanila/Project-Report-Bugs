@@ -1,0 +1,139 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e910]:
+    - banner [ref=e911]:
+      - generic [ref=e912]:
+        - generic [ref=e913]:
+          - link "Back to PLC" [ref=e914] [cursor=pointer]:
+            - /url: /maintenance?project=5
+            - img [ref=e915]
+            - text: Back to PLC
+          - generic [ref=e917]:
+            - generic [ref=e918]: 🔧
+            - generic [ref=e919]:
+              - generic [ref=e920]: QA Maintenance Tracker
+              - generic [ref=e921]: Ticket View
+        - generic [ref=e922]:
+          - generic [ref=e923]: Completed
+          - generic [ref=e924]: Ready for QA
+    - generic [ref=e925]:
+      - generic [ref=e926]:
+        - generic [ref=e927]:
+          - generic [ref=e928]: MT-004
+          - generic [ref=e929]:
+            - heading "Client" [level=1] [ref=e930]
+            - generic [ref=e931]: 1. Request
+        - generic [ref=e932]:
+          - generic [ref=e933]:
+            - img [ref=e934]
+            - text: Request
+          - generic [ref=e937]: 1. Request
+        - generic [ref=e938]:
+          - generic [ref=e940]:
+            - img [ref=e941]
+            - text: Comments
+          - generic [ref=e944]: No comments yet. Be the first to comment.
+        - generic [ref=e945]:
+          - generic [ref=e946]:
+            - img [ref=e947]
+            - text: Attachments
+            - generic [ref=e949]: "1"
+          - link "smXe1x3IXel5ITP3TA5iQqbQfJ6U3m7nAbtLndON.pdf" [ref=e951] [cursor=pointer]:
+            - /url: http://localhost:8000/storage/maintenance-attachments/smXe1x3IXel5ITP3TA5iQqbQfJ6U3m7nAbtLndON.pdf
+            - img [ref=e952]
+            - text: smXe1x3IXel5ITP3TA5iQqbQfJ6U3m7nAbtLndON.pdf
+        - generic [ref=e955]:
+          - generic [ref=e956]:
+            - img [ref=e957]
+            - text: Activity Log
+            - generic [ref=e960]: "2"
+          - generic [ref=e961]:
+            - generic [ref=e962]:
+              - img [ref=e965]
+              - generic [ref=e968]:
+                - generic [ref=e969]:
+                  - generic [ref=e970]: Ticket created
+                  - generic [ref=e971]: Apr 7, 2026 · 04:41 PM
+                - generic [ref=e972]: 1. Request
+            - generic [ref=e973]:
+              - img [ref=e976]
+              - generic [ref=e979]:
+                - generic [ref=e980]:
+                  - generic [ref=e981]: Marked as Completed
+                  - generic [ref=e982]: Apr 8, 2026 · 08:00 AM
+                - generic [ref=e984]: Completed
+      - complementary [ref=e985]:
+        - generic [ref=e986]:
+          - generic [ref=e987]: Dev Status
+          - combobox [disabled]:
+            - option "Not Started"
+            - option "In Progress"
+            - option "Ready for QA ✅" [selected]
+            - option "Blocked ⚠️"
+        - generic [ref=e988]:
+          - generic [ref=e989]: Status
+          - combobox [disabled]:
+            - option "Pending"
+            - option "In Progress"
+            - option "On Hold"
+            - option "Completed" [selected]
+            - option "Cancelled"
+        - generic [ref=e990]:
+          - generic [ref=e991]: Assigned Developers
+          - generic [ref=e992]:
+            - generic [ref=e993]: Developers
+            - generic [ref=e994]:
+              - generic [ref=e995]: D
+              - generic [ref=e996]:
+                - generic [ref=e997]: dev123
+                - generic [ref=e998]: dev123@gmail.com
+              - link "📁" [ref=e999] [cursor=pointer]:
+                - /url: http://localhost:3000/maintenance-dev-folder?email=dev123%40gmail.com
+        - generic [ref=e1000]:
+          - generic [ref=e1001]: Details
+          - generic [ref=e1002]:
+            - generic [ref=e1003]:
+              - generic [ref=e1004]: Project
+              - generic [ref=e1005]: PLC
+            - generic [ref=e1006]:
+              - generic [ref=e1007]: Client
+              - generic [ref=e1008]: Client
+            - generic [ref=e1009]:
+              - generic [ref=e1010]: Sent Through
+              - generic [ref=e1011]: Email
+            - generic [ref=e1012]:
+              - generic [ref=e1013]: Reported
+              - generic [ref=e1014]: April 7, 2026
+            - generic [ref=e1015]:
+              - generic [ref=e1016]: Sent
+              - generic [ref=e1017]: April 7, 2026
+            - generic [ref=e1018]:
+              - generic [ref=e1019]: Due Date
+              - generic [ref=e1020]: April 8, 2026
+            - generic [ref=e1021]:
+              - generic [ref=e1022]: Completion
+              - generic [ref=e1023]: April 8, 2026
+        - generic [ref=e1024]:
+          - generic [ref=e1025]: Activity Log
+          - generic [ref=e1026]:
+            - generic [ref=e1027]:
+              - generic [ref=e1028]: Total events
+              - generic [ref=e1029]: "2"
+            - generic [ref=e1030]:
+              - generic [ref=e1031]: Comments
+              - generic [ref=e1032]: "0"
+            - generic [ref=e1033]:
+              - generic [ref=e1034]: Completed on
+              - generic [ref=e1035]: April 8, 2026
+            - generic [ref=e1036]:
+              - generic [ref=e1037]: Last event
+              - generic [ref=e1038]: Apr 8, 2026 · 08:00 AM
+  - generic:
+    - img
+  - generic [ref=e199]:
+    - button "Toggle Nuxt DevTools" [ref=e200] [cursor=pointer]:
+      - img [ref=e201]
+    - generic "Page load time" [ref=e204]:
+      - generic [ref=e205]: "334"
+      - generic [ref=e206]: ms
+    - button "Toggle Component Inspector" [ref=e208] [cursor=pointer]:
+      - img [ref=e209]

@@ -115,4 +115,65 @@ class ProjectShareController extends Controller
 
         return response()->json(['message' => 'Share removed']);
     }
+
+    public function mySharedProjects(Request $request)
+    {
+        $user  = $request->user();
+        $email = strtolower($user->email);
+
+        $shares = ProjectShare::with(['project.bugs', 'inviter'])
+            ->where(function ($q) use ($user, $email) {
+                $q->where('user_id', $user->id)
+                  ->orWhereRaw('LOWER(invited_email) = ?', [$email]);
+            })
+            ->whereNotNull('accepted_at')
+            ->get();
+
+        return response()->json(
+            $shares->map(function ($share) {
+                $project = $share->project;
+                if (! $project) return null;
+
+                $bugs = $project->bugs;
+
+                return [
+                    'id'                => $project->id,
+                    'name'              => $project->name,
+                    'description'       => $project->description,
+                    'color'             => $project->color,
+                    'is_active'         => $project->is_active,
+                    'my_permission'     => $share->permission,
+                    'accepted_at'       => $share->accepted_at,
+                    'invited_by_name'   => $share->inviter?->name,
+                    'invited_by_avatar' => $share->inviter?->avatar,
+                    'bugs_count'        => $bugs->count(),
+                    'pending_count'     => $bugs->where('status', 'Pending')->count(),
+                    'ongoing_count'     => $bugs->where('status', 'Ongoing')->count(),
+                    'completed_count'   => $bugs->where('status', 'Completed')->count(),
+                    'critical_count'    => $bugs->where('priority', 'Critical')->count(),
+                ];
+            })->filter()->values()
+        );
+    }
+
+    public function leave(Project $project, Request $request)
+    {
+        $user  = $request->user();
+        $email = strtolower($user->email);
+
+        $share = ProjectShare::where('project_id', $project->id)
+            ->where(function ($q) use ($user, $email) {
+                $q->where('user_id', $user->id)
+                  ->orWhereRaw('LOWER(invited_email) = ?', [$email]);
+            })
+            ->first();
+
+        if (! $share) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        $share->delete();
+
+        return response()->json(['message' => 'Left project']);
+    }
 }

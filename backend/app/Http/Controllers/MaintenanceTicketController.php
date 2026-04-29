@@ -178,9 +178,13 @@ class MaintenanceTicketController extends Controller
         return response()->json($maintenanceTicket->fresh());
     }
 
-    public function destroy(MaintenanceProject $maintenanceProject, MaintenanceTicket $maintenanceTicket)
+    public function destroy(Request $request, MaintenanceProject $maintenanceProject, MaintenanceTicket $maintenanceTicket)
     {
         abort_unless($maintenanceTicket->maintenance_project_id === $maintenanceProject->id, 404);
+
+        if ($maintenanceProject->owner_id !== $request->user()->id) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
 
         foreach ($maintenanceTicket->attachments ?? [] as $url) {
             Storage::disk('public')->delete(Str::after($url, '/storage/'));
@@ -217,7 +221,6 @@ class MaintenanceTicketController extends Controller
     public function allDevs()
     {
         $tickets = MaintenanceTicket::with('project')
-            ->whereHas('project', fn($q) => $q->where('is_active', true))
             ->where(fn($q) => $q->whereNotNull('assigned_devs')->orWhereNotNull('assigned_qa'))
             ->get(['id', 'assigned_devs', 'assigned_qa', 'maintenance_project_id', 'status']);
 
@@ -268,13 +271,21 @@ class MaintenanceTicketController extends Controller
 
     public function devFolder(Request $request)
     {
-        $email = $request->query('email');
+        $email = strtolower($request->query('email', ''));
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return response()->json(['error' => 'A valid email is required.'], 422);
         }
 
+        // Authenticated users may only view their own folder unless they own a project
+        $user = $request->user();
+        if ($user) {
+            $isOwner = MaintenanceProject::where('owner_id', $user->id)->exists();
+            if (!$isOwner && strtolower($user->email) !== $email) {
+                return response()->json(['error' => 'Forbidden'], 403);
+            }
+        }
+
         $tickets = MaintenanceTicket::with('project')
-            ->whereHas('project', fn($q) => $q->where('is_active', true))
             ->where(function ($q) use ($email) {
                 $q->whereJsonContains('assigned_devs', $email)
                   ->orWhereJsonContains('assigned_qa', $email);

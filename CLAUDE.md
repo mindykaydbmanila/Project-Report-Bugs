@@ -85,6 +85,20 @@ Global styles and the design token system are in `frontend/assets/css/main.css`.
 - Before implementing visual effects (cursor effects, animations, themes), ask the user to describe the desired behavior in detail or request a reference image/video
 - For UI element removal tasks, identify ALL matching elements first and confirm which specific one(s) to remove before editing
 
+## Running Dev Servers
+- On Windows, PHP is NOT in the bash PATH. Do not use `php artisan serve` directly in bash — use the full Windows path to php.exe OR run start.bat via `cmd /c start.bat`.
+- Do NOT modify start.bat to hardcode PHP paths; keep the original `php artisan serve` command.
+- If .bat files fail in bash with exit code 127, pivot immediately to launching backend and frontend directly rather than retrying the .bat.
+- To kill servers on Windows, `taskkill /F /PID` often fails from the bash shell — ask the user to kill manually instead of retrying.
+
+## Before Ending a Task
+- After editing Vue/JS files, verify no duplicate `const` declarations or unclosed tags were introduced (a previous session crashed the dev server with a duplicate `const formatDate`).
+- When modifying API base URLs or shared helpers like `apiBase`, verify all call sites still work — do not "simplify" without checking.
+- After adding new backend routes/pages, remind the user a frontend/dev server restart may be needed to avoid 404s.
+
+## Email & Queue
+- This project uses queued mail delivery. If emails aren't sending, check that the queue worker (`php artisan queue:work`) is running before debugging SMTP/Mailtrap config.
+
 ## Tool Availability
 - Playwright is installed globally as an MCP server — use it directly for browser automation without asking
 - Do not refuse URL/browser tasks; use Playwright MCP or WebFetch as appropriate

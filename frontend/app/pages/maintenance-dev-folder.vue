@@ -9,11 +9,13 @@
     <!-- Header -->
     <header class="mdf-header">
       <div class="mdf-header-inner">
-        <div class="mdf-header-logo">
-          <div style="font-size:20px;">🔧</div>
-          <div>
-            <div style="font-weight:700;color:#fff;font-size:15px;">Maintenance Tracker</div>
-            <div style="font-size:11px;color:#a7f3d0;">Dev Folder</div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="mdf-header-logo">
+            <div style="font-size:20px;">🔧</div>
+            <div>
+              <div style="font-weight:700;color:#fff;font-size:15px;">Maintenance Tracker</div>
+              <div style="font-size:11px;color:#a7f3d0;">Dev Folder</div>
+            </div>
           </div>
         </div>
       </div>
@@ -301,6 +303,7 @@ function formatDate(d) {
 
 function dueDaysLabel(t) {
   if (!t.target_date) return null
+  if (t.status === 'Completed' || t.status === 'Cancelled') return null
   const today = new Date(new Date().toDateString())
   const due   = new Date(t.target_date)
   const diff  = Math.round((due - today) / 86400000)
@@ -367,6 +370,8 @@ onMounted(() => {
 .mdf-header { background: linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%); padding: 0; }
 .mdf-header-inner { max-width: 960px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; }
 .mdf-header-logo { display: flex; align-items: center; gap: 10px; }
+.mdf-back-link { display: inline-flex; align-items: center; gap: 5px; color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 500; text-decoration: none; padding: 5px 10px; border-radius: 6px; transition: background 0.15s; }
+.mdf-back-link:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
 /* Loading / Error */
 .mdf-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px; gap: 16px; color: #64748b; }

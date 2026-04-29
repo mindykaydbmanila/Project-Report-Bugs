@@ -1,0 +1,135 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - link "Bug Tracker" [ref=e8] [cursor=pointer]:
+            - /url: /
+            - img [ref=e9]
+            - text: Bug Tracker
+          - generic [ref=e11]:
+            - generic [ref=e12]: 🔧
+            - generic [ref=e13]:
+              - generic [ref=e14]: Maintenance Tracker
+              - generic [ref=e15]: Client Maintenance Management
+        - generic [ref=e16]:
+          - button [ref=e18] [cursor=pointer]:
+            - img [ref=e19]
+          - button "Sign in with Google" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - text: Sign in with Google
+    - generic [ref=e28]:
+      - complementary [ref=e29]:
+        - generic [ref=e30]: Maintenance Projects
+        - navigation [ref=e31]:
+          - button "🏠 All Projects 2" [ref=e32] [cursor=pointer]:
+            - generic [ref=e33]: 🏠
+            - generic [ref=e34]: All Projects
+            - generic [ref=e35]: "2"
+        - generic [ref=e36]: Projects
+        - navigation [ref=e37]:
+          - button "SLMC 1" [ref=e38] [cursor=pointer]:
+            - generic [ref=e40]: SLMC
+            - generic [ref=e41]: "1"
+          - button "sample 0" [ref=e42] [cursor=pointer]:
+            - generic [ref=e44]: sample
+            - generic [ref=e45]: "0"
+        - generic [ref=e47]: Tools
+        - navigation [ref=e48]:
+          - button "📊 Dashboard" [ref=e49] [cursor=pointer]:
+            - generic [ref=e50]: 📊
+            - generic [ref=e51]: Dashboard
+        - button "New Project" [ref=e53] [cursor=pointer]:
+          - img [ref=e54]
+          - text: New Project
+      - main [ref=e56]:
+        - generic [ref=e213]:
+          - generic [ref=e217]:
+            - img [ref=e219]
+            - generic [ref=e221]:
+              - generic [ref=e222]:
+                - heading "sample" [level=1] [ref=e223]
+                - generic [ref=e224]: Active
+              - generic [ref=e225]:
+                - generic [ref=e226]:
+                  - img [ref=e227]
+                  - text: 0 tickets
+                - generic [ref=e230]:
+                  - img [ref=e231]
+                  - text: 2026-04-20 → 2026-04-30
+          - generic [ref=e233]:
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - generic [ref=e236]: Total
+                - img [ref=e238]
+              - generic [ref=e241]: "0"
+              - generic [ref=e244]: 0% done
+            - generic [ref=e245]:
+              - generic [ref=e246]:
+                - generic [ref=e247]: Pending
+                - img [ref=e249]
+              - generic [ref=e252]: "0"
+              - generic [ref=e253]: awaiting start
+            - generic [ref=e254]:
+              - generic [ref=e255]:
+                - generic [ref=e256]: In Progress
+                - img [ref=e258]
+              - generic [ref=e261]: "0"
+              - generic [ref=e262]: active work
+            - generic [ref=e263]:
+              - generic [ref=e264]:
+                - generic [ref=e265]: On Hold
+                - img [ref=e267]
+              - generic [ref=e270]: "0"
+              - generic [ref=e271]: paused
+            - generic [ref=e272]:
+              - generic [ref=e273]:
+                - generic [ref=e274]: Completed
+                - img [ref=e276]
+              - generic [ref=e279]: "0"
+              - generic [ref=e280]: finished
+            - generic [ref=e281]:
+              - generic [ref=e282]:
+                - generic [ref=e283]: Overdue
+                - img [ref=e285]
+              - generic [ref=e287]: "0"
+              - generic [ref=e288]: needs attention
+          - generic [ref=e289]:
+            - generic [ref=e290]:
+              - img
+              - textbox "Search tickets..." [ref=e291]
+            - combobox [ref=e292] [cursor=pointer]:
+              - option "All Statuses" [selected]
+              - option "Pending"
+              - option "In Progress"
+              - option "On Hold"
+              - option "Completed"
+              - option "Cancelled"
+          - table [ref=e294]:
+            - rowgroup [ref=e295]:
+              - 'row "Ticket # Client Request Sent Thru Target Age Dev(s) QA Dev Status Status Comment Actions" [ref=e296]':
+                - 'columnheader "Ticket #" [ref=e297]'
+                - columnheader "Client" [ref=e298]
+                - columnheader "Request" [ref=e299]
+                - columnheader "Sent Thru" [ref=e300]
+                - columnheader "Target" [ref=e301]
+                - columnheader "Age" [ref=e302]
+                - columnheader "Dev(s)" [ref=e303]
+                - columnheader "QA" [ref=e304]
+                - columnheader "Dev Status" [ref=e305]
+                - columnheader "Status" [ref=e306]
+                - columnheader "Comment" [ref=e307]
+                - columnheader "Actions" [ref=e308]
+            - rowgroup [ref=e309]:
+              - row "No tickets yet. Create one to get started." [ref=e310]:
+                - cell "No tickets yet. Create one to get started." [ref=e311]
+  - generic:
+    - img
+  - generic [ref=e199]:
+    - button "Toggle Nuxt DevTools" [ref=e200] [cursor=pointer]:
+      - img [ref=e201]
+    - generic "Page load time" [ref=e204]:
+      - generic [ref=e205]: "23"
+      - generic [ref=e206]: ms
+    - button "Toggle Component Inspector" [ref=e208] [cursor=pointer]:
+      - img [ref=e209]

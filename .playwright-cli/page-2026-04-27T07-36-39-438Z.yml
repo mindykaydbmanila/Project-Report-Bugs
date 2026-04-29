@@ -1,0 +1,422 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - link "Bug Tracker" [ref=e8] [cursor=pointer]:
+            - /url: /
+            - img [ref=e9]
+            - text: Bug Tracker
+          - generic [ref=e11]:
+            - generic [ref=e12]: 🔧
+            - generic [ref=e13]:
+              - generic [ref=e14]: Maintenance Tracker
+              - generic [ref=e15]: Client Maintenance Management
+        - generic [ref=e16]:
+          - button [ref=e18] [cursor=pointer]:
+            - img [ref=e19]
+          - button "Sign in with Google" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - text: Sign in with Google
+    - generic [ref=e28]:
+      - complementary [ref=e29]:
+        - generic [ref=e30]: Maintenance Projects
+        - navigation [ref=e31]:
+          - button "🏠 All Projects 3" [ref=e32] [cursor=pointer]:
+            - generic [ref=e33]: 🏠
+            - generic [ref=e34]: All Projects
+            - generic [ref=e35]: "3"
+        - generic [ref=e36]: Projects
+        - navigation [ref=e37]:
+          - button "SLMC 1" [ref=e38] [cursor=pointer]:
+            - generic [ref=e40]: SLMC
+            - generic [ref=e41]: "1"
+          - button "Test Bug Project 0" [ref=e42] [cursor=pointer]:
+            - generic [ref=e44]: Test Bug Project
+            - generic [ref=e45]: "0"
+          - button "sample 0" [ref=e46] [cursor=pointer]:
+            - generic [ref=e48]: sample
+            - generic [ref=e49]: "0"
+        - generic [ref=e51]: Tools
+        - navigation [ref=e52]:
+          - button "📊 Dashboard" [ref=e53] [cursor=pointer]:
+            - generic [ref=e54]: 📊
+            - generic [ref=e55]: Dashboard
+        - button "New Project" [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+          - text: New Project
+      - main [ref=e60]:
+        - generic [ref=e255]:
+          - generic [ref=e258]:
+            - generic [ref=e259]:
+              - img [ref=e261]
+              - generic [ref=e263]:
+                - generic [ref=e264]:
+                  - heading "PLC" [level=1] [ref=e265]
+                  - generic [ref=e266]: Inactive
+                - generic [ref=e267]:
+                  - generic [ref=e268]:
+                    - img [ref=e269]
+                    - text: 8 tickets
+                  - generic [ref=e272]:
+                    - img [ref=e273]
+                    - text: 2026-04-07 → 2026-04-15
+            - generic [ref=e275]: Project Inactive — tickets cannot be added
+          - generic [ref=e276]:
+            - generic [ref=e277]:
+              - generic [ref=e278]:
+                - generic [ref=e279]: Total
+                - img [ref=e281]
+              - generic [ref=e284]: "8"
+              - generic [ref=e288]: 25% done
+            - generic [ref=e289]:
+              - generic [ref=e290]:
+                - generic [ref=e291]: Pending
+                - img [ref=e293]
+              - generic [ref=e296]: "4"
+              - generic [ref=e297]: awaiting start
+            - generic [ref=e298]:
+              - generic [ref=e299]:
+                - generic [ref=e300]: In Progress
+                - img [ref=e302]
+              - generic [ref=e305]: "1"
+              - generic [ref=e306]: active work
+            - generic [ref=e307]:
+              - generic [ref=e308]:
+                - generic [ref=e309]: On Hold
+                - img [ref=e311]
+              - generic [ref=e314]: "1"
+              - generic [ref=e315]: paused
+            - generic [ref=e316]:
+              - generic [ref=e317]:
+                - generic [ref=e318]: Completed
+                - img [ref=e320]
+              - generic [ref=e323]: "2"
+              - generic [ref=e324]: finished
+            - generic [ref=e325]:
+              - generic [ref=e326]:
+                - generic [ref=e327]: Overdue
+                - img [ref=e329]
+              - generic [ref=e331]: "0"
+              - generic [ref=e332]: needs attention
+          - generic [ref=e333]:
+            - generic [ref=e334]:
+              - img
+              - textbox "Search tickets..." [ref=e335]
+            - combobox [ref=e336] [cursor=pointer]:
+              - option "All Statuses" [selected]
+              - option "Pending"
+              - option "In Progress"
+              - option "On Hold"
+              - option "Completed"
+              - option "Cancelled"
+          - table [ref=e338]:
+            - rowgroup [ref=e339]:
+              - 'row "Ticket # Client Request Sent Thru Target Age Dev(s) QA Dev Status Status Comment Actions" [ref=e340]':
+                - 'columnheader "Ticket #" [ref=e341]'
+                - columnheader "Client" [ref=e342]
+                - columnheader "Request" [ref=e343]
+                - columnheader "Sent Thru" [ref=e344]
+                - columnheader "Target" [ref=e345]
+                - columnheader "Age" [ref=e346]
+                - columnheader "Dev(s)" [ref=e347]
+                - columnheader "QA" [ref=e348]
+                - columnheader "Dev Status" [ref=e349]
+                - columnheader "Status" [ref=e350]
+                - columnheader "Comment" [ref=e351]
+                - columnheader "Actions" [ref=e352]
+            - rowgroup [ref=e353]:
+              - row "MT-004 Client 1. Request Email Apr 8, 2026 1d DE — Ready for QA Completed Add comment…" [ref=e354] [cursor=pointer]:
+                - cell "MT-004" [ref=e355]:
+                  - generic [ref=e357]: MT-004
+                - cell "Client" [ref=e358]
+                - cell "1. Request" [ref=e359]:
+                  - generic "1. Request" [ref=e360]
+                - cell "Email" [ref=e361]:
+                  - generic [ref=e362]: Email
+                - cell "Apr 8, 2026" [ref=e363]
+                - cell "1d" [ref=e364]:
+                  - generic [ref=e365]: 1d
+                - cell "DE" [ref=e366]:
+                  - generic "dev123@gmail.com" [ref=e368]: DE
+                - cell "—" [ref=e369]:
+                  - generic [ref=e371]: —
+                - cell "Ready for QA" [ref=e372]:
+                  - combobox [disabled] [ref=e373]:
+                    - option "Not Started"
+                    - option "In Progress"
+                    - option "Ready for QA" [selected]
+                    - option "Blocked"
+                - cell "Completed" [ref=e374]:
+                  - combobox [disabled] [ref=e375]:
+                    - option "Pending"
+                    - option "In Progress"
+                    - option "On Hold"
+                    - option "Completed" [selected]
+                    - option "Cancelled"
+                - cell "Add comment…" [ref=e376]:
+                  - generic [ref=e377]:
+                    - img [ref=e378]
+                    - generic [ref=e380]: Add comment…
+                - cell [ref=e381]:
+                  - button "View ticket" [ref=e383]:
+                    - img [ref=e384]
+              - row "MT-005 clientb 223 1. sample Email Apr 10, 2026 6d DE — Ready for QA Completed 1 1- not working" [ref=e387] [cursor=pointer]:
+                - cell "MT-005" [ref=e388]:
+                  - generic [ref=e390]: MT-005
+                - cell "clientb 223" [ref=e391]
+                - cell "1. sample" [ref=e392]:
+                  - generic "1. sample" [ref=e393]
+                - cell "Email" [ref=e394]:
+                  - generic [ref=e395]: Email
+                - cell "Apr 10, 2026" [ref=e396]
+                - cell "6d" [ref=e397]:
+                  - generic [ref=e398]: 6d
+                - cell "DE" [ref=e399]:
+                  - generic "dev123@gmail.com" [ref=e401]: DE
+                - cell "—" [ref=e402]:
+                  - generic [ref=e404]: —
+                - cell "Ready for QA" [ref=e405]:
+                  - combobox [disabled] [ref=e406]:
+                    - option "Not Started"
+                    - option "In Progress"
+                    - option "Ready for QA" [selected]
+                    - option "Blocked"
+                - cell "Completed" [ref=e407]:
+                  - combobox [disabled] [ref=e408]:
+                    - option "Pending"
+                    - option "In Progress"
+                    - option "On Hold"
+                    - option "Completed" [selected]
+                    - option "Cancelled"
+                - cell "1 1- not working" [ref=e409]:
+                  - generic [ref=e410]:
+                    - img [ref=e411]
+                    - generic [ref=e413]: "1"
+                    - generic [ref=e414]: 1- not working
+                - cell [ref=e415]:
+                  - button "View ticket" [ref=e417]:
+                    - img [ref=e418]
+              - row "MT-006 Client 7782 1. new banner Teams Apr 9, 2026 3d DE — Ready for QA Pending 2 ongoing" [ref=e624] [cursor=pointer]:
+                - cell "MT-006" [ref=e625]:
+                  - generic [ref=e627]: MT-006
+                - cell "Client 7782" [ref=e628]
+                - cell "1. new banner" [ref=e629]:
+                  - generic "1. new banner" [ref=e630]
+                - cell "Teams" [ref=e631]:
+                  - generic [ref=e632]: Teams
+                - cell "Apr 9, 2026" [ref=e633]
+                - cell "3d" [ref=e634]:
+                  - generic [ref=e635]: 3d
+                - cell "DE" [ref=e636]:
+                  - generic "dev888@gmail.com" [ref=e638]: DE
+                - cell "—" [ref=e639]:
+                  - generic [ref=e641]: —
+                - cell "Ready for QA" [ref=e642]:
+                  - combobox [disabled] [ref=e643]:
+                    - option "Not Started"
+                    - option "In Progress"
+                    - option "Ready for QA" [selected]
+                    - option "Blocked"
+                - cell "Pending" [ref=e644]:
+                  - combobox [disabled] [ref=e645]:
+                    - option "Pending" [selected]
+                    - option "In Progress"
+                    - option "On Hold"
+                    - option "Completed"
+                    - option "Cancelled"
+                - cell "2 ongoing" [ref=e646]:
+                  - generic [ref=e647]:
+                    - img [ref=e648]
+                    - generic [ref=e650]: "2"
+                    - generic [ref=e651]: ongoing
+                - cell [ref=e652]:
+                  - button "View ticket" [ref=e654]:
+                    - img [ref=e655]
+              - row "MT-007 Jonas 1- creta chuchu Email Apr 16, 2026 3d — — Blocked On Hold Add comment…" [ref=e658] [cursor=pointer]:
+                - cell "MT-007" [ref=e659]:
+                  - generic [ref=e661]: MT-007
+                - cell "Jonas" [ref=e662]
+                - cell "1- creta chuchu" [ref=e663]:
+                  - generic "1- creta chuchu" [ref=e664]
+                - cell "Email" [ref=e665]:
+                  - generic [ref=e666]: Email
+                - cell "Apr 16, 2026" [ref=e667]
+                - cell "3d" [ref=e668]:
+                  - generic [ref=e669]: 3d
+                - cell "—" [ref=e670]:
+                  - generic [ref=e672]: —
+                - cell "—" [ref=e673]:
+                  - generic [ref=e675]: —
+                - cell "Blocked" [ref=e676]:
+                  - combobox [disabled] [ref=e677]:
+                    - option "Not Started"
+                    - option "In Progress"
+                    - option "Ready for QA"
+                    - option "Blocked" [selected]
+                - cell "On Hold" [ref=e678]:
+                  - combobox [disabled] [ref=e679]:
+                    - option "Pending"
+                    - option "In Progress"
+                    - option "On Hold" [selected]
+                    - option "Completed"
+                    - option "Cancelled"
+                - cell "Add comment…" [ref=e680]:
+                  - generic [ref=e681]:
+                    - img [ref=e682]
+                    - generic [ref=e684]: Add comment…
+                - cell [ref=e685]:
+                  - button "View ticket" [ref=e687]:
+                    - img [ref=e688]
+              - row "MT-008 Alsonso 1- add video section Email Apr 15, 2026 4d JO — Not Started Pending Add comment…" [ref=e691] [cursor=pointer]:
+                - cell "MT-008" [ref=e692]:
+                  - generic [ref=e694]: MT-008
+                - cell "Alsonso" [ref=e695]
+                - cell "1- add video section" [ref=e696]:
+                  - generic "1- add video section" [ref=e697]
+                - cell "Email" [ref=e698]:
+                  - generic [ref=e699]: Email
+                - cell "Apr 15, 2026" [ref=e700]
+                - cell "4d" [ref=e701]:
+                  - generic [ref=e702]: 4d
+                - cell "JO" [ref=e703]:
+                  - generic "jonasbrother@gmail.com" [ref=e705]: JO
+                - cell "—" [ref=e706]:
+                  - generic [ref=e708]: —
+                - cell "Not Started" [ref=e709]:
+                  - combobox [disabled] [ref=e710]:
+                    - option "Not Started" [selected]
+                    - option "In Progress"
+                    - option "Ready for QA"
+                    - option "Blocked"
+                - cell "Pending" [ref=e711]:
+                  - combobox [disabled] [ref=e712]:
+                    - option "Pending" [selected]
+                    - option "In Progress"
+                    - option "On Hold"
+                    - option "Completed"
+                    - option "Cancelled"
+                - cell "Add comment…" [ref=e713]:
+                  - generic [ref=e714]:
+                    - img [ref=e715]
+                    - generic [ref=e717]: Add comment…
+                - cell [ref=e718]:
+                  - button "View ticket" [ref=e720]:
+                    - img [ref=e721]
+              - row "MT-009 Jonel - add something ew Email Apr 20, 2026 11d JO — In Progress In Progress Add comment…" [ref=e724] [cursor=pointer]:
+                - cell "MT-009" [ref=e725]:
+                  - generic [ref=e727]: MT-009
+                - cell "Jonel" [ref=e728]
+                - cell "- add something ew" [ref=e729]:
+                  - generic "- add something ew" [ref=e730]
+                - cell "Email" [ref=e731]:
+                  - generic [ref=e732]: Email
+                - cell "Apr 20, 2026" [ref=e733]
+                - cell "11d" [ref=e734]:
+                  - generic [ref=e735]: 11d
+                - cell "JO" [ref=e736]:
+                  - generic "jonas@gmail.com" [ref=e738]: JO
+                - cell "—" [ref=e739]:
+                  - generic [ref=e741]: —
+                - cell "In Progress" [ref=e742]:
+                  - combobox [disabled] [ref=e743]:
+                    - option "Not Started"
+                    - option "In Progress" [selected]
+                    - option "Ready for QA"
+                    - option "Blocked"
+                - cell "In Progress" [ref=e744]:
+                  - combobox [disabled] [ref=e745]:
+                    - option "Pending"
+                    - option "In Progress" [selected]
+                    - option "On Hold"
+                    - option "Completed"
+                    - option "Cancelled"
+                - cell "Add comment…" [ref=e746]:
+                  - generic [ref=e747]:
+                    - img [ref=e748]
+                    - generic [ref=e750]: Add comment…
+                - cell [ref=e751]:
+                  - button "View ticket" [ref=e753]:
+                    - img [ref=e754]
+              - row "MT-010 Matthew 1. video section Viber Apr 16, 2026 4d MA — Not Started Pending Add comment…" [ref=e757] [cursor=pointer]:
+                - cell "MT-010" [ref=e758]:
+                  - generic [ref=e760]: MT-010
+                - cell "Matthew" [ref=e761]
+                - cell "1. video section" [ref=e762]:
+                  - generic "1. video section" [ref=e763]
+                - cell "Viber" [ref=e764]:
+                  - generic [ref=e765]: Viber
+                - cell "Apr 16, 2026" [ref=e766]
+                - cell "4d" [ref=e767]:
+                  - generic [ref=e768]: 4d
+                - cell "MA" [ref=e769]:
+                  - generic "mark@gmail.com" [ref=e771]: MA
+                - cell "—" [ref=e772]:
+                  - generic [ref=e774]: —
+                - cell "Not Started" [ref=e775]:
+                  - combobox [disabled] [ref=e776]:
+                    - option "Not Started" [selected]
+                    - option "In Progress"
+                    - option "Ready for QA"
+                    - option "Blocked"
+                - cell "Pending" [ref=e777]:
+                  - combobox [disabled] [ref=e778]:
+                    - option "Pending" [selected]
+                    - option "In Progress"
+                    - option "On Hold"
+                    - option "Completed"
+                    - option "Cancelled"
+                - cell "Add comment…" [ref=e779]:
+                  - generic [ref=e780]:
+                    - img [ref=e781]
+                    - generic [ref=e783]: Add comment…
+                - cell [ref=e784]:
+                  - button "View ticket" [ref=e786]:
+                    - img [ref=e787]
+              - row "MT-011 Samuel 1 - blah Email Apr 13, 2026 3d JO MA — Not Started Pending Add comment…" [ref=e790] [cursor=pointer]:
+                - cell "MT-011" [ref=e791]:
+                  - generic [ref=e793]: MT-011
+                - cell "Samuel" [ref=e794]
+                - cell "1 - blah" [ref=e795]:
+                  - generic "1 - blah" [ref=e796]
+                - cell "Email" [ref=e797]:
+                  - generic [ref=e798]: Email
+                - cell "Apr 13, 2026" [ref=e799]
+                - cell "3d" [ref=e800]:
+                  - generic [ref=e801]: 3d
+                - cell "JO MA" [ref=e802]:
+                  - generic [ref=e803]:
+                    - generic "jonas@gmail.com" [ref=e804]: JO
+                    - generic "mark@gmail.com" [ref=e805]: MA
+                - cell "—" [ref=e806]:
+                  - generic [ref=e808]: —
+                - cell "Not Started" [ref=e809]:
+                  - combobox [disabled] [ref=e810]:
+                    - option "Not Started" [selected]
+                    - option "In Progress"
+                    - option "Ready for QA"
+                    - option "Blocked"
+                - cell "Pending" [ref=e811]:
+                  - combobox [disabled] [ref=e812]:
+                    - option "Pending" [selected]
+                    - option "In Progress"
+                    - option "On Hold"
+                    - option "Completed"
+                    - option "Cancelled"
+                - cell "Add comment…" [ref=e813]:
+                  - generic [ref=e814]:
+                    - img [ref=e815]
+                    - generic [ref=e817]: Add comment…
+                - cell [ref=e818]:
+                  - button "View ticket" [ref=e820]:
+                    - img [ref=e821]
+  - generic:
+    - img
+  - generic [ref=e241]:
+    - button "Toggle Nuxt DevTools" [ref=e242] [cursor=pointer]:
+      - img [ref=e243]
+    - generic "Page load time" [ref=e246]:
+      - generic [ref=e247]: "18"
+      - generic [ref=e248]: ms
+    - button "Toggle Component Inspector" [ref=e250] [cursor=pointer]:
+      - img [ref=e251]

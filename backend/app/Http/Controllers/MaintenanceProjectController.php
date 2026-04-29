@@ -23,7 +23,8 @@ class MaintenanceProjectController extends Controller
     private function appendMyPermission(iterable $projects, ?int $userId, ?string $userEmail): iterable
     {
         if (!$userId && !$userEmail) {
-            return collect($projects)->map(fn ($p) => tap($p, fn ($p) => $p->my_permission = $p->link_permission ?? 'view'));
+            // Unauthenticated: only see projects with link sharing enabled
+            return collect($projects)->map(fn ($p) => tap($p, fn ($p) => $p->my_permission = $p->link_permission));
         }
 
         // Load all shares for these projects in one query
@@ -37,15 +38,17 @@ class MaintenanceProjectController extends Controller
             if ($userId && $p->owner_id === $userId) {
                 $p->my_permission = 'owner';
             } elseif ($share = $shares->get($p->id)) {
-                // Map DB values to frontend values
                 $p->my_permission = match ($share->permission) {
                     'editor'    => 'edit',
                     'commenter' => 'comment',
                     default     => 'view',
                 };
-            } else {
-                // Not owner, not in shares → treat as owner (legacy projects without owner_id)
+            } elseif (!$p->owner_id) {
+                // Legacy project with no owner — accessible to everyone
                 $p->my_permission = 'owner';
+            } else {
+                // Project owned by someone else, not shared with this user
+                $p->my_permission = null;
             }
             return $p;
         });
@@ -56,9 +59,10 @@ class MaintenanceProjectController extends Controller
         $projects = $this->withCounts()->orderBy('name')->get();
         $user = $request->user();
 
-        return response()->json(
-            $this->appendMyPermission($projects, $user?->id, $user?->email)
-        );
+        $withPerms = $this->appendMyPermission($projects, $user?->id, $user?->email);
+
+        // Only return projects the requester has some access to
+        return response()->json($withPerms->filter(fn ($p) => $p->my_permission !== null)->values());
     }
 
     public function store(Request $request)
@@ -96,6 +100,10 @@ class MaintenanceProjectController extends Controller
 
     public function update(Request $request, MaintenanceProject $maintenanceProject)
     {
+        if ($maintenanceProject->owner_id !== $request->user()->id) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
         $data = $request->validate([
             'name'           => 'required|string|max:255',
             'description'    => 'nullable|string',
@@ -118,6 +126,10 @@ class MaintenanceProjectController extends Controller
 
     public function updateLinkPermission(Request $request, MaintenanceProject $maintenanceProject)
     {
+        if ($maintenanceProject->owner_id !== $request->user()->id) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
         $data = $request->validate([
             'link_permission' => 'required|in:view,comment,edit',
         ]);
@@ -127,8 +139,12 @@ class MaintenanceProjectController extends Controller
         return response()->json(['link_permission' => $maintenanceProject->link_permission]);
     }
 
-    public function destroy(MaintenanceProject $maintenanceProject)
+    public function destroy(Request $request, MaintenanceProject $maintenanceProject)
     {
+        if ($maintenanceProject->owner_id !== $request->user()->id) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
         $maintenanceProject->delete();
         return response()->json(null, 204);
     }

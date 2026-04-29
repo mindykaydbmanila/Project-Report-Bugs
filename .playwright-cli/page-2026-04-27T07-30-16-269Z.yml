@@ -1,0 +1,78 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - generic: Folder set to public
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: 🔧
+        - generic [ref=e9]:
+          - generic [ref=e10]: Maintenance Tracker
+          - generic [ref=e11]: Dev Folder
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]: DE
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - generic [ref=e17]: dev123@gmail.com
+            - generic [ref=e18]:
+              - button "0 Pending" [ref=e19] [cursor=pointer]:
+                - generic [ref=e20]: "0"
+                - text: Pending
+              - button "0 In Progress" [ref=e21] [cursor=pointer]:
+                - generic [ref=e22]: "0"
+                - text: In Progress
+              - button "2 Done" [ref=e23] [cursor=pointer]:
+                - generic [ref=e24]: "2"
+                - text: Done
+          - generic [ref=e25]: Maintenance Ticket Folder
+        - generic [ref=e26]:
+          - button "Public" [active] [ref=e89] [cursor=pointer]:
+            - img [ref=e90]
+            - text: Public
+          - button "Copy shareable link" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]: 📁
+          - generic [ref=e42]: PLC
+          - generic [ref=e43]: 2 tickets
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - generic [ref=e46]: Completed
+            - generic [ref=e47]: 2 tickets
+          - generic [ref=e48]:
+            - link "MT-005 Ready for QA Dev clientb 223 1. sample 📅 Apr 10, 2026 17 days overdue PLC" [ref=e49] [cursor=pointer]:
+              - /url: http://localhost:3000/maintenance-ticket/7?from=folder&email=dev123%40gmail.com
+              - generic [ref=e50]:
+                - generic [ref=e51]: MT-005
+                - generic [ref=e52]: Ready for QA
+                - generic [ref=e53]: Dev
+              - generic [ref=e54]: clientb 223
+              - generic [ref=e55]: 1. sample
+              - generic [ref=e56]:
+                - generic [ref=e57]:
+                  - text: 📅 Apr 10, 2026
+                  - generic [ref=e58]: 17 days overdue
+                - generic [ref=e59]: PLC
+            - link "MT-004 Ready for QA Dev Client 1. Request 📅 Apr 8, 2026 19 days overdue PLC" [ref=e60] [cursor=pointer]:
+              - /url: http://localhost:3000/maintenance-ticket/6?from=folder&email=dev123%40gmail.com
+              - generic [ref=e61]:
+                - generic [ref=e62]: MT-004
+                - generic [ref=e63]: Ready for QA
+                - generic [ref=e64]: Dev
+              - generic [ref=e65]: Client
+              - generic [ref=e66]: 1. Request
+              - generic [ref=e67]:
+                - generic [ref=e68]:
+                  - text: 📅 Apr 8, 2026
+                  - generic [ref=e69]: 19 days overdue
+                - generic [ref=e70]: PLC
+  - generic:
+    - img
+  - generic [ref=e71]:
+    - button "Toggle Nuxt DevTools" [ref=e72] [cursor=pointer]:
+      - img [ref=e73]
+    - generic "Page load time" [ref=e76]:
+      - generic [ref=e77]: "23"
+      - generic [ref=e78]: ms
+    - button "Toggle Component Inspector" [ref=e80] [cursor=pointer]:
+      - img [ref=e81]

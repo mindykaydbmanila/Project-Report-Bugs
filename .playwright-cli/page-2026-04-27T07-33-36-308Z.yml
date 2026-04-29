@@ -1,0 +1,21 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e481]:
+    - generic [ref=e482]:
+      - generic [ref=e483]: 🐛
+      - generic [ref=e484]:
+        - generic [ref=e485]: QA Bug Tracker
+        - generic [ref=e486]: Quality Assurance Dashboard
+    - paragraph [ref=e487]: Sign in to manage projects and track bugs.
+    - button "Sign in with Google" [ref=e488] [cursor=pointer]:
+      - img [ref=e489]
+      - text: Sign in with Google
+  - generic:
+    - img
+  - generic [ref=e71]:
+    - button "Toggle Nuxt DevTools" [ref=e72] [cursor=pointer]:
+      - img [ref=e73]
+    - generic "Page load time" [ref=e76]:
+      - generic [ref=e77]: "321"
+      - generic [ref=e78]: ms
+    - button "Toggle Component Inspector" [ref=e80] [cursor=pointer]:
+      - img [ref=e81]

@@ -106,14 +106,16 @@
 
       <!-- ── Sidebar ── -->
       <aside class="sidebar">
-        <div class="sidebar-section-label">DB Projects</div>
-        <nav class="sidebar-nav">
-          <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen && !inactiveOpen }" @click="selectProject(null); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false; projectStatusTab = 'all'">
-            <span class="sidebar-item-icon">🏠</span>
-            <span class="sidebar-item-name">All Projects</span>
-            <span class="sidebar-item-count">{{ activeProjects.length }}</span>
-          </button>
-        </nav>
+        <template v-if="!isSharedView">
+          <div class="sidebar-section-label">DB Projects</div>
+          <nav class="sidebar-nav">
+            <button class="sidebar-item" :class="{ active: !selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen && !inactiveOpen }" @click="selectProject(null); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false; projectStatusTab = 'all'">
+              <span class="sidebar-item-icon">🏠</span>
+              <span class="sidebar-item-name">All Projects</span>
+              <span class="sidebar-item-count">{{ activeProjects.length }}</span>
+            </button>
+          </nav>
+        </template>
         <div v-if="activeProjects.length" class="sidebar-section-label" style="margin-top:10px;">Projects</div>
         <nav v-if="activeProjects.length" class="sidebar-nav">
           <button
@@ -163,46 +165,52 @@
 
         <!-- ══ All Projects view ══ -->
         <div v-if="!selectedProject && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen">
-          <div class="view-header">
-            <div>
-              <h1 class="view-title">All Projects</h1>
-              <p class="view-subtitle">{{ activeProjects.length }} active{{ inactiveProjects.length ? `, ${inactiveProjects.length} inactive` : '' }}</p>
+          <div class="allproj-header-wrap">
+            <div class="view-header" style="margin-bottom:0;">
+              <div>
+                <h1 class="view-title">All Projects</h1>
+                <p class="view-subtitle">{{ activeProjects.length }} active{{ inactiveProjects.length ? `, ${inactiveProjects.length} inactive` : '' }}</p>
+              </div>
+              <button v-if="!isSharedView" class="btn btn-primary" @click="openProjectModal(null)">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                New Project
+              </button>
             </div>
-            <button v-if="!isSharedView" class="btn btn-primary" @click="openProjectModal(null)">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-              New Project
-            </button>
           </div>
 
-          <div class="filters-bar" style="margin-bottom:20px;">
-            <div class="search-input-wrap">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input v-model="projectSearch" class="form-control" placeholder="Search projects..." />
+          <div class="proj-filter-bar-wrap">
+            <div class="filters-bar" style="margin-bottom:0;">
+              <div class="search-input-wrap">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input v-model="projectSearch" class="form-control" placeholder="Search projects..." />
+              </div>
+              <div class="project-status-tabs">
+                <button :class="['project-status-tab', { active: projectStatusTab === 'all' }]" @click="projectStatusTab = 'all'">All</button>
+                <button :class="['project-status-tab', { active: projectStatusTab === 'active' }]" @click="projectStatusTab = 'active'">Active</button>
+                <button :class="['project-status-tab', { active: projectStatusTab === 'inactive' }]" @click="projectStatusTab = 'inactive'">Inactive</button>
+              </div>
+              <button v-if="projectSearch" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                Clear
+              </button>
             </div>
-            <div class="project-status-tabs">
-              <button :class="['project-status-tab', { active: projectStatusTab === 'all' }]" @click="projectStatusTab = 'all'">All</button>
-              <button :class="['project-status-tab', { active: projectStatusTab === 'active' }]" @click="projectStatusTab = 'active'">Active</button>
-              <button :class="['project-status-tab', { active: projectStatusTab === 'inactive' }]" @click="projectStatusTab = 'inactive'">Inactive</button>
-            </div>
-            <button v-if="projectSearch" class="btn btn-ghost btn-sm" @click="projectSearch = ''; projectFilter = ''">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              Clear
-            </button>
           </div>
 
           <div v-if="projects.length > 0">
             <!-- Active projects -->
             <div v-if="filteredActiveProjects.length && projectStatusTab !== 'inactive'">
-              <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Active</div>
-              <div class="projects-grid" style="margin-bottom:24px;">
+              <div class="proj-section-header">
+                <span class="proj-section-label">Active</span>
+                <span class="proj-section-count">{{ filteredActiveProjects.length }}</span>
+              </div>
+              <div class="projects-grid" style="margin-bottom:28px;">
                 <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card" @click="selectProject(p)">
-                  <div class="project-card-stripe" :style="{ background: p.color }"></div>
+                  <div class="project-card-head" :style="{ background: p.color + '18', borderBottom: '2px solid ' + p.color + '35' }">
+                    <div class="project-card-icon" :style="{ background: p.color + '30', color: p.color }">📁</div>
+                    <span class="pcard-badge pcard-badge-active">Active</span>
+                  </div>
                   <div class="project-card-body">
-                    <div class="project-card-icon" :style="{ background: p.color + '22', color: p.color }">📁</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                      <h3 class="project-card-name" style="margin:0;">{{ p.name }}</h3>
-                      <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.4px;background:#e0e7ff;color:#4338ca;">ACTIVE</span>
-                    </div>
+                    <h3 class="project-card-name">{{ p.name }}</h3>
                     <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
                     <div class="project-card-stats">
                       <span class="pstat pstat-total">{{ p.bugs_count }} bugs</span>
@@ -211,6 +219,12 @@
                       <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
                       <span v-if="p.critical_count" class="pstat pstat-critical">{{ p.critical_count }} critical</span>
                     </div>
+                  </div>
+                  <div class="project-card-progress">
+                    <div class="pcard-prog-bar">
+                      <div class="pcard-prog-fill" :style="{ width: p.bugs_count > 0 ? Math.round((p.completed_count || 0) / p.bugs_count * 100) + '%' : '0%', background: p.color }"></div>
+                    </div>
+                    <span class="pcard-prog-label">{{ p.bugs_count > 0 ? Math.round((p.completed_count || 0) / p.bugs_count * 100) : 0 }}% complete</span>
                   </div>
                   <div class="project-card-actions" :class="{ 'menu-open': openProjectMenuId === p.id }" @click.stop>
                     <div class="proj-menu-wrap">
@@ -239,22 +253,30 @@
 
             <!-- Inactive projects -->
             <div v-if="filteredInactiveProjects.length && projectStatusTab !== 'active'">
-              <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--gray-400);text-transform:uppercase;margin-bottom:10px;">Inactive</div>
+              <div class="proj-section-header">
+                <span class="proj-section-label" style="color:var(--gray-400);">Inactive</span>
+                <span class="proj-section-count" style="background:var(--gray-100);color:var(--gray-500);">{{ filteredInactiveProjects.length }}</span>
+              </div>
               <div class="projects-grid">
-                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card" style="opacity:.75;" @click="selectProject(p)">
-                  <div class="project-card-stripe" :style="{ background: '#d1d5db' }"></div>
+                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card project-card-inactive" @click="selectProject(p)">
+                  <div class="project-card-head" style="background:#f3f4f6;border-bottom:2px solid #e5e7eb;">
+                    <div class="project-card-icon" style="background:#e5e7eb;color:#9ca3af;">📁</div>
+                    <span class="pcard-badge pcard-badge-inactive">Inactive</span>
+                  </div>
                   <div class="project-card-body">
-                    <div class="project-card-icon" style="background:#f3f4f6;color:#9ca3af;">📁</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                      <h3 class="project-card-name" style="margin:0;color:var(--gray-500);">{{ p.name }}</h3>
-                      <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.4px;background:#fee2e2;color:#dc2626;">INACTIVE</span>
-                    </div>
+                    <h3 class="project-card-name" style="color:var(--gray-500);">{{ p.name }}</h3>
                     <p v-if="p.description" class="project-card-desc">{{ p.description }}</p>
                     <div class="project-card-stats">
                       <span class="pstat pstat-total">{{ p.bugs_count }} bugs</span>
                       <span v-if="p.pending_count" class="pstat pstat-pending">{{ p.pending_count }} pending</span>
                       <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
                     </div>
+                  </div>
+                  <div class="project-card-progress">
+                    <div class="pcard-prog-bar">
+                      <div class="pcard-prog-fill" :style="{ width: p.bugs_count > 0 ? Math.round((p.completed_count || 0) / p.bugs_count * 100) + '%' : '0%', background: '#9ca3af' }"></div>
+                    </div>
+                    <span class="pcard-prog-label">{{ p.bugs_count > 0 ? Math.round((p.completed_count || 0) / p.bugs_count * 100) : 0 }}% complete</span>
                   </div>
                   <div class="project-card-actions" :class="{ 'menu-open': openProjectMenuId === p.id }" @click.stop>
                     <div class="proj-menu-wrap">
@@ -278,71 +300,90 @@
             </div>
           </div>
 
-          <div v-else class="empty-state" style="margin-top:60px;">
-            <div class="empty-state-icon">📁</div>
-            <div class="empty-state-title">No projects yet</div>
-            <div class="empty-state-text">Create your first project to start tracking bugs</div>
-            <button class="btn btn-primary" style="margin-top:20px;" @click="openProjectModal(null)">+ Create Project</button>
+          <div v-else class="allproj-empty">
+            <div class="allproj-empty-icon">📁</div>
+            <div class="allproj-empty-title">No projects yet</div>
+            <div class="allproj-empty-text">Create your first project to start tracking bugs and managing QA work</div>
+            <button class="btn btn-primary" style="margin-top:24px;padding:10px 24px;font-size:14px;" @click="openProjectModal(null)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              New Project
+            </button>
           </div>
         </div>
 
 
         <!-- ══ Dashboard view ══ -->
         <div v-else-if="dashboardOpen" :key="dashboardKey">
-          <div class="view-header" style="margin-bottom:24px;">
-            <div>
-              <h1 class="view-title">Dashboard</h1>
-              <p class="view-subtitle">Overall QA metrics across all projects</p>
+
+          <!-- Header card -->
+          <div class="allproj-header-wrap" style="margin-bottom:20px;">
+            <div class="view-header" style="margin-bottom:0;">
+              <div>
+                <h1 class="view-title">Dashboard</h1>
+                <p class="view-subtitle">Overall QA metrics across all projects</p>
+              </div>
             </div>
           </div>
 
           <!-- Stat cards -->
           <div class="dash-grid" style="margin-bottom:20px;">
             <div class="dash-card dash-card-projects">
-              <div class="dash-card-icon">📁</div>
-              <div class="dash-card-body">
+              <div class="dash-card-accent">
+                <span class="dash-card-emoji">📁</span>
+              </div>
+              <div class="dash-card-info">
                 <div class="dash-card-value">{{ overallStats.totalProjects }}</div>
                 <div class="dash-card-label">Total Projects</div>
               </div>
             </div>
             <div class="dash-card dash-card-bugs">
-              <div class="dash-card-icon">🐛</div>
-              <div class="dash-card-body">
+              <div class="dash-card-accent">
+                <span class="dash-card-emoji">🐛</span>
+              </div>
+              <div class="dash-card-info">
                 <div class="dash-card-value">{{ overallStats.total }}</div>
                 <div class="dash-card-label">Total Bugs</div>
               </div>
             </div>
             <div class="dash-card dash-card-critical">
-              <div class="dash-card-icon">🔥</div>
-              <div class="dash-card-body">
+              <div class="dash-card-accent">
+                <span class="dash-card-emoji">🔥</span>
+              </div>
+              <div class="dash-card-info">
                 <div class="dash-card-value">{{ overallStats.critical }}</div>
                 <div class="dash-card-label">Critical</div>
               </div>
             </div>
             <div class="dash-card dash-card-pending">
-              <div class="dash-card-icon">⏳</div>
-              <div class="dash-card-body">
+              <div class="dash-card-accent">
+                <span class="dash-card-emoji">⏳</span>
+              </div>
+              <div class="dash-card-info">
                 <div class="dash-card-value">{{ overallStats.pending }}</div>
                 <div class="dash-card-label">Pending</div>
               </div>
             </div>
             <div class="dash-card dash-card-ongoing">
-              <div class="dash-card-icon">⚡</div>
-              <div class="dash-card-body">
+              <div class="dash-card-accent">
+                <span class="dash-card-emoji">⚡</span>
+              </div>
+              <div class="dash-card-info">
                 <div class="dash-card-value">{{ overallStats.ongoing }}</div>
                 <div class="dash-card-label">Ongoing</div>
               </div>
             </div>
             <div class="dash-card dash-card-done">
-              <div class="dash-card-icon">✅</div>
-              <div class="dash-card-body">
+              <div class="dash-card-accent">
+                <span class="dash-card-emoji">✅</span>
+              </div>
+              <div class="dash-card-info">
                 <div class="dash-card-value">{{ overallStats.completed }}</div>
                 <div class="dash-card-label">Completed</div>
               </div>
             </div>
           </div>
 
-          <!-- Resolution bar + Per-project breakdown -->
+          <!-- Resolution rate + Per-project breakdown -->
           <div class="dash-two-col">
 
             <!-- Left: resolution rate -->
@@ -350,28 +391,45 @@
               <div class="dash-panel-title">Overall Resolution Rate</div>
               <div class="dash-rate-circle-wrap">
                 <svg viewBox="0 0 120 120" class="dash-donut">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f1f5f9" stroke-width="14"/>
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="#22c55e" stroke-width="14"
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#f1f5f9" stroke-width="12"/>
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#22c55e" stroke-width="12"
                     stroke-dasharray="314"
                     :stroke-dashoffset="314 - (314 * overallStats.rate / 100)"
                     stroke-linecap="round"
                     transform="rotate(-90 60 60)"
                     style="transition:stroke-dashoffset .5s ease;"
                   />
-                  <text x="60" y="56" text-anchor="middle" font-size="22" font-weight="800" fill="#1e293b">{{ overallStats.rate }}%</text>
-                  <text x="60" y="72" text-anchor="middle" font-size="10" fill="#94a3b8">resolved</text>
+                  <text x="60" y="54" text-anchor="middle" font-size="22" font-weight="800" fill="#1e293b">{{ overallStats.rate }}%</text>
+                  <text x="60" y="70" text-anchor="middle" font-size="10" fill="#94a3b8">resolved</text>
                 </svg>
               </div>
+              <!-- Stats row -->
+              <div class="dash-rate-stats">
+                <div class="dash-rate-stat">
+                  <span class="dash-rate-num" style="color:#22c55e;">{{ overallStats.completed }}</span>
+                  <span class="dash-rate-key">Done</span>
+                </div>
+                <div class="dash-rate-divider"></div>
+                <div class="dash-rate-stat">
+                  <span class="dash-rate-num" style="color:#3b82f6;">{{ overallStats.ongoing }}</span>
+                  <span class="dash-rate-key">Ongoing</span>
+                </div>
+                <div class="dash-rate-divider"></div>
+                <div class="dash-rate-stat">
+                  <span class="dash-rate-num" style="color:#f59e0b;">{{ overallStats.pending }}</span>
+                  <span class="dash-rate-key">Pending</span>
+                </div>
+                <div class="dash-rate-divider"></div>
+                <div class="dash-rate-stat">
+                  <span class="dash-rate-num" style="color:#ef4444;">{{ overallStats.critical }}</span>
+                  <span class="dash-rate-key">Critical</span>
+                </div>
+              </div>
+              <!-- Stacked progress bar -->
               <div class="dash-progress-track" style="margin-top:16px;">
                 <div class="dash-progress-fill dash-fill-done"    :style="{ width: (overallStats.total > 0 ? overallStats.completed / overallStats.total * 100 : 0) + '%' }"></div>
                 <div class="dash-progress-fill dash-fill-ongoing" :style="{ width: (overallStats.total > 0 ? overallStats.ongoing   / overallStats.total * 100 : 0) + '%' }"></div>
                 <div class="dash-progress-fill dash-fill-pending" :style="{ width: (overallStats.total > 0 ? overallStats.pending   / overallStats.total * 100 : 0) + '%' }"></div>
-              </div>
-              <div class="dash-legend" style="margin-top:12px;">
-                <span class="dash-legend-dot" style="background:#22c55e;"></span><span>Completed ({{ overallStats.completed }})</span>
-                <span class="dash-legend-dot" style="background:#3b82f6;"></span><span>Ongoing ({{ overallStats.ongoing }})</span>
-                <span class="dash-legend-dot" style="background:#f59e0b;"></span><span>Pending ({{ overallStats.pending }})</span>
-                <span class="dash-legend-dot" style="background:#ef4444;"></span><span>Critical ({{ overallStats.critical }})</span>
               </div>
             </div>
 
@@ -384,15 +442,16 @@
                   <div class="dash-proj-row-header">
                     <span class="dash-proj-dot" :style="{ background: p.color }"></span>
                     <span class="dash-proj-name">{{ p.name }}</span>
+                    <span v-if="p.bugs_count > 0" class="dash-proj-pct">{{ Math.round((p.completed_count || 0) / p.bugs_count * 100) }}% done</span>
                     <span class="dash-proj-total">{{ p.bugs_count }}</span>
                   </div>
                   <div class="dash-proj-bar-track">
                     <div class="dash-proj-bar-fill" :style="{ width: overallStats.total > 0 ? (p.bugs_count / overallStats.total * 100) + '%' : '0%', background: p.color }"></div>
                   </div>
                   <div class="dash-proj-pills">
-                    <span v-if="p.critical_count" class="pstat pstat-critical">{{ p.critical_count }} critical</span>
-                    <span v-if="p.pending_count"  class="pstat pstat-pending">{{ p.pending_count }} pending</span>
-                    <span v-if="p.ongoing_count"  class="pstat pstat-ongoing">{{ p.ongoing_count }} ongoing</span>
+                    <span v-if="p.critical_count"  class="pstat pstat-critical">{{ p.critical_count }} critical</span>
+                    <span v-if="p.pending_count"   class="pstat pstat-pending">{{ p.pending_count }} pending</span>
+                    <span v-if="p.ongoing_count"   class="pstat pstat-ongoing">{{ p.ongoing_count }} ongoing</span>
                     <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
                   </div>
                 </div>
@@ -1963,32 +2022,35 @@
 
             <!-- Summary cards -->
             <div class="summary-grid">
+              <!-- Total Bugs -->
               <div class="summary-card">
-                <!-- Completion badge -->
-                <div style="position:absolute;top:14px;right:16px;font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 9px;border-radius:20px;letter-spacing:.01em;">
-                  {{ completionPct }}% done
+                <div class="sc-head">
+                  <div class="summary-card-icon">🐛</div>
+                  <span class="sc-done-badge">{{ completionPct }}% done</span>
                 </div>
-                <div class="summary-card-icon">🐛</div>
                 <div class="summary-card-label">Total Bugs</div>
                 <div class="summary-card-value">{{ summary.total || 0 }}</div>
-                <!-- Segmented progress bar -->
-                <div style="margin-top:14px;height:6px;border-radius:999px;background:#f1f5f9;overflow:hidden;display:flex;gap:2px;">
-                  <div v-if="pendingPct"  :style="{ width: pendingPct  + '%', background: '#f59e0b', borderRadius: '999px', flexShrink: 0 }"></div>
-                  <div v-if="ongoingPct"  :style="{ width: ongoingPct  + '%', background: '#3b82f6', borderRadius: '999px', flexShrink: 0 }"></div>
-                  <div v-if="completionPct" :style="{ width: completionPct + '%', background: '#22c55e', borderRadius: '999px', flexShrink: 0 }"></div>
+                <div class="sc-progress-bar">
+                  <div v-if="pendingPct"    class="sc-seg" :style="{ width: pendingPct    + '%', background: '#f59e0b' }"></div>
+                  <div v-if="ongoingPct"    class="sc-seg" :style="{ width: ongoingPct    + '%', background: '#3b82f6' }"></div>
+                  <div v-if="completionPct" class="sc-seg" :style="{ width: completionPct + '%', background: '#22c55e' }"></div>
                 </div>
-                <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
-                  <span style="font-size:10px;color:#92400e;display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0;"></span>Pending</span>
-                  <span style="font-size:10px;color:#1d4ed8;display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;display:inline-block;flex-shrink:0;"></span>Ongoing</span>
-                  <span style="font-size:10px;color:#15803d;display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;"></span>Done</span>
+                <div class="sc-legend">
+                  <span class="sc-legend-item"><span class="sc-dot" style="background:#f59e0b"></span>Pending</span>
+                  <span class="sc-legend-item"><span class="sc-dot" style="background:#3b82f6"></span>Ongoing</span>
+                  <span class="sc-legend-item"><span class="sc-dot" style="background:#22c55e"></span>Done</span>
                 </div>
               </div>
 
+              <!-- By Status -->
               <div class="summary-card summary-card-clickable" @click="openDetailView('status')">
-                <div class="summary-card-click-hint">View Details
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <div class="sc-head">
+                  <div class="summary-card-icon">📊</div>
+                  <span class="sc-view-btn">
+                    Details
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </span>
                 </div>
-                <div class="summary-card-icon">📊</div>
                 <div class="summary-card-label">By Status</div>
                 <div class="summary-card-sub">
                   <span v-for="(count, status) in summary.by_status" :key="status" :class="['badge', statusBadgeClass(status)]">{{ status }}: {{ count }}</span>
@@ -1996,11 +2058,15 @@
                 </div>
               </div>
 
+              <!-- By Priority -->
               <div class="summary-card summary-card-clickable" @click="openDetailView('priority')">
-                <div class="summary-card-click-hint">View Details
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <div class="sc-head">
+                  <div class="summary-card-icon">🔥</div>
+                  <span class="sc-view-btn">
+                    Details
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </span>
                 </div>
-                <div class="summary-card-icon">🔥</div>
                 <div class="summary-card-label">By Priority</div>
                 <div class="summary-card-sub">
                   <span v-for="(count, priority) in summary.by_priority" :key="priority" :class="['badge', priorityBadgeClass(priority)]">{{ priority }}: {{ count }}</span>
@@ -2008,11 +2074,15 @@
                 </div>
               </div>
 
+              <!-- By Scenario Type -->
               <div class="summary-card summary-card-clickable" @click="openDetailView('scenario')">
-                <div class="summary-card-click-hint">View Details
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <div class="sc-head">
+                  <div class="summary-card-icon">🎯</div>
+                  <span class="sc-view-btn">
+                    Details
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </span>
                 </div>
-                <div class="summary-card-icon">🎯</div>
                 <div class="summary-card-label">By Scenario Type</div>
                 <div class="summary-card-sub">
                   <span v-for="(count, type) in summary.by_scenario_type" :key="type" :class="['badge', scenarioBadgeClass(type)]">{{ type }}: {{ count }}</span>

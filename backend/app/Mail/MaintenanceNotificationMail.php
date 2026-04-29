@@ -135,7 +135,7 @@ class MaintenanceNotificationMail extends Mailable
                 . '</tr>';
         }
 
-        $ticketUrl = 'http://localhost:3000/maintenance-ticket/' . $ticket->id;
+        $ticketUrl = 'http://localhost:3000/maintenance-ticket/' . $ticket->id . '?email=' . urlencode($this->recipientEmail);
 
         $html = '<!DOCTYPE html>'
             . '<html><body style="font-family:Inter,Arial,sans-serif;background:#f1f5f9;margin:0;padding:32px 16px;">'

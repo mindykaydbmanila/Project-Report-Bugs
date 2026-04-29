@@ -5,7 +5,7 @@
     <header class="app-header">
       <div class="app-header-inner">
         <div style="display:flex;align-items:center;gap:16px;">
-          <NuxtLink v-if="route.query.from !== 'shared'" to="/" class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.8);gap:6px;padding:6px 10px;">
+          <NuxtLink v-if="isOwner" to="/" class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.8);gap:6px;padding:6px 10px;">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
             Bug Tracker
           </NuxtLink>
@@ -105,10 +105,10 @@
           <button class="sidebar-item" :class="{ active: !selectedProject && !dashboardOpen && !inactiveOpen }" @click="selectProject(null); dashboardOpen = false; inactiveOpen = false">
             <span class="sidebar-item-icon">🏠</span>
             <span class="sidebar-item-name">All Projects</span>
-            <span class="sidebar-item-count">{{ activeProjects.length }}</span>
+            <span class="sidebar-item-count">{{ visibleProjects.length }}</span>
           </button>
         </nav>
-        <div v-if="activeProjects.length" class="sidebar-section-label" style="margin-top:10px;">Projects</div>
+        <div v-if="activeProjects.length" class="sidebar-section-label" style="margin-top:10px;">Active</div>
         <nav v-if="activeProjects.length" class="sidebar-nav">
           <button
             v-for="p in activeProjects" :key="p.id"
@@ -120,9 +120,22 @@
             <span class="sidebar-item-count">{{ p.tickets_count ?? 0 }}</span>
           </button>
         </nav>
+        <div v-if="inactiveProjects.length" class="sidebar-section-label" style="margin-top:6px;">Inactive</div>
+        <nav v-if="inactiveProjects.length" class="sidebar-nav">
+          <button
+            v-for="p in inactiveProjects" :key="p.id"
+            class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !dashboardOpen }"
+            style="opacity:0.7;"
+            @click="selectProject(p); dashboardOpen = false"
+          >
+            <span class="sidebar-color-dot" style="background:#9ca3af;"></span>
+            <span class="sidebar-item-name" style="color:var(--gray-400);">{{ p.name }}</span>
+            <span class="sidebar-item-count">{{ p.tickets_count ?? 0 }}</span>
+          </button>
+        </nav>
 
 
-        <template v-if="!isSharedView">
+        <template v-if="isOwner">
           <div class="sidebar-divider" style="margin:8px 0 4px;"></div>
           <div class="sidebar-section-label" style="margin-top:4px;">Tools</div>
           <nav class="sidebar-nav">
@@ -132,7 +145,7 @@
             </button>
           </nav>
           <div class="sidebar-footer">
-            <button class="btn-new-proj" @click="openProjectModal(null)">
+            <button v-if="currentUser" class="btn-new-proj" @click="openProjectModal(null)">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
               New Project
             </button>
@@ -218,7 +231,7 @@
                   :stroke-dasharray="`${dashStatusArc.completed} ${289 - dashStatusArc.completed}`"
                   :stroke-dashoffset="289 * 0.25"
                   transform="rotate(-90 60 60)"/>
-                <!-- Ongoing arc -->
+                <!-- In Progress arc -->
                 <circle cx="60" cy="60" r="46" fill="none" stroke="#3b82f6" stroke-width="18"
                   :stroke-dasharray="`${dashStatusArc.ongoing} ${289 - dashStatusArc.ongoing}`"
                   :stroke-dashoffset="289 * 0.25 - dashStatusArc.completed"
@@ -228,18 +241,24 @@
                   :stroke-dasharray="`${dashStatusArc.pending} ${289 - dashStatusArc.pending}`"
                   :stroke-dashoffset="289 * 0.25 - dashStatusArc.completed - dashStatusArc.ongoing"
                   transform="rotate(-90 60 60)"/>
-                <!-- Overdue arc -->
-                <circle cx="60" cy="60" r="46" fill="none" stroke="#ef4444" stroke-width="18"
-                  :stroke-dasharray="`${dashStatusArc.overdue} ${289 - dashStatusArc.overdue}`"
+                <!-- On Hold arc -->
+                <circle cx="60" cy="60" r="46" fill="none" stroke="#94a3b8" stroke-width="18"
+                  :stroke-dasharray="`${dashStatusArc.on_hold} ${289 - dashStatusArc.on_hold}`"
                   :stroke-dashoffset="289 * 0.25 - dashStatusArc.completed - dashStatusArc.ongoing - dashStatusArc.pending"
+                  transform="rotate(-90 60 60)"/>
+                <!-- Cancelled arc -->
+                <circle cx="60" cy="60" r="46" fill="none" stroke="#cbd5e1" stroke-width="18"
+                  :stroke-dasharray="`${dashStatusArc.cancelled} ${289 - dashStatusArc.cancelled}`"
+                  :stroke-dashoffset="289 * 0.25 - dashStatusArc.completed - dashStatusArc.ongoing - dashStatusArc.pending - dashStatusArc.on_hold"
                   transform="rotate(-90 60 60)"/>
               </svg>
               <div v-else class="mdash-empty">No tickets yet</div>
               <div class="mdash-donut-legend">
                 <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#22c55e"></span>Completed — {{ dashStats.completed }}</div>
-                <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#3b82f6"></span>Ongoing — {{ dashStats.ongoing }}</div>
+                <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#3b82f6"></span>In Progress — {{ dashStats.ongoing }}</div>
                 <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#f59e0b"></span>Pending — {{ dashStats.pending }}</div>
-                <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#ef4444"></span>Overdue — {{ dashStats.overdue }}</div>
+                <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#94a3b8"></span>On Hold — {{ dashStats.on_hold }}</div>
+                <div class="mdash-dl-row"><span class="mdash-dl-dot" style="background:#cbd5e1"></span>Cancelled — {{ dashStats.cancelled }}</div>
               </div>
             </div>
 
@@ -382,21 +401,21 @@
                     <span v-if="p.completed_count" class="pstat pstat-done">{{ p.completed_count }} done</span>
                   </div>
                 </div>
-                <div class="project-card-actions" @click.stop>
+                <div v-if="p.my_permission === 'owner' || p.my_permission === 'edit'" class="project-card-actions" @click.stop>
                   <div class="proj-menu-wrap">
                     <button class="btn btn-icon proj-menu-btn" @click="openProjectMenuId = openProjectMenuId === p.id ? null : p.id" title="Project actions">
                       <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                     </button>
                     <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
-                      <button v-if="p.my_permission === 'owner'" class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                      <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
                       </button>
-                      <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
+                      <button class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                         Share
                       </button>
-                      <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                      <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         Delete
                       </button>
@@ -428,7 +447,7 @@
                 <p class="allproj-hero-sub">{{ activeProjects.length }} active · {{ inactiveProjects.length }} inactive</p>
               </div>
             </div>
-            <button class="btn-allproj-new" @click="openProjectModal(null)">
+            <button v-if="currentUser" class="btn-allproj-new" @click="openProjectModal(null)">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
               New Project
             </button>
@@ -477,21 +496,21 @@
                       </div>
                       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
                         <span class="pc2-badge pc2-badge-active">ACTIVE</span>
-                        <div class="pc2-actions" @click.stop>
+                        <div v-if="p.my_permission === 'owner' || p.my_permission === 'edit'" class="pc2-actions" @click.stop>
                           <div class="proj-menu-wrap">
                             <button class="btn btn-icon proj-menu-btn" @click="openProjectMenuId = openProjectMenuId === p.id ? null : p.id" title="Project actions">
                               <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                             </button>
                             <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
-                              <button v-if="p.my_permission === 'owner'" class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                              <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
                                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 Edit
                               </button>
-                              <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
+                              <button class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
                                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                                 Share
                               </button>
-                              <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                              <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
                                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                                 Delete
                               </button>
@@ -554,21 +573,21 @@
                       </div>
                       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
                         <span class="pc2-badge pc2-badge-inactive">INACTIVE</span>
-                        <div class="pc2-actions" @click.stop>
+                        <div v-if="p.my_permission === 'owner' || p.my_permission === 'edit'" class="pc2-actions" @click.stop>
                           <div class="proj-menu-wrap">
                             <button class="btn btn-icon proj-menu-btn" @click="openProjectMenuId = openProjectMenuId === p.id ? null : p.id" title="Project actions">
                               <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                             </button>
                             <div v-if="openProjectMenuId === p.id" class="proj-menu-dropdown">
-                              <button v-if="p.my_permission === 'owner'" class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
+                              <button class="proj-menu-item" @click="openProjectModal(p); openProjectMenuId = null">
                                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 Edit
                               </button>
-                              <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
+                              <button class="proj-menu-item proj-menu-item-share" @click="openShareModal(p); openProjectMenuId = null">
                                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                                 Share
                               </button>
-                              <button v-if="p.my_permission === 'owner'" class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
+                              <button class="proj-menu-item proj-menu-item-delete" @click="confirmDeleteProject(p); openProjectMenuId = null">
                                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                                 Delete
                               </button>
@@ -789,7 +808,7 @@
                 <tr v-for="t in filteredTickets" :key="t.id"
                     class="clickable-row"
                     :class="{ 'tt-overdue-row': isOverdue(t), 'maint-row-completed': t.status === 'Completed' }"
-                    @click="navigateTo('/maintenance-ticket/' + t.id)">
+                    @click="navigateTo(ticketUrl(t.id))">
                   <!-- Ticket # -->
                   <td>
                     <div style="display:flex;align-items:center;gap:5px;">
@@ -869,7 +888,7 @@
                     </select>
                   </td>
                   <!-- Comment -->
-                  <td class="dev-comment-cell" @click.stop="navigateTo('/maintenance-ticket/' + t.id)">
+                  <td class="dev-comment-cell" @click.stop="navigateTo(ticketUrl(t.id))">
                     <div class="dev-thread-trigger">
                       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                       <span v-if="t.comments && t.comments.length" class="dev-thread-count">{{ t.comments.length }}</span>
@@ -881,7 +900,7 @@
                   <td @click.stop>
                     <div class="maint-actions">
                       <!-- View -->
-                      <button class="btn btn-icon action-btn-view" title="View ticket" @click.stop="navigateTo('/maintenance-ticket/' + t.id)">
+                      <button class="btn btn-icon action-btn-view" title="View ticket" @click.stop="navigateTo(ticketUrl(t.id))">
                         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
                       <!-- Edit -->
@@ -1664,7 +1683,7 @@ const apiFetch = (url, options = {}) => {
   return $fetch(url, options)
 }
 
-const login  = () => { window.location.href = `${apiBase}/api/auth/google` }
+const login  = () => { window.location.href = `${apiBase}/api/auth/google/maintenance` }
 const logout = async () => {
   try { await apiFetch(`${config.public.apiBase}/auth/logout`, { method: 'POST' }) } catch {}
   authToken.value = null
@@ -1822,8 +1841,17 @@ const completionPct = computed(() => {
 })
 
 const isSharedView     = computed(() => route.query.from === 'shared')
+const isOwner          = computed(() => projects.value.some(p => p.my_permission === 'owner'))
+// Email context passed via ?email= when a developer navigates back from an email-linked ticket
+const devEmail         = computed(() => !isOwner.value && route.query.email ? route.query.email.toLowerCase() : null)
+const ticketUrl        = (id) => {
+  const base = isSharedView.value ? `/maintenance-ticket/${id}?from=shared` : `/maintenance-ticket/${id}`
+  return devEmail.value ? `${base}${isSharedView.value ? '&' : '?'}email=${encodeURIComponent(devEmail.value)}` : base
+}
 const visibleProjects  = computed(() =>
-  isSharedView.value ? projects.value.filter(p => p.my_permission !== 'owner') : projects.value
+  isSharedView.value
+    ? projects.value.filter(p => p.my_permission !== 'owner')
+    : projects.value.filter(p => p.my_permission != null)
 )
 const activeProjects   = computed(() => visibleProjects.value.filter(p => p.is_active !== false))
 const inactiveProjects = computed(() => visibleProjects.value.filter(p => p.is_active === false))
@@ -1866,11 +1894,13 @@ const dashStats = computed(() => {
   const total     = ts.length
   const pending   = ts.filter(t => t.status === 'Pending').length
   const ongoing   = ts.filter(t => t.status === 'In Progress').length
+  const on_hold   = ts.filter(t => t.status === 'On Hold').length
   const completed = ts.filter(t => t.status === 'Completed').length
+  const cancelled = ts.filter(t => t.status === 'Cancelled').length
   const overdue   = ts.filter(t => isOverdue(t)).length
   const ages      = ts.map(t => ticketAgeDays(t))
   const avgAge    = ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : 0
-  return { total, pending, ongoing, completed, overdue, avgAge }
+  return { total, pending, ongoing, on_hold, completed, cancelled, overdue, avgAge }
 })
 
 const dashStatusArc = computed(() => {
@@ -1880,7 +1910,8 @@ const dashStatusArc = computed(() => {
     completed: Math.round(dashStats.value.completed / t * circ),
     ongoing:   Math.round(dashStats.value.ongoing   / t * circ),
     pending:   Math.round(dashStats.value.pending   / t * circ),
-    overdue:   Math.round(dashStats.value.overdue   / t * circ),
+    on_hold:   Math.round(dashStats.value.on_hold   / t * circ),
+    cancelled: Math.round(dashStats.value.cancelled / t * circ),
   }
 })
 
@@ -2028,7 +2059,9 @@ const parseLocalDate = (str) => {
 }
 
 const isOverdue = (t) => {
-  if (!t.target_date || t.completion_date) return false
+  if (!t.target_date) return false
+  if (t.status === 'Completed' || t.status === 'Cancelled') return false
+  if (t.completion_date) return false
   const target = parseLocalDate(t.target_date)
   target.setHours(23, 59, 59, 999)
   return new Date() > target
@@ -2182,6 +2215,7 @@ const selectProject = (project) => {
 }
 
 const openProjectModal = (project) => {
+  if (!currentUser.value) return
   editingProject.value = project
   projectForm.value = project
     ? { name: project.name, description: project.description || '', color: project.color || '#10b981', is_active: project.is_active !== false, contract_start: project.contract_start ? project.contract_start.slice(0, 10) : '', contract_end: project.contract_end ? project.contract_end.slice(0, 10) : '' }
@@ -2301,7 +2335,15 @@ const deleteProject = async () => {
 const fetchTickets = async () => {
   if (!selectedProject.value) return
   try {
-    const data = await apiFetch(`${config.public.apiBase}/maintenance/projects/${selectedProject.value.id}/tickets`)
+    let data = await apiFetch(`${config.public.apiBase}/maintenance/projects/${selectedProject.value.id}/tickets`)
+    // Non-owner with email context: only show tickets they're assigned to
+    if (devEmail.value) {
+      const email = devEmail.value
+      data = data.filter(t =>
+        (t.assigned_devs ?? []).map(e => e.toLowerCase()).includes(email) ||
+        (t.assigned_qa   ?? []).map(e => e.toLowerCase()).includes(email)
+      )
+    }
     tickets.value = data
   } catch (e) { console.error('Failed to fetch tickets', e) }
 }
@@ -2650,8 +2692,19 @@ const profileClickHandler = (e) => {
 }
 
 onMounted(async () => {
-  const stored = localStorage.getItem('auth_token')
-  if (stored) authToken.value = stored
+  const urlParams = new URLSearchParams(window.location.search)
+  const oauthToken = urlParams.get('token')
+  const authError  = urlParams.get('auth_error')
+  if (oauthToken) {
+    authToken.value = oauthToken
+    localStorage.setItem('auth_token', oauthToken)
+    window.history.replaceState({}, '', window.location.pathname + (urlParams.get('project') ? `?project=${urlParams.get('project')}` : ''))
+  } else if (authError) {
+    window.history.replaceState({}, '', window.location.pathname)
+  } else {
+    const stored = localStorage.getItem('auth_token')
+    if (stored) authToken.value = stored
+  }
   if (authToken.value) await fetchCurrentUser()
 
   document.addEventListener('click', profileClickHandler)
@@ -2661,7 +2714,19 @@ onMounted(async () => {
   // Auto-select project when coming back from a ticket view
   const projectId = route.query.project
   if (projectId) {
-    const match = projects.value.find(p => String(p.id) === String(projectId))
+    let match = projects.value.find(p => String(p.id) === String(projectId))
+    if (!match) {
+      // Not in the list (e.g. unauthenticated user returning from email-linked ticket)
+      // Try fetching the project directly — the show endpoint is public
+      try {
+        const proj = await apiFetch(`${config.public.apiBase}/maintenance/projects/${projectId}`)
+        if (proj?.id) {
+          if (!proj.my_permission) proj.my_permission = 'view'
+          projects.value = [...projects.value, proj]
+          match = proj
+        }
+      } catch {}
+    }
     if (match) selectProject(match)
   }
 

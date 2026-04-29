@@ -1,0 +1,72 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e491]: 🐛
+    - generic [ref=e496]:
+      - banner [ref=e497]:
+        - generic [ref=e498]:
+          - generic [ref=e499]:
+            - link "Bug Tracker" [ref=e500] [cursor=pointer]:
+              - /url: /
+              - img [ref=e501]
+              - text: Bug Tracker
+            - generic [ref=e503]:
+              - generic [ref=e504]: 🔧
+              - generic [ref=e505]:
+                - generic [ref=e506]: Maintenance Tracker
+                - generic [ref=e507]: Client Maintenance Management
+          - generic [ref=e508]:
+            - button [ref=e510] [cursor=pointer]:
+              - img [ref=e511]
+            - button "Sign in with Google" [ref=e514] [cursor=pointer]:
+              - img [ref=e515]
+              - text: Sign in with Google
+      - generic [ref=e520]:
+        - complementary [ref=e521]:
+          - generic [ref=e522]: Maintenance Projects
+          - navigation [ref=e523]:
+            - button "🏠 All Projects 0" [ref=e524] [cursor=pointer]:
+              - generic [ref=e525]: 🏠
+              - generic [ref=e526]: All Projects
+              - generic [ref=e527]: "0"
+          - generic [ref=e529]: Tools
+          - navigation [ref=e530]:
+            - button "📊 Dashboard" [ref=e531] [cursor=pointer]:
+              - generic [ref=e532]: 📊
+              - generic [ref=e533]: Dashboard
+          - button "New Project" [ref=e535] [cursor=pointer]:
+            - img [ref=e536]
+            - text: New Project
+        - main [ref=e538]:
+          - generic [ref=e539]:
+            - generic [ref=e540]:
+              - generic [ref=e541]:
+                - img [ref=e543]
+                - generic [ref=e545]:
+                  - heading "Maintenance Projects" [level=1] [ref=e546]
+                  - paragraph [ref=e547]: 0 active · 0 inactive
+              - button "New Project" [ref=e548] [cursor=pointer]:
+                - img [ref=e549]
+                - text: New Project
+            - generic [ref=e551]:
+              - generic [ref=e552]:
+                - img
+                - textbox "Search projects..." [ref=e553]
+              - generic [ref=e554]:
+                - button "All" [ref=e555] [cursor=pointer]
+                - button "Active" [ref=e556] [cursor=pointer]
+                - button "Inactive" [ref=e557] [cursor=pointer]
+            - generic [ref=e558]:
+              - generic [ref=e559]: 🔧
+              - generic [ref=e560]: No maintenance projects yet
+              - generic [ref=e561]: Create your first project to start tracking maintenance tickets
+              - button "+ Create Project" [ref=e562] [cursor=pointer]
+  - generic:
+    - img
+  - generic [ref=e199]:
+    - button "Toggle Nuxt DevTools" [ref=e200] [cursor=pointer]:
+      - img [ref=e201]
+    - generic "Page load time" [ref=e204]:
+      - generic [ref=e205]: "18"
+      - generic [ref=e206]: ms
+    - button "Toggle Component Inspector" [ref=e208] [cursor=pointer]:
+      - img [ref=e209]

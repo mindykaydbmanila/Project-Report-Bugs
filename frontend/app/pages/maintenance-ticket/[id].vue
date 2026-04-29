@@ -1,6 +1,18 @@
 <template>
   <div class="mt-page">
 
+    <!-- Unauthorized Modal -->
+    <Teleport to="body">
+      <div v-if="unauthorized" class="mt-unauth-overlay">
+        <div class="mt-unauth-modal">
+          <div class="mt-unauth-icon">🔒</div>
+          <h2 class="mt-unauth-title">Access Restricted</h2>
+          <p class="mt-unauth-msg">You are not authorized to view this ticket. Please use the link provided in your notification email.</p>
+          <NuxtLink to="/maintenance" class="mt-unauth-btn">Go to Maintenance</NuxtLink>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Header -->
     <header class="mt-header">
       <div class="mt-header-inner">
@@ -201,8 +213,8 @@
           <select
             v-model="currentDevStatus"
             :class="['mt-dev-status-select', 'mt-dev-status--' + currentDevStatus.toLowerCase().replace(/\s+/g, '-')]"
-            :disabled="!canEdit"
-            @change="canEdit && updateDevStatus()"
+            :disabled="!canUpdateDevStatus"
+            @change="canUpdateDevStatus && updateDevStatus()"
           >
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
@@ -326,12 +338,23 @@ const config      = useRuntimeConfig()
 const apiBase     = config.public.apiBase
 const storageBase = config.public.apiBase.replace('/api', '')
 
+// The email to use for dev folder navigation — from URL param or ticket's first assigned dev
+const devFolderEmail = computed(() => {
+  if (route.query.email) return route.query.email
+  const devs = ticket.value?.assigned_devs ?? []
+  const qa   = ticket.value?.assigned_qa   ?? []
+  return devs[0] || qa[0] || null
+})
+
 const backLink = computed(() => {
-  if (route.query.from === 'folder' && route.query.email) {
-    return `/maintenance-dev-folder?email=${encodeURIComponent(route.query.email)}`
-  }
   if (route.query.from === 'dashboard') {
     return '/'
+  }
+  if (route.query.from === 'shared' && ticket.value?.project?.id) {
+    return `/maintenance?project=${ticket.value.project.id}&from=shared`
+  }
+  if (devFolderEmail.value) {
+    return `/maintenance-dev-folder?email=${encodeURIComponent(devFolderEmail.value)}`
   }
   if (ticket.value?.project?.id) {
     return `/maintenance?project=${ticket.value.project.id}`
@@ -340,11 +363,11 @@ const backLink = computed(() => {
 })
 
 const backLabel = computed(() => {
-  if (route.query.from === 'folder' && route.query.email) {
-    return `Back to ${route.query.email.split('@')[0]}'s Folder`
-  }
   if (route.query.from === 'dashboard') {
     return 'Back to Dashboard'
+  }
+  if (devFolderEmail.value) {
+    return 'Back to My Folder'
   }
   if (ticket.value?.project?.name) {
     return `Back to ${ticket.value.project.name}`
@@ -355,6 +378,21 @@ const backLabel = computed(() => {
 const ticket         = ref(null)
 const loading        = ref(true)
 const error          = ref(null)
+const unauthorized   = ref(false)
+
+const checkAuthorization = () => {
+  if (!ticket.value) return
+  // Owners and editors (authenticated users with project access) are always allowed
+  if (myPermission.value === 'owner' || myPermission.value === 'edit') return
+  // Check if ?email= param matches an assigned dev or QA
+  const email = (route.query.email || '').toLowerCase()
+  if (email) {
+    const devs = (ticket.value.assigned_devs ?? []).map(e => e.toLowerCase())
+    const qa   = (ticket.value.assigned_qa   ?? []).map(e => e.toLowerCase())
+    if (devs.includes(email) || qa.includes(email)) return
+  }
+  unauthorized.value = true
+}
 const newComment     = ref('')
 const authorName     = ref('')
 const posting        = ref(false)
@@ -362,13 +400,15 @@ const currentStatus    = ref('Pending')
 const currentDevStatus = ref('Not Started')
 const activityListEl   = ref(null)
 const myPermission  = ref('view')
-const canEdit       = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit')
-const canComment    = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit' || myPermission.value === 'comment')
+const canEdit             = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit')
+const canUpdateDevStatus  = ref(true) // Dev status is publicly editable — developers access tickets via email link
+const canComment          = ref(true) // Public ticket pages allow anyone to comment
 
 const statuses = ['Pending', 'In Progress', 'On Hold', 'Completed', 'Cancelled']
 
 const isTargetOverdue = computed(() => {
   if (!ticket.value?.target_date) return false
+  if (ticket.value?.status === 'Completed' || ticket.value?.status === 'Cancelled') return false
   return new Date(ticket.value.target_date) < new Date(new Date().toDateString())
 })
 
@@ -464,11 +504,12 @@ const loadTicket = async () => {
         const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null
         const headers = token ? { Authorization: `Bearer ${token}` } : {}
         const proj = await $fetch(`${apiBase}/maintenance/projects/${ticket.value.project.id}`, { headers })
-        myPermission.value = proj.my_permission ?? 'owner'
+        myPermission.value = proj.my_permission ?? 'view'
       } catch {
         myPermission.value = 'view'
       }
     }
+    checkAuthorization()
   } catch (e) {
     error.value = 'This ticket does not exist or could not be loaded.'
   } finally {
@@ -512,9 +553,11 @@ const updateDevStatus = async () => {
 
 const updateStatus = async () => {
   try {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null
     ticket.value = await $fetch(`${apiBase}/maintenance-tickets/${ticket.value.id}/status`, {
       method: 'PATCH',
       body: { status: currentStatus.value },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     currentStatus.value = ticket.value.status || 'Pending'
   } catch (e) {
@@ -665,4 +708,13 @@ onMounted(loadTicket)
 .mt-tl-change { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; }
 .mt-tl-from  { font-size: 11.5px; font-weight: 600; background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 99px; }
 .mt-tl-to    { font-size: 11.5px; font-weight: 600; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 99px; }
+
+/* Unauthorized overlay */
+.mt-unauth-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.mt-unauth-modal { background: #fff; border-radius: 16px; padding: 40px 36px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+.mt-unauth-icon { font-size: 48px; margin-bottom: 16px; }
+.mt-unauth-title { font-size: 20px; font-weight: 700; color: #1e293b; margin: 0 0 12px; }
+.mt-unauth-msg { font-size: 14px; color: #64748b; line-height: 1.7; margin: 0 0 28px; }
+.mt-unauth-btn { display: inline-block; padding: 10px 28px; background: linear-gradient(135deg, #059669, #047857); color: #fff; font-size: 14px; font-weight: 600; border-radius: 8px; text-decoration: none; transition: opacity .15s; }
+.mt-unauth-btn:hover { opacity: 0.88; }
 </style>

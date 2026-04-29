@@ -26,6 +26,13 @@ class AuthController extends Controller
         return $this->socialiteGoogle()->redirect();
     }
 
+    public function redirectToGoogleMaintenance()
+    {
+        return $this->socialiteGoogle()
+            ->with(['state' => 'maintenance'])
+            ->redirect();
+    }
+
     public function redirectToGoogleDevFolder(string $token)
     {
         return $this->socialiteGoogle()
@@ -81,7 +88,8 @@ class AuthController extends Controller
             $token    = $user->generateApiToken();
             $frontend = env('FRONTEND_URL', 'http://localhost:3000');
 
-            return redirect($frontend . '?token=' . $token);
+            $returnPath = $state === 'maintenance' ? '/maintenance' : '/';
+            return redirect($frontend . $returnPath . '?token=' . $token);
         } catch (\Exception $e) {
             \Log::error('Google OAuth callback failed (user creation): ' . $e->getMessage());
             $frontend = env('FRONTEND_URL', 'http://localhost:3000');
