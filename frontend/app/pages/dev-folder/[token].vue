@@ -6,9 +6,13 @@
       <div v-if="toastMsg" class="folder-toast">{{ toastMsg }}</div>
     </transition>
 
-    <!-- Header — dark-green mailtrap style -->
+    <!-- Header -->
     <header class="folder-header">
       <div class="folder-header-inner">
+        <div class="folder-header-brand">
+          <div class="folder-brand-icon">🐛</div>
+          <div class="folder-brand-name">QA Bug Tracker</div>
+        </div>
         <div class="folder-header-eyebrow">
           DEV FOLDER<span v-if="folder && folder.project_name"> · {{ folder.project_name.toUpperCase() }}</span>
         </div>
@@ -425,6 +429,22 @@ onMounted(() => {
 .folder-header-inner {
   max-width: 900px;
   margin: 0 auto;
+}
+.folder-header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.folder-brand-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.folder-brand-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: .04em;
 }
 .folder-header-eyebrow {
   font-size: 11px;

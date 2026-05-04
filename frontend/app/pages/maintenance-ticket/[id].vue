@@ -353,8 +353,9 @@ const backLink = computed(() => {
   if (route.query.from === 'shared' && ticket.value?.project?.id) {
     return `/maintenance?project=${ticket.value.project.id}&from=shared`
   }
-  if (devFolderEmail.value) {
-    return `/maintenance-dev-folder?email=${encodeURIComponent(devFolderEmail.value)}`
+  // Only redirect to dev folder if the user explicitly arrived via a dev folder email link
+  if (route.query.email) {
+    return `/maintenance-dev-folder?email=${encodeURIComponent(route.query.email)}`
   }
   if (ticket.value?.project?.id) {
     return `/maintenance?project=${ticket.value.project.id}`
@@ -366,7 +367,7 @@ const backLabel = computed(() => {
   if (route.query.from === 'dashboard') {
     return 'Back to Dashboard'
   }
-  if (devFolderEmail.value) {
+  if (route.query.email) {
     return 'Back to My Folder'
   }
   if (ticket.value?.project?.name) {
@@ -382,9 +383,9 @@ const unauthorized   = ref(false)
 
 const checkAuthorization = () => {
   if (!ticket.value) return
-  // Owners and editors (authenticated users with project access) are always allowed
-  if (myPermission.value === 'owner' || myPermission.value === 'edit') return
-  // Check if ?email= param matches an assigned dev or QA
+  // Any project permission (owner, edit, comment, view) means the user has access
+  if (myPermission.value !== null) return
+  // Check if ?email= param matches an assigned dev or QA (no login required for devs)
   const email = (route.query.email || '').toLowerCase()
   if (email) {
     const devs = (ticket.value.assigned_devs ?? []).map(e => e.toLowerCase())
@@ -399,10 +400,28 @@ const posting        = ref(false)
 const currentStatus    = ref('Pending')
 const currentDevStatus = ref('Not Started')
 const activityListEl   = ref(null)
-const myPermission  = ref('view')
-const canEdit             = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit')
-const canUpdateDevStatus  = ref(true) // Dev status is publicly editable — developers access tickets via email link
-const canComment          = ref(true) // Public ticket pages allow anyone to comment
+const myPermission  = ref(null)  // null = not yet determined / no access
+const canEdit    = computed(() => myPermission.value === 'owner' || myPermission.value === 'edit')
+const canComment = computed(() => {
+  // Assigned devs arriving via email link can comment
+  if (route.query.email) {
+    const e = route.query.email.toLowerCase()
+    const devs = (ticket.value?.assigned_devs ?? []).map(x => x.toLowerCase())
+    const qa   = (ticket.value?.assigned_qa   ?? []).map(x => x.toLowerCase())
+    if (devs.includes(e) || qa.includes(e)) return true
+  }
+  return myPermission.value === 'owner' || myPermission.value === 'edit' || myPermission.value === 'comment'
+})
+const canUpdateDevStatus = computed(() => {
+  // Assigned devs arriving via email link can update dev status
+  if (route.query.email) {
+    const e = route.query.email.toLowerCase()
+    const devs = (ticket.value?.assigned_devs ?? []).map(x => x.toLowerCase())
+    const qa   = (ticket.value?.assigned_qa   ?? []).map(x => x.toLowerCase())
+    if (devs.includes(e) || qa.includes(e)) return true
+  }
+  return myPermission.value === 'owner' || myPermission.value === 'edit'
+})
 
 const statuses = ['Pending', 'In Progress', 'On Hold', 'Completed', 'Cancelled']
 
@@ -504,9 +523,9 @@ const loadTicket = async () => {
         const token = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_token') : null
         const headers = token ? { Authorization: `Bearer ${token}` } : {}
         const proj = await $fetch(`${apiBase}/maintenance/projects/${ticket.value.project.id}`, { headers })
-        myPermission.value = proj.my_permission ?? 'view'
+        myPermission.value = proj.my_permission ?? null
       } catch {
-        myPermission.value = 'view'
+        myPermission.value = null
       }
     }
     checkAuthorization()

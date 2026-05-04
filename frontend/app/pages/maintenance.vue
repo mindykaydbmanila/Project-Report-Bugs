@@ -1683,7 +1683,7 @@ const apiFetch = (url, options = {}) => {
   return $fetch(url, options)
 }
 
-const login  = () => { window.location.href = `${apiBase}/api/auth/google/maintenance` }
+const login  = () => { window.location.href = `${apiBase}/auth/google/maintenance` }
 const logout = async () => {
   try { await apiFetch(`${config.public.apiBase}/auth/logout`, { method: 'POST' }) } catch {}
   authToken.value = null
@@ -1695,10 +1695,13 @@ const fetchCurrentUser = async () => {
   try {
     const user = await apiFetch(`${config.public.apiBase}/auth/me`)
     currentUser.value = (user && user.id) ? user : null
-    if (!currentUser.value) { authToken.value = null; localStorage.removeItem('auth_token') }
+    if (!currentUser.value) {
+      // Server confirmed token is invalid — clear it
+      authToken.value = null
+      localStorage.removeItem('auth_token')
+    }
   } catch {
-    authToken.value = null
-    localStorage.removeItem('auth_token')
+    // Network/server error — don't clear the token; the failure may be transient
     currentUser.value = null
   }
 }
