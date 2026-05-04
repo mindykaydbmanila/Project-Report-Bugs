@@ -37,8 +37,8 @@ class ProjectController extends Controller
             } elseif ($share = $shares->get($p->id)) {
                 $p->my_permission = $share->permission === 'editor' ? 'edit' : 'view';
             } else {
-                // Legacy projects without owner_id
-                $p->my_permission = 'owner';
+                // Legacy projects without owner_id get full access; owned but unshared = no access
+                $p->my_permission = is_null($p->owner_id) ? 'owner' : 'none';
             }
             return $p;
         });

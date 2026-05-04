@@ -2175,7 +2175,7 @@
                           <div class="assign-dev-wrap">
                             <button
                               :class="['assign-dev-btn', { 'assign-dev-btn--assigned': bug.assigned_developers?.length }]"
-                              @click.stop="canEditProject(selectedProject) && openAssignDropdown(bug.id)"
+                              @click.stop="canEditProject(selectedProject) && openAssignDropdown(bug.id, $event)"
                               :disabled="!canEditProject(selectedProject)"
                             >
                               <template v-if="bug.assigned_developers?.length">
@@ -2194,7 +2194,13 @@
                                 Assign dev
                               </template>
                             </button>
-                            <div v-if="assignDropdownBugId === bug.id" class="assign-dropdown" @click.stop>
+                            <Teleport to="body">
+                            <div
+                              v-if="assignDropdownBugId === bug.id"
+                              class="assign-dropdown"
+                              @click.stop
+                              :style="{ position: 'fixed', top: assignDropdownPos.top + 'px', left: assignDropdownPos.left + 'px', zIndex: 9999 }"
+                            >
                               <!-- Search / email input -->
                               <div class="assign-search-wrap">
                                 <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -2257,6 +2263,7 @@
                                 {{ assignSearch ? 'No match — type a full email to assign' : 'No team members yet' }}
                               </div>
                             </div>
+                            </Teleport>
                           </div>
                         </td>
 
@@ -2446,8 +2453,8 @@
                   </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Date to Accomplish</label>
-                  <input type="date" v-model="form.date_to_accomplish" class="form-control" />
+                  <label class="form-label">Date to Accomplish <span style="color:#ef4444;">*</span></label>
+                  <input type="date" v-model="form.date_to_accomplish" class="form-control" required />
                 </div>
               </div>
               <div class="form-group">
@@ -3387,7 +3394,8 @@ onMounted(async () => {
   const projectId = urlParams.get('project')
   if (projectId && projects.value.length) {
     const found = projects.value.find(p => p.id === Number(projectId))
-    if (found) selectProject(found)
+    const hasAccess = found && (!isSharedView.value || ['view', 'edit'].includes(found.my_permission))
+    if (hasAccess) selectProject(found)
   }
 
   // Auto-open views from URL params
@@ -3790,11 +3798,15 @@ const overallStats = computed(() => {
   return { totalProjects: ps.length, total, critical, pending, ongoing, completed, rate }
 })
 
-const activeProjects   = computed(() => projects.value.filter(p => p.is_active !== false))
+const activeProjects   = computed(() => projects.value.filter(p => {
+  if (p.is_active === false) return false
+  if (isSharedView.value && !['view', 'edit'].includes(p.my_permission)) return false
+  return true
+}))
 const inactiveProjects = computed(() => projects.value.filter(p => p.is_active === false))
 
 const filteredProjects = computed(() => projects.value.filter(p => {
-  if (isSharedView.value && p.my_permission === 'owner') return false
+  if (isSharedView.value && !['view', 'edit'].includes(p.my_permission)) return false
   if (projectSearch.value) {
     const q = projectSearch.value.toLowerCase()
     if (!p.name.toLowerCase().includes(q) && !(p.description || '').toLowerCase().includes(q)) return false
@@ -4568,6 +4580,7 @@ const showToast = (message, type = 'success') => {
 // ── Assign Developer ─────────────────────────────────────────────────────────
 const teamMembers         = ref([])
 const assignDropdownBugId = ref(null)
+const assignDropdownPos   = ref({ top: 0, left: 0 })
 const assignSearch        = ref('')
 const assignSearchInput   = ref(null)
 
@@ -4585,12 +4598,19 @@ const filteredAssignMembers = computed(() => {
   )
 })
 
-const openAssignDropdown = (bugId) => {
-  assignDropdownBugId.value = assignDropdownBugId.value === bugId ? null : bugId
-  assignSearch.value = ''
-  if (assignDropdownBugId.value) {
-    nextTick(() => { assignSearchInput.value?.focus() })
+const openAssignDropdown = (bugId, event) => {
+  if (assignDropdownBugId.value === bugId) {
+    assignDropdownBugId.value = null
+    assignSearch.value = ''
+    return
   }
+  assignDropdownBugId.value = bugId
+  assignSearch.value = ''
+  if (event?.currentTarget) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    assignDropdownPos.value = { top: rect.bottom + 6, left: rect.left }
+  }
+  nextTick(() => { assignSearchInput.value?.focus() })
 }
 
 const updateBugInLists = (updated, originalBug) => {
@@ -4773,7 +4793,7 @@ async function openFolderDetail(folder) {
   devFolderDetailBugs.value    = []
   devFolderDetailLoading.value = true
   try {
-    const res = await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}/bugs`)
+    const res = await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}/bugs?email=${encodeURIComponent(folder.developer_email)}`)
     devFolderDetailBugs.value = res.bugs || []
   } catch {
     devFolderDetailBugs.value = []
