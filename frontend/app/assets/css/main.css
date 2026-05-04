@@ -533,9 +533,11 @@ body {
   padding: 3px 9px;
   border-radius: 999px;
   text-transform: uppercase;
+  transition: transform 0.18s ease;
 }
 .pcard-badge-active   { background: #dcfce7; color: #15803d; }
 .pcard-badge-inactive { background: #f3f4f6; color: #6b7280; }
+.project-card:hover .pcard-badge { transform: translateX(-34px); }
 
 .project-card-body { padding: 14px 18px 12px; flex: 1; }
 .project-card-name { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 5px; }
@@ -1714,7 +1716,6 @@ tbody tr.bug-row-completed .bug-title-main { text-decoration: line-through; colo
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .assign-dropdown {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
   background: #fff; border: 1px solid var(--gray-200); border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 220px; overflow: hidden;
 }
