@@ -111,7 +111,7 @@
         <div v-if="activeProjects.length" class="sidebar-section-label" style="margin-top:10px;">Active</div>
         <nav v-if="activeProjects.length" class="sidebar-nav">
           <button
-            v-for="p in activeProjects" :key="p.id"
+            v-for="p in sidebarVisibleActive" :key="p.id"
             class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !dashboardOpen }"
             @click="selectProject(p); dashboardOpen = false"
           >
@@ -119,11 +119,19 @@
             <span class="sidebar-item-name">{{ p.name }}</span>
             <span class="sidebar-item-count">{{ p.tickets_count ?? 0 }}</span>
           </button>
+          <button v-if="sidebarExtraCount > 0 && !sidebarAllExpanded" class="sidebar-item sidebar-show-more" @click.stop="sidebarAllExpanded = true">
+            <span class="sidebar-item-icon" style="font-size:11px;">▾</span>
+            <span class="sidebar-item-name" style="color:var(--gray-400);font-style:italic;">+{{ sidebarExtraCount }} more</span>
+          </button>
+          <button v-if="sidebarAllExpanded && activeProjects.length > SIDEBAR_TOP" class="sidebar-item sidebar-show-more" @click.stop="sidebarAllExpanded = false">
+            <span class="sidebar-item-icon" style="font-size:11px;">▴</span>
+            <span class="sidebar-item-name" style="color:var(--gray-400);font-style:italic;">Show less</span>
+          </button>
         </nav>
         <div v-if="inactiveProjects.length" class="sidebar-section-label" style="margin-top:6px;">Inactive</div>
         <nav v-if="inactiveProjects.length" class="sidebar-nav">
           <button
-            v-for="p in inactiveProjects" :key="p.id"
+            v-for="p in sidebarVisibleInactive" :key="p.id"
             class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !dashboardOpen }"
             style="opacity:0.7;"
             @click="selectProject(p); dashboardOpen = false"
@@ -131,6 +139,14 @@
             <span class="sidebar-color-dot" style="background:#9ca3af;"></span>
             <span class="sidebar-item-name" style="color:var(--gray-400);">{{ p.name }}</span>
             <span class="sidebar-item-count">{{ p.tickets_count ?? 0 }}</span>
+          </button>
+          <button v-if="sidebarInactiveExtraCount > 0 && !sidebarInactiveExpanded" class="sidebar-item sidebar-show-more" @click.stop="sidebarInactiveExpanded = true">
+            <span class="sidebar-item-icon" style="font-size:11px;">▾</span>
+            <span class="sidebar-item-name" style="color:var(--gray-400);font-style:italic;">+{{ sidebarInactiveExtraCount }} more</span>
+          </button>
+          <button v-if="sidebarInactiveExpanded && inactiveProjects.length > SIDEBAR_TOP" class="sidebar-item sidebar-show-more" @click.stop="sidebarInactiveExpanded = false">
+            <span class="sidebar-item-icon" style="font-size:11px;">▴</span>
+            <span class="sidebar-item-name" style="color:var(--gray-400);font-style:italic;">Show less</span>
           </button>
         </nav>
 
@@ -297,7 +313,7 @@
                 <div v-for="t in dashAtRisk" :key="t.id" class="mdash-risk-row">
                   <span class="mdash-risk-badge" :style="riskBadgeStyle(t)">{{ riskLabel(t) }}</span>
                   <div class="mdash-risk-info">
-                    <div class="mdash-risk-title">{{ t.request }}</div>
+                    <div class="mdash-risk-title">{{ stripHtml(t.request) }}</div>
                     <div class="mdash-risk-meta">{{ t.client }} · {{ firstDev(t) }}</div>
                   </div>
                 </div>
@@ -311,7 +327,7 @@
               <div v-else class="mdash-due-rows">
                 <div v-for="t in dashDueThisWeek" :key="t.id" class="mdash-due-row">
                   <div class="mdash-due-info">
-                    <div class="mdash-due-title">{{ t.request }}</div>
+                    <div class="mdash-due-title">{{ stripHtml(t.request) }}</div>
                     <div class="mdash-due-meta">{{ t.client }} · {{ t.target_date ? formatDate(t.target_date) : '—' }}</div>
                   </div>
                   <span class="mdash-status-badge" :style="statusBadgeStyle(t.status)">{{ t.status }}</span>
@@ -479,7 +495,7 @@
                 <span class="allproj-section-count">{{ filteredActiveProjects.length }}</span>
               </div>
               <div class="projects-grid">
-                <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card2" :style="{ '--pc-color': p.color || '#10b981' }" @click="selectProject(p)">
+                <div v-for="p in pagedActiveProjects" :key="p.id" class="project-card2" :style="{ '--pc-color': p.color || '#10b981' }" @click="selectProject(p)">
                   <div class="pc2-accent"></div>
                   <div class="pc2-body">
                     <div class="pc2-top-row">
@@ -547,6 +563,31 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Pagination controls (only when > 12 projects) -->
+              <div v-if="projNeedsPagination" class="proj-pagination">
+                <div class="proj-pagination-info">Showing {{ projShowingFrom }}–{{ projShowingTo }} of {{ filteredActiveProjects.length }}</div>
+                <div class="proj-pagination-controls">
+                  <button class="proj-page-btn" :disabled="projPage === 1" @click="projPage--">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <template v-for="pg in projPageNums" :key="pg">
+                    <span v-if="pg === '…'" class="proj-page-ellipsis">…</span>
+                    <button v-else class="proj-page-btn" :class="{ 'proj-page-btn--active': projPage === pg }" @click="projPage = pg">{{ pg }}</button>
+                  </template>
+                  <button class="proj-page-btn" :disabled="projPage === projTotalPages" @click="projPage++">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </div>
+                <div class="proj-perpage-wrap">
+                  <span style="font-size:12px;color:var(--gray-400);">Per page:</span>
+                  <select class="proj-perpage-select" v-model.number="projPerPage">
+                    <option :value="6">6</option>
+                    <option :value="12">12</option>
+                    <option :value="24">24</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <!-- Inactive projects -->
             <div v-if="filteredInactiveProjects.length && projectStatusFilter !== 'active'">
@@ -556,7 +597,7 @@
                 <span class="allproj-section-count">{{ filteredInactiveProjects.length }}</span>
               </div>
               <div class="projects-grid">
-                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card2 pc2-inactive" :style="{ '--pc-color': '#9ca3af' }" @click="selectProject(p)">
+                <div v-for="p in pagedInactiveProjects" :key="p.id" class="project-card2 pc2-inactive" :style="{ '--pc-color': '#9ca3af' }" @click="selectProject(p)">
                   <div class="pc2-accent"></div>
                   <div class="pc2-body">
                     <div class="pc2-top-row">
@@ -622,6 +663,31 @@
                       <span class="pc2-progress-label">{{ p.tickets_count > 0 ? Math.round((p.completed_count??0)/p.tickets_count*100) : 0 }}% done</span>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- Inactive pagination controls (only when > 12 projects) -->
+              <div v-if="inactiveProjNeedsPagination" class="proj-pagination">
+                <div class="proj-pagination-info">Showing {{ inactiveProjShowingFrom }}–{{ inactiveProjShowingTo }} of {{ filteredInactiveProjects.length }}</div>
+                <div class="proj-pagination-controls">
+                  <button class="proj-page-btn" :disabled="inactiveProjPage === 1" @click="inactiveProjPage--">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <template v-for="pg in inactiveProjPageNums" :key="pg">
+                    <span v-if="pg === '…'" class="proj-page-ellipsis">…</span>
+                    <button v-else class="proj-page-btn" :class="{ 'proj-page-btn--active': inactiveProjPage === pg }" @click="inactiveProjPage = pg">{{ pg }}</button>
+                  </template>
+                  <button class="proj-page-btn" :disabled="inactiveProjPage === inactiveProjTotalPages" @click="inactiveProjPage++">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </div>
+                <div class="proj-perpage-wrap">
+                  <span style="font-size:12px;color:var(--gray-400);">Per page:</span>
+                  <select class="proj-perpage-select" v-model.number="inactiveProjPerPage">
+                    <option :value="6">6</option>
+                    <option :value="12">12</option>
+                    <option :value="24">24</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -822,7 +888,7 @@
                   </td>
                   <!-- Request -->
                   <td>
-                    <span class="maint-truncate" :title="t.request">{{ t.request }}</span>
+                    <span class="maint-truncate" :title="stripHtml(t.request)">{{ stripHtml(t.request) }}</span>
                   </td>
                   <!-- Sent Thru -->
                   <td>
@@ -830,7 +896,7 @@
                   </td>
                   <!-- Target -->
                   <td>
-                    <span style="font-size:12px;" :style="{ color: isOverdue(t) ? '#ef4444' : 'var(--gray-600)', fontWeight: isOverdue(t) ? '600' : '400' }">
+                    <span style="font-size:12px;white-space:nowrap;" :style="{ color: isOverdue(t) ? '#ef4444' : 'var(--gray-600)', fontWeight: isOverdue(t) ? '600' : '400' }">
                       {{ formatDate(t.target_date) || '—' }}
                     </span>
                   </td>
@@ -962,7 +1028,7 @@
               <!-- Request -->
               <div class="form-group" style="grid-column:1/3;">
                 <label class="form-label">Request <span style="color:#ef4444;">*</span></label>
-                <textarea v-model="newTicketForm.request" class="form-control" rows="3" required placeholder="Describe the maintenance request..."></textarea>
+                <RichTextEditor v-model="newTicketForm.request" placeholder="Describe the maintenance request..." :invalid="newRequestInvalid" />
               </div>
               <!-- Date Received -->
               <div class="form-group">
@@ -992,7 +1058,7 @@
               </div>
               <!-- Assigned Devs -->
               <div class="form-group" style="grid-column:1/3;">
-                <label class="form-label">Assigned Dev(s) <span style="font-size:11px;color:var(--gray-400);font-weight:400;">Press Enter or comma to add email</span></label>
+                <label class="form-label">Assigned Dev(s) <span style="font-size:11px;color:var(--gray-400);font-weight:400;">Press Enter to add email</span></label>
                 <div class="email-tag-input" @click="$refs.devInput.focus()">
                   <span v-for="(email, i) in newTicketForm.assigned_devs" :key="i" class="maint-email-tag-pill dev-pill">
                     {{ email }}
@@ -1003,7 +1069,7 @@
               </div>
               <!-- Assigned QA -->
               <div class="form-group" style="grid-column:1/3;">
-                <label class="form-label">Assigned QA <span style="font-size:11px;color:var(--gray-400);font-weight:400;">Press Enter or comma to add email</span></label>
+                <label class="form-label">Assigned QA <span style="font-size:11px;color:var(--gray-400);font-weight:400;">Press Enter to add email</span></label>
                 <div class="email-tag-input" @click="$refs.qaInput.focus()">
                   <span v-for="(email, i) in newTicketForm.assigned_qa" :key="i" class="maint-email-tag-pill qa-pill">
                     {{ email }}
@@ -1159,7 +1225,7 @@
             </div>
             <div class="maint-view-field" style="margin-top:4px;">
               <div class="maint-view-label">Request</div>
-              <div class="maint-view-value" style="white-space:pre-wrap;line-height:1.7;">{{ activeTicket.request }}</div>
+              <div class="maint-view-value rich-view" style="line-height:1.7;" v-html="activeTicket.request"></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:4px;">
               <div class="maint-view-field">
@@ -1262,7 +1328,7 @@
               </div>
               <div class="form-group" style="grid-column:1/3;">
                 <label class="form-label">Request <span style="color:#ef4444;">*</span></label>
-                <textarea v-model="editTicketForm.request" class="form-control" rows="3" required placeholder="Describe the maintenance request..."></textarea>
+                <RichTextEditor v-model="editTicketForm.request" placeholder="Describe the maintenance request..." :invalid="editRequestInvalid" />
               </div>
               <div class="form-group">
                 <label class="form-label">Date Received</label>
@@ -1798,6 +1864,7 @@ const removeNewFile  = (i) => { URL.revokeObjectURL(newAttachFiles.value[i]?.pre
 const removeEditFile = (i) => { URL.revokeObjectURL(editNewFiles.value[i]?.preview); editNewFiles.value.splice(i, 1) }
 
 const revokeAttachPreviews = (files) => files.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview) })
+const stripHtml = (html) => html ? html.replace(/<[^>]*>/g, '') : ''
 const isImageUrl = (url) => /\.(jpe?g|png|gif|webp)$/i.test(url)
 
 // ── Tag email inputs ──────────────────────────────────────────────────────────
@@ -1805,6 +1872,9 @@ const devInputVal      = ref('')
 const qaInputVal       = ref('')
 const editDevInputVal  = ref('')
 const editQaInputVal   = ref('')
+
+const newRequestInvalid = ref(false)
+const editRequestInvalid = ref(false)
 
 const newTicketForm = ref({
   client: '', request: '', sent_thru: 'Email',
@@ -1887,6 +1957,81 @@ const filteredInactiveProjects = computed(() => {
     !q || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
   )
 })
+
+// ── Projects grid pagination ──────────────────────────────────────────────────
+const PROJ_PAGINATE_THRESHOLD = 12
+const projPage    = ref(1)
+const projPerPage = ref(12)
+const sidebarAllExpanded = ref(false)
+
+watch([filteredActiveProjects, projPerPage, projectSearch, projectStatusFilter], () => { projPage.value = 1 })
+
+const projNeedsPagination = computed(() => filteredActiveProjects.value.length > PROJ_PAGINATE_THRESHOLD)
+const projTotalPages      = computed(() => Math.ceil(filteredActiveProjects.value.length / projPerPage.value))
+const projShowingFrom     = computed(() => (projPage.value - 1) * projPerPage.value + 1)
+const projShowingTo       = computed(() => Math.min(projPage.value * projPerPage.value, filteredActiveProjects.value.length))
+const pagedActiveProjects = computed(() => {
+  if (!projNeedsPagination.value) return filteredActiveProjects.value
+  const start = (projPage.value - 1) * projPerPage.value
+  return filteredActiveProjects.value.slice(start, start + projPerPage.value)
+})
+const projPageNums = computed(() => {
+  const total = projTotalPages.value
+  const cur   = projPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set([1, total, cur, cur - 1, cur + 1].filter(n => n >= 1 && n <= total))
+  return [...pages].sort((a, b) => a - b).reduce((acc, n, i, arr) => {
+    if (i > 0 && n - arr[i - 1] > 1) acc.push('…')
+    acc.push(n)
+    return acc
+  }, [])
+})
+
+// ── Inactive projects grid pagination ────────────────────────────────────────
+const inactiveProjPage    = ref(1)
+const inactiveProjPerPage = ref(12)
+
+watch([filteredInactiveProjects, inactiveProjPerPage, projectSearch, projectStatusFilter], () => { inactiveProjPage.value = 1 })
+
+const inactiveProjNeedsPagination = computed(() => filteredInactiveProjects.value.length > PROJ_PAGINATE_THRESHOLD)
+const inactiveProjTotalPages      = computed(() => Math.ceil(filteredInactiveProjects.value.length / inactiveProjPerPage.value))
+const inactiveProjShowingFrom     = computed(() => (inactiveProjPage.value - 1) * inactiveProjPerPage.value + 1)
+const inactiveProjShowingTo       = computed(() => Math.min(inactiveProjPage.value * inactiveProjPerPage.value, filteredInactiveProjects.value.length))
+const pagedInactiveProjects       = computed(() => {
+  if (!inactiveProjNeedsPagination.value) return filteredInactiveProjects.value
+  const start = (inactiveProjPage.value - 1) * inactiveProjPerPage.value
+  return filteredInactiveProjects.value.slice(start, start + inactiveProjPerPage.value)
+})
+const inactiveProjPageNums = computed(() => {
+  const total = inactiveProjTotalPages.value
+  const cur   = inactiveProjPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set([1, total, cur, cur - 1, cur + 1].filter(n => n >= 1 && n <= total))
+  return [...pages].sort((a, b) => a - b).reduce((acc, n, i, arr) => {
+    if (i > 0 && n - arr[i - 1] > 1) acc.push('…')
+    acc.push(n)
+    return acc
+  }, [])
+})
+
+// ── Sidebar top-N logic ───────────────────────────────────────────────────────
+const SIDEBAR_TOP = 5
+const sidebarSortedActive = computed(() =>
+  [...activeProjects.value].sort((a, b) => (b.tickets_count ?? 0) - (a.tickets_count ?? 0))
+)
+const sidebarVisibleActive = computed(() =>
+  sidebarAllExpanded.value ? sidebarSortedActive.value : sidebarSortedActive.value.slice(0, SIDEBAR_TOP)
+)
+const sidebarExtraCount = computed(() => Math.max(0, activeProjects.value.length - SIDEBAR_TOP))
+
+const sidebarInactiveExpanded = ref(false)
+const sidebarSortedInactive   = computed(() =>
+  [...inactiveProjects.value].sort((a, b) => (b.tickets_count ?? 0) - (a.tickets_count ?? 0))
+)
+const sidebarVisibleInactive  = computed(() =>
+  sidebarInactiveExpanded.value ? sidebarSortedInactive.value : sidebarSortedInactive.value.slice(0, SIDEBAR_TOP)
+)
+const sidebarInactiveExtraCount = computed(() => Math.max(0, inactiveProjects.value.length - SIDEBAR_TOP))
 
 // ── Dashboard computeds ───────────────────────────────────────────────────────
 const CHANNEL_COLORS = { Email:'#3b82f6', Slack:'#8b5cf6', Phone:'#10b981', Viber:'#06b6d4', Teams:'#f59e0b', 'In-person':'#f97316', Other:'#94a3b8' }
@@ -2403,6 +2548,8 @@ const today = () => {
 
 const submitNewTicket = async () => {
   addEmail('dev'); addEmail('qa')
+  newRequestInvalid.value = !newTicketForm.value.request?.trim()
+  if (newRequestInvalid.value) return
   submitting.value = true
   try {
     const f = newTicketForm.value
@@ -2467,6 +2614,8 @@ const initEditForm = () => {
 
 const submitEditTicket = async () => {
   addEmail('editDev'); addEmail('editQa')
+  editRequestInvalid.value = !editTicketForm.value.request?.trim()
+  if (editRequestInvalid.value) return
   submitting.value = true
   try {
     const f = editTicketForm.value
@@ -2632,14 +2781,8 @@ const openMaintNotif = async (n) => {
     n.read_at = new Date().toISOString()
   }
   maintNotifDropdownOpen.value = false
-  if (n.data?.project_id && n.data?.ticket_id) {
-    const project = projects.value.find(p => p.id === n.data.project_id)
-    if (project) {
-      await selectProject(project)
-      await nextTick()
-      const ticket = tickets.value.find(t => t.id === n.data.ticket_id)
-      if (ticket) openTicketModal(ticket, 'view')
-    }
+  if (n.data?.ticket_id) {
+    navigateTo(ticketUrl(n.data.ticket_id))
   }
 }
 
@@ -3107,6 +3250,10 @@ onUnmounted(() => {
   margin-bottom: 4px;
 }
 .maint-view-value { font-size: 14px; color: var(--gray-800); }
+.maint-view-value.rich-view ul, .maint-view-value.rich-view ol { padding-left: 18px; margin: 4px 0; }
+.maint-view-value.rich-view li { margin: 2px 0; }
+.maint-view-value.rich-view a { color: #2563eb; text-decoration: underline; }
+.maint-view-value.rich-view p { margin: 0 0 4px; }
 
 /* Sent-thru custom dropdown */
 .sent-thru-dropdown {

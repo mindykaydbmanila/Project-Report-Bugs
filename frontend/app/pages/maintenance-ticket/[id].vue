@@ -60,7 +60,7 @@
           <span class="mt-ticket-num">{{ ticket.ticket_number }}</span>
           <div>
             <h1 class="mt-title">{{ ticket.client }}</h1>
-            <div class="mt-subtitle">{{ ticket.request }}</div>
+            <div class="mt-subtitle">{{ stripHtmlPreview(ticket.request) }}</div>
           </div>
         </div>
 
@@ -70,7 +70,7 @@
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             Request
           </div>
-          <div class="mt-description">{{ ticket.request }}</div>
+          <div class="mt-description" v-html="ticket.request"></div>
         </div>
 
         <!-- Notes -->
@@ -79,7 +79,7 @@
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Notes
           </div>
-          <div class="mt-description">{{ ticket.notes }}</div>
+          <div class="mt-description" v-html="ticket.notes"></div>
         </div>
 
         <!-- Comments -->
@@ -191,7 +191,7 @@
                   <span class="mt-tl-label">{{ entry.label }}</span>
                   <span class="mt-tl-time">{{ formatTime(entry.time) }}</span>
                 </div>
-                <div v-if="entry.body" class="mt-tl-body">{{ entry.body }}</div>
+                <div v-if="entry.body" class="mt-tl-body">{{ stripHtmlPreview(entry.body) }}</div>
                 <div v-if="entry.from || entry.to" class="mt-tl-change">
                   <span v-if="entry.from" class="mt-tl-from">{{ entry.from }}</span>
                   <svg v-if="entry.from && entry.to" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -494,6 +494,16 @@ const formatDate = (val) => {
   return new Date(val).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+const stripHtmlPreview = (html, maxLen = 120) => {
+  if (!html) return ''
+  const text = html
+    .replace(/<\/?(p|li|ol|ul|br|div|h[1-6])[^>]*>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > maxLen ? text.slice(0, maxLen).trimEnd() + '…' : text
+}
+
 const isPdf       = (url) => /\.pdf$/i.test(url)
 const urlFilename = (url) => url.split('/').pop()
 
@@ -618,7 +628,10 @@ onMounted(loadTicket)
 .mt-subtitle { font-size: 14px; color: #64748b; line-height: 1.5; }
 .mt-section { background: #fff; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .mt-section-label { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 16px; }
-.mt-description { font-size: 14px; color: #334155; line-height: 1.7; white-space: pre-wrap; }
+.mt-description { font-size: 14px; color: #334155; line-height: 1.7; }
+.mt-description :deep(p) { margin: 0 0 6px; }
+.mt-description :deep(ul), .mt-description :deep(ol) { padding-left: 20px; margin: 4px 0; }
+.mt-description :deep(a) { color: #6366f1; text-decoration: underline; }
 .mt-overdue { color: #dc2626 !important; font-weight: 600; }
 
 /* Activity / Comments */

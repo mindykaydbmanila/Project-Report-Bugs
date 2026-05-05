@@ -771,6 +771,68 @@ body {
 }
 
 /* ══════════════════════════════════
+   PROJECT GRID PAGINATION
+══════════════════════════════════ */
+.proj-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gray-100);
+}
+.proj-pagination-info {
+  font-size: 12px;
+  color: var(--gray-400);
+  white-space: nowrap;
+}
+.proj-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.proj-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--gray-600);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.proj-page-btn:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-300); }
+.proj-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.proj-page-btn--active { background: #ecfdf5; border-color: #a7f3d0; color: #059669; font-weight: 700; }
+.proj-page-ellipsis { font-size: 12px; color: var(--gray-400); padding: 0 4px; }
+.proj-perpage-wrap { display: flex; align-items: center; gap: 6px; }
+.proj-perpage-select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: white;
+  font-size: 12px;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+/* Sidebar show-more button */
+.sidebar-show-more {
+  opacity: 0.75;
+  font-size: 11px;
+}
+.sidebar-show-more:hover { opacity: 1; background: transparent; }
+
+/* ══════════════════════════════════
    PROJECT CARD v2
 ══════════════════════════════════ */
 .project-card2 {
@@ -1701,12 +1763,13 @@ tbody tr.bug-row-completed .bug-title-main { text-decoration: line-through; colo
 .share-perm-select:focus { border-color: var(--primary); }
 
 /* ── Assign Developer ─────────────────────────────────────────────────────── */
-.assign-dev-wrap { position: relative; }
+.assign-dev-wrap { position: relative; max-width: 100%; }
 .assign-dev-btn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px; border-radius: 6px; border: 1px solid var(--gray-200);
   background: var(--gray-50); color: var(--gray-500); font-size: 12px;
   cursor: pointer; white-space: nowrap; font-weight: 500; transition: all .15s;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
 }
 .assign-dev-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 .assign-dev-btn--assigned { background: var(--primary-light); color: var(--primary-dark); border-color: #c7d2fe; font-weight: 600; }
@@ -2049,6 +2112,68 @@ tbody tr.bug-row-completed .bug-title-main { text-decoration: line-through; colo
 }
 .tt-search-clear:hover { background: var(--gray-200); }
 
+@keyframes tt-spin { to { transform: rotate(360deg); } }
+.spin-icon { animation: tt-spin 0.8s linear infinite; }
+
+/* Search results dropdown */
+.tt-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  z-index: 200;
+  overflow: hidden;
+}
+.tt-search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-50);
+  transition: background .1s;
+  min-width: 0;
+}
+.tt-search-result:last-child { border-bottom: none; }
+.tt-search-result:hover { background: var(--gray-50); }
+.tt-search-empty { padding: 14px 16px; font-size: 13px; color: var(--gray-400); text-align: center; }
+
+/* Keyboard shortcut hint inside search bar */
+.tt-search-kbd {
+  font-size: 11px; font-weight: 600; color: var(--gray-400);
+  background: var(--gray-100); border: 1px solid var(--gray-200);
+  border-radius: 4px; padding: 1px 5px; line-height: 1.4;
+  pointer-events: none; flex-shrink: 0;
+}
+
+/* Clickable stat cards */
+.tt-stat-card--link {
+  cursor: pointer;
+  transition: box-shadow .15s, transform .15s;
+}
+.tt-stat-card--link:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  transform: translateY(-1px);
+}
+
+/* Sortable table headers */
+.tt-sort-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.tt-sort-th:hover { background: var(--gray-50); }
+.tt-sort-icon {
+  font-size: 11px;
+  color: var(--gray-300);
+  margin-left: 4px;
+}
+.tt-sort-icon--active { color: var(--primary); }
+
 /* ── Ticket Tracker — Filter Pills ────────────────────────────────────────── */
 .tt-pill-bar {
   display: flex;
@@ -2091,10 +2216,29 @@ tbody tr.bug-row-completed .bug-title-main { text-decoration: line-through; colo
 .tt-pill--active .tt-pill-count--green,
 .tt-pill--active .tt-pill-count--red { background: rgba(255,255,255,.25); color: #fff; }
 
-/* ── Ticket Tracker — Stat grid (6 cols) ──────────────────────────────────── */
-.tt-stat-grid { grid-template-columns: repeat(6, 1fr); align-items: start; }
-@media (max-width: 1200px) { .tt-stat-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 700px)  { .tt-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+/* ── Ticket Tracker — Stat grid (7 cols, one line) ────────────────────────── */
+.tt-stat-grid {
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+.tt-stat-grid .tt-stat-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--gray-100);
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  transition: box-shadow .15s, transform .15s;
+}
+.tt-stat-grid .tt-stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); transform: translateY(-1px); }
+.tt-stat-grid .tt-stat-icon { width: 34px; height: 34px; border-radius: 8px; font-size: 15px; flex-shrink: 0; }
+.tt-stat-grid .tt-stat-label { font-size: 10px; letter-spacing: .3px; margin-bottom: 2px; }
+.tt-stat-grid .tt-stat-value { font-size: 20px; font-weight: 800; line-height: 1; }
+@media (max-width: 1300px) { .tt-stat-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 900px)  { .tt-stat-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px)  { .tt-stat-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* ── Ticket Tracker — Age Badge ───────────────────────────────────────────── */
 .age-badge {

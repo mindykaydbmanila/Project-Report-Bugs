@@ -119,13 +119,19 @@
         <div v-if="activeProjects.length" class="sidebar-section-label" style="margin-top:10px;">Projects</div>
         <nav v-if="activeProjects.length" class="sidebar-nav">
           <button
-            v-for="p in activeProjects" :key="p.id"
+            v-for="p in sidebarVisibleProjects" :key="p.id"
             class="sidebar-item" :class="{ active: selectedProject?.id === p.id && !ticketTrackerOpen && !dashboardOpen && !devFoldersViewOpen }"
             @click="selectProject(p); ticketTrackerOpen = false; dashboardOpen = false; devFoldersViewOpen = false; inactiveOpen = false"
           >
             <span class="sidebar-color-dot" :style="{ background: p.color }"></span>
             <span class="sidebar-item-name">{{ p.name }}</span>
             <span class="sidebar-item-count">{{ p.bugs_count }}</span>
+          </button>
+          <button v-if="sidebarHiddenCount > 0 && !sidebarProjectsExpanded" class="sidebar-item sidebar-show-more" @click.stop="sidebarProjectsExpanded = true">
+            +{{ sidebarHiddenCount }} more ▾
+          </button>
+          <button v-if="sidebarProjectsExpanded && activeProjects.length > 5" class="sidebar-item sidebar-show-more" @click.stop="sidebarProjectsExpanded = false">
+            Show less ▴
           </button>
         </nav>
         <template v-if="!isSharedView">
@@ -203,8 +209,8 @@
                 <span class="proj-section-label">Active</span>
                 <span class="proj-section-count">{{ filteredActiveProjects.length }}</span>
               </div>
-              <div class="projects-grid" style="margin-bottom:28px;">
-                <div v-for="p in filteredActiveProjects" :key="p.id" class="project-card" @click="selectProject(p)">
+              <div class="projects-grid" style="margin-bottom:12px;">
+                <div v-for="p in paginatedActiveProjects" :key="p.id" class="project-card" @click="selectProject(p)">
                   <div class="project-card-head" :style="{ background: p.color + '18', borderBottom: '2px solid ' + p.color + '35' }">
                     <div class="project-card-icon" :style="{ background: p.color + '30', color: p.color }">📁</div>
                     <span class="pcard-badge pcard-badge-active">Active</span>
@@ -249,6 +255,31 @@
                   </div>
                 </div>
               </div>
+              <!-- Active pagination -->
+              <div v-if="filteredActiveProjects.length > 12" class="proj-pagination" style="margin-bottom:20px;">
+                <div class="proj-pagination-info">
+                  Showing {{ (activeProjectPage - 1) * activePerPage + 1 }}–{{ Math.min(activeProjectPage * activePerPage, filteredActiveProjects.length) }} of {{ filteredActiveProjects.length }}
+                </div>
+                <div class="proj-pagination-controls">
+                  <button class="proj-page-btn" :disabled="activeProjectPage === 1" @click="activeProjectPage--">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <template v-for="pg in activeTotalPages" :key="pg">
+                    <button class="proj-page-btn" :class="{ 'proj-page-btn--active': activeProjectPage === pg }" @click="activeProjectPage = pg">{{ pg }}</button>
+                  </template>
+                  <button class="proj-page-btn" :disabled="activeProjectPage === activeTotalPages" @click="activeProjectPage++">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </div>
+                <div class="proj-perpage-wrap">
+                  <span style="font-size:12px;color:var(--gray-400);">Per page</span>
+                  <select class="proj-perpage-select" v-model.number="activePerPage">
+                    <option :value="6">6</option>
+                    <option :value="12">12</option>
+                    <option :value="24">24</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <!-- Inactive projects -->
@@ -258,7 +289,7 @@
                 <span class="proj-section-count" style="background:var(--gray-100);color:var(--gray-500);">{{ filteredInactiveProjects.length }}</span>
               </div>
               <div class="projects-grid">
-                <div v-for="p in filteredInactiveProjects" :key="p.id" class="project-card project-card-inactive" @click="selectProject(p)">
+                <div v-for="p in paginatedInactiveProjects" :key="p.id" class="project-card project-card-inactive" @click="selectProject(p)">
                   <div class="project-card-head" style="background:#f3f4f6;border-bottom:2px solid #e5e7eb;">
                     <div class="project-card-icon" style="background:#e5e7eb;color:#9ca3af;">📁</div>
                     <span class="pcard-badge pcard-badge-inactive">Inactive</span>
@@ -295,6 +326,31 @@
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+              <!-- Inactive pagination -->
+              <div v-if="filteredInactiveProjects.length > 12" class="proj-pagination">
+                <div class="proj-pagination-info">
+                  Showing {{ (inactiveProjectPage - 1) * inactivePerPage + 1 }}–{{ Math.min(inactiveProjectPage * inactivePerPage, filteredInactiveProjects.length) }} of {{ filteredInactiveProjects.length }}
+                </div>
+                <div class="proj-pagination-controls">
+                  <button class="proj-page-btn" :disabled="inactiveProjectPage === 1" @click="inactiveProjectPage--">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <template v-for="pg in inactiveTotalPages" :key="pg">
+                    <button class="proj-page-btn" :class="{ 'proj-page-btn--active': inactiveProjectPage === pg }" @click="inactiveProjectPage = pg">{{ pg }}</button>
+                  </template>
+                  <button class="proj-page-btn" :disabled="inactiveProjectPage === inactiveTotalPages" @click="inactiveProjectPage++">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </div>
+                <div class="proj-perpage-wrap">
+                  <span style="font-size:12px;color:var(--gray-400);">Per page</span>
+                  <select class="proj-perpage-select" v-model.number="inactivePerPage">
+                    <option :value="6">6</option>
+                    <option :value="12">12</option>
+                    <option :value="24">24</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -766,19 +822,52 @@
               <h1 class="view-title">Ticket Tracker</h1>
               <p class="view-subtitle">Monitor and manage bug tickets across all projects</p>
             </div>
-            <button class="btn btn-ghost btn-sm" @click="fetchAllTickets(); fetchAllMaintenanceTickets()" title="Refresh">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              Refresh
+            <button class="btn btn-ghost btn-sm" :disabled="ttRefreshing" @click="ttRefresh" title="Refresh">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" :class="{ 'spin-icon': ttRefreshing }"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              {{ ttRefreshing ? 'Refreshing…' : 'Refresh' }}
             </button>
           </div>
 
           <!-- Global search bar -->
-          <div class="tt-global-search-wrap">
+          <div class="tt-global-search-wrap" style="position:relative;">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input v-model="ttGlobalSearch" class="tt-global-search" placeholder="Search by title, assignee, or ticket #…" />
+            <input
+              ref="ttSearchRef"
+              v-model="ttGlobalSearch"
+              class="tt-global-search"
+              placeholder="Search tickets by title, assignee, or ticket #…"
+              autocomplete="off"
+              @focus="ttSearchFocused = true"
+              @blur="setTimeout(() => { ttSearchFocused = false }, 150)"
+            />
+            <span v-if="!ttGlobalSearch" class="tt-search-kbd" title="Press / to focus">/</span>
             <button v-if="ttGlobalSearch" class="tt-search-clear" @click="ttGlobalSearch = ''" title="Clear">
               <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
+
+            <!-- Search results dropdown -->
+            <div v-if="ttSearchOpen" class="tt-search-dropdown">
+              <div
+                v-for="item in ttSearchResults"
+                :key="(item._type || 'bug') + '-' + item.id"
+                class="tt-search-result"
+                @mousedown.prevent="openTTSearchResult(item)"
+              >
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                  <span v-if="item._type === 'maintenance'" class="bug-seq" style="font-size:10px;background:#ecfdf5;color:#059669;flex-shrink:0;">{{ item.ticket_number }}</span>
+                  <span v-else class="bug-seq" style="font-size:10px;flex-shrink:0;">#{{ item.sequence }}</span>
+                  <span style="font-size:13px;font-weight:600;color:var(--gray-800);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    {{ item._type === 'maintenance' ? stripHtml(item.request) : item.title }}
+                  </span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;">
+                  <span v-if="item._type === 'maintenance'" style="font-size:10px;color:#059669;font-weight:600;">Maintenance</span>
+                  <span v-else-if="item.project" style="font-size:11px;color:var(--gray-400);">{{ item.project.name }}</span>
+                  <span v-if="item._type !== 'maintenance'" :class="['badge', statusBadgeClass(item.status)]" style="font-size:10px;padding:1px 6px;">{{ item.status }}</span>
+                </div>
+              </div>
+              <div v-if="ttSearchResults.length === 0" class="tt-search-empty">No tickets found</div>
+            </div>
           </div>
 
           <!-- Tab bar -->
@@ -800,35 +889,54 @@
           <div v-if="ticketTab === 'overview'" style="display:flex;flex-direction:column;gap:16px;">
             <!-- Stat cards -->
             <div class="tt-stat-grid">
-              <div class="tt-stat-card">
+              <div class="tt-stat-card tt-stat-card--link" style="border-left:3px solid #3b82f6;" @click="jumpToFiltered('all')" title="View all tickets">
                 <div class="tt-stat-icon" style="background:#eff6ff;color:#1d4ed8;">🎫</div>
-                <div class="tt-stat-label">Total Tickets</div>
-                <div class="tt-stat-value">{{ allTickets.length }}</div>
+                <div>
+                  <div class="tt-stat-label">Total Tickets</div>
+                  <div class="tt-stat-value">{{ allTickets.length }}</div>
+                </div>
               </div>
-              <div class="tt-stat-card">
+              <div class="tt-stat-card tt-stat-card--link" style="border-left:3px solid #22c55e;" @click="jumpToFiltered('resolved')" title="View resolved tickets">
                 <div class="tt-stat-icon" style="background:#f0fdf4;color:#16a34a;">✅</div>
-                <div class="tt-stat-label">Resolved</div>
-                <div class="tt-stat-value" style="color:#16a34a;">{{ resolvedTickets.length }}</div>
+                <div>
+                  <div class="tt-stat-label">Resolved</div>
+                  <div class="tt-stat-value" style="color:#16a34a;">{{ resolvedTickets.length }}</div>
+                </div>
               </div>
-              <div class="tt-stat-card">
+              <div class="tt-stat-card tt-stat-card--link" style="border-left:3px solid #eab308;" @click="jumpToFiltered('in-progress')" title="View in-progress tickets">
                 <div class="tt-stat-icon" style="background:#fefce8;color:#854d0e;">⚡</div>
-                <div class="tt-stat-label">In Progress</div>
-                <div class="tt-stat-value" style="color:#854d0e;">{{ inProgressTickets.length }}</div>
+                <div>
+                  <div class="tt-stat-label">In Progress</div>
+                  <div class="tt-stat-value" style="color:#854d0e;">{{ inProgressTickets.length }}</div>
+                </div>
               </div>
-              <div class="tt-stat-card">
+              <div class="tt-stat-card tt-stat-card--link" style="border-left:3px solid #ef4444;" @click="jumpToFiltered('pending')" title="View pending tickets">
                 <div class="tt-stat-icon" style="background:#fef2f2;color:#dc2626;">⏳</div>
-                <div class="tt-stat-label">Needs Action</div>
-                <div class="tt-stat-value" style="color:#dc2626;">{{ pendingTickets.length }}</div>
+                <div>
+                  <div class="tt-stat-label">Needs Action</div>
+                  <div class="tt-stat-value" style="color:#dc2626;">{{ pendingTickets.length }}</div>
+                </div>
               </div>
-              <div class="tt-stat-card">
+              <div class="tt-stat-card tt-stat-card--link" style="border-left:3px solid #b91c1c;" @click="jumpToFiltered('overdue')" title="View overdue tickets">
                 <div class="tt-stat-icon" style="background:#fff1f2;color:#b91c1c;">🔴</div>
-                <div class="tt-stat-label">Overdue</div>
-                <div class="tt-stat-value" style="color:#b91c1c;">{{ overdueTickets.length }}</div>
+                <div>
+                  <div class="tt-stat-label">Overdue</div>
+                  <div class="tt-stat-value" style="color:#b91c1c;">{{ overdueTickets.length }}</div>
+                </div>
               </div>
-              <div class="tt-stat-card">
+              <div class="tt-stat-card" style="border-left:3px solid #7c3aed;">
                 <div class="tt-stat-icon" style="background:#f5f3ff;color:#6d28d9;">🕐</div>
-                <div class="tt-stat-label">Avg Age</div>
-                <div class="tt-stat-value" style="color:#6d28d9;font-size:22px;">{{ avgAge }}</div>
+                <div>
+                  <div class="tt-stat-label">QA Avg Age</div>
+                  <div class="tt-stat-value" style="color:#6d28d9;">{{ avgAge }}</div>
+                </div>
+              </div>
+              <div class="tt-stat-card" style="border-left:3px solid #059669;">
+                <div class="tt-stat-icon" style="background:#ecfdf5;color:#065f46;">🔧</div>
+                <div>
+                  <div class="tt-stat-label">Maint. Avg Age</div>
+                  <div class="tt-stat-value" style="color:#065f46;">{{ avgMaintenanceAge }}</div>
+                </div>
               </div>
             </div>
 
@@ -939,7 +1047,7 @@
                         </td>
                         <td><span style="font-weight:600;font-size:13px;color:var(--gray-800);">{{ t.client }}</span></td>
                         <td>
-                          <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" :title="t.request">{{ t.request }}</div>
+                          <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" :title="stripHtml(t.request)">{{ stripHtml(t.request) }}</div>
                         </td>
                         <td><span style="display:inline-flex;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">{{ t.sent_thru }}</span></td>
                         <td>
@@ -1044,7 +1152,13 @@
             <div class="card">
               <div class="card-header">
                 <h3 class="card-title">All Tickets</h3>
-                <span class="result-chip">{{ filteredAllTickets.length }} result{{ filteredAllTickets.length !== 1 ? 's' : '' }}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span class="result-chip">{{ filteredAllTickets.length }} result{{ filteredAllTickets.length !== 1 ? 's' : '' }}</span>
+                  <button class="btn btn-ghost btn-sm" @click="exportTicketsCSV" title="Export filtered tickets as CSV" style="display:flex;align-items:center;gap:5px;">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export CSV
+                  </button>
+                </div>
               </div>
               <div class="card-body">
                 <!-- Filter pills -->
@@ -1080,14 +1194,32 @@
                     <thead>
                       <tr>
                         <th style="width:50px;">#</th>
-                        <th>Title</th>
+                        <th class="tt-sort-th" @click="setTTSort('title')">
+                          Title
+                          <span class="tt-sort-icon" :class="{ 'tt-sort-icon--active': ttSortField === 'title' }">{{ ttSortField === 'title' ? (ttSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </th>
                         <th style="width:115px;">Project</th>
-                        <th style="width:90px;">Priority</th>
-                        <th style="width:115px;">QA Status</th>
+                        <th class="tt-sort-th" style="width:90px;" @click="setTTSort('priority')">
+                          Priority
+                          <span class="tt-sort-icon" :class="{ 'tt-sort-icon--active': ttSortField === 'priority' }">{{ ttSortField === 'priority' ? (ttSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </th>
+                        <th class="tt-sort-th" style="width:115px;" @click="setTTSort('status')">
+                          QA Status
+                          <span class="tt-sort-icon" :class="{ 'tt-sort-icon--active': ttSortField === 'status' }">{{ ttSortField === 'status' ? (ttSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </th>
                         <th style="width:140px;">Assigned Dev</th>
-                        <th style="width:115px;">Dev Status</th>
-                        <th style="width:65px;">Age</th>
-                        <th style="width:105px;">SLA</th>
+                        <th class="tt-sort-th" style="width:115px;" @click="setTTSort('dev_status')">
+                          Dev Status
+                          <span class="tt-sort-icon" :class="{ 'tt-sort-icon--active': ttSortField === 'dev_status' }">{{ ttSortField === 'dev_status' ? (ttSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </th>
+                        <th class="tt-sort-th" style="width:65px;" @click="setTTSort('age')">
+                          Age
+                          <span class="tt-sort-icon" :class="{ 'tt-sort-icon--active': ttSortField === 'age' }">{{ ttSortField === 'age' ? (ttSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </th>
+                        <th class="tt-sort-th" style="width:105px;" @click="setTTSort('sla')">
+                          SLA
+                          <span class="tt-sort-icon" :class="{ 'tt-sort-icon--active': ttSortField === 'sla' }">{{ ttSortField === 'sla' ? (ttSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1459,11 +1591,11 @@
                       </td>
                       <td><span style="font-weight:600;font-size:13px;color:var(--gray-800);">{{ t.client }}</span></td>
                       <td>
-                        <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" :title="t.request">{{ t.request }}</div>
+                        <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" :title="stripHtml(t.request)">{{ stripHtml(t.request) }}</div>
                       </td>
                       <td><span style="display:inline-flex;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">{{ t.sent_thru }}</span></td>
                       <td>
-                        <span style="font-size:12px;" :style="{ color: mtIsOverdue(t) ? '#ef4444' : 'var(--gray-600)', fontWeight: mtIsOverdue(t) ? '600' : '400' }">
+                        <span style="font-size:12px;white-space:nowrap;" :style="{ color: mtIsOverdue(t) ? '#ef4444' : 'var(--gray-600)', fontWeight: mtIsOverdue(t) ? '600' : '400' }">
                           {{ t.target_date ? t.target_date.slice(0, 10) : '—' }}
                         </span>
                       </td>
@@ -2122,7 +2254,7 @@
                 </div>
 
                 <div class="table-wrap">
-                  <table v-if="filteredBugs.length > 0">
+                  <table v-if="filteredBugs.length > 0" style="min-width:1700px;">
                     <thead>
                       <tr>
                         <th style="width:64px;">#</th>
@@ -2131,8 +2263,8 @@
                         <th style="width:160px;">Scenario</th>
                         <th style="width:180px;">Status</th>
                         <th style="width:220px;">Comment</th>
-                        <th style="width:150px;">Assign Dev</th>
-                        <th style="width:160px;">Dev Status</th>
+                        <th style="width:160px;">Assign Dev</th>
+                        <th style="width:170px;">Dev Status</th>
                         <th style="width:120px;">Due Date</th>
                         <th style="width:130px;">Resolved By</th>
                         <th style="width:130px;text-align:center;">QA Notify</th>
@@ -3324,7 +3456,9 @@ const openNotif = async (n) => {
     n.read_at = new Date().toISOString()
   }
   notifDropdownOpen.value = false
-  if (n.data?.bug_id) {
+  if (n.data?.ticket_id) {
+    navigateTo(`/maintenance-ticket/${n.data.ticket_id}`)
+  } else if (n.data?.bug_id) {
     // Try the already-loaded bugs first
     let bug = bugs.value.find(b => b.id === n.data.bug_id)
     if (!bug) {
@@ -3521,6 +3655,11 @@ const projects               = ref([])
 const selectedProject        = ref(null)
 const projectSearch          = ref('')
 const projectFilter          = ref('')
+const activeProjectPage      = ref(1)
+const inactiveProjectPage    = ref(1)
+const activePerPage          = ref(12)
+const inactivePerPage        = ref(12)
+const sidebarProjectsExpanded = ref(false)
 const showProjectModal       = ref(false)
 const showDeleteProjectModal = ref(false)
 const editingProject         = ref(null)
@@ -3685,6 +3824,9 @@ const destroyCharts = () => {
   chartInstances = []
 }
 
+watch([projectSearch, projectFilter, projectStatusTab, activePerPage], () => { activeProjectPage.value = 1 })
+watch([projectSearch, inactivePerPage], () => { inactiveProjectPage.value = 1 })
+
 watch(detailView, async (newView) => {
   destroyCharts()
   if (!newView) return
@@ -3826,6 +3968,28 @@ const filteredInactiveProjects = computed(() => {
     !q || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
   )
 })
+
+const paginatedActiveProjects = computed(() => {
+  const all = filteredActiveProjects.value
+  if (all.length <= 12) return all
+  const start = (activeProjectPage.value - 1) * activePerPage.value
+  return all.slice(start, start + activePerPage.value)
+})
+const activeTotalPages = computed(() => Math.ceil(filteredActiveProjects.value.length / activePerPage.value))
+
+const paginatedInactiveProjects = computed(() => {
+  const all = filteredInactiveProjects.value
+  if (all.length <= 12) return all
+  const start = (inactiveProjectPage.value - 1) * inactivePerPage.value
+  return all.slice(start, start + inactivePerPage.value)
+})
+const inactiveTotalPages = computed(() => Math.ceil(filteredInactiveProjects.value.length / inactivePerPage.value))
+
+const sidebarVisibleProjects = computed(() => {
+  const sorted = [...activeProjects.value].sort((a, b) => (b.bugs_count || 0) - (a.bugs_count || 0))
+  return sidebarProjectsExpanded.value ? sorted : sorted.slice(0, 5)
+})
+const sidebarHiddenCount = computed(() => Math.max(0, activeProjects.value.length - 5))
 
 const imagePreviewList = computed(() => [
   ...existingImages.value.map(url => ({ url: apiBase + url, existing: true, src: url })),
@@ -4184,7 +4348,7 @@ const fetchAllTickets = async () => {
     const bugsWithProject = (data.bugs || []).map(b => ({
       ...b,
       project: projects.value.find(p => p.id === b.project_id) || null,
-    }))
+    })).filter(b => b.project?.is_active !== false)
     allTickets.value = bugsWithProject
   } catch (e) { console.error('Failed to fetch all tickets', e) }
 }
@@ -4199,7 +4363,7 @@ const fetchAllMaintenanceTickets = async () => {
   try {
     const projects = await apiFetch(`${config.public.apiBase}/maintenance/projects`)
     const all = []
-    await Promise.all((projects || []).map(async (proj) => {
+    await Promise.all((projects || []).filter(proj => proj.is_active !== false).map(async (proj) => {
       try {
         const tickets = await apiFetch(`${config.public.apiBase}/maintenance/projects/${proj.id}/tickets`)
         ;(tickets || []).forEach(t => all.push({ ...t, _project: proj }))
@@ -4402,11 +4566,97 @@ const ttMarkResolved = async () => {
   finally { ttPosting.value = false }
 }
 
-// ── Ticket Tracker — Search / Filter / SLA ───────────────────────────────────
+// ── Ticket Tracker — Search / Filter / Sort / SLA ────────────────────────────
 const ttGlobalSearch   = ref('')
 const ttFilterPill     = ref('all')
 const ttPriorityFilter = ref('')
 const ttAssigneeFilter = ref('')
+const ttSortField      = ref('')
+const ttSortDir        = ref('asc')
+const ttSearchFocused  = ref(false)
+const ttRefreshing     = ref(false)
+
+const ttSearchResults = computed(() => {
+  const q = ttGlobalSearch.value.trim().toLowerCase()
+  if (!q) return []
+  const bugs = allTickets.value.filter(t => {
+    return t.title?.toLowerCase().includes(q) ||
+           String(t.sequence).includes(q) ||
+           t.assigned_developer?.name?.toLowerCase().includes(q) ||
+           (t.assigned_developers || []).some(d => d.name?.toLowerCase().includes(q))
+  }).slice(0, 5).map(t => ({ ...t, _type: 'bug' }))
+
+  const maint = allMaintenanceTickets.value.filter(t => {
+    return stripHtml(t.request)?.toLowerCase().includes(q) ||
+           t.ticket_number?.toLowerCase().includes(q) ||
+           t.client?.toLowerCase().includes(q) ||
+           (t.assigned_devs || []).some(e => e.toLowerCase().includes(q))
+  }).slice(0, 3).map(t => ({ ...t, _type: 'maintenance' }))
+
+  return [...bugs, ...maint]
+})
+
+const ttSearchOpen = computed(() => ttSearchFocused.value && ttGlobalSearch.value.trim().length > 0 && ttSearchResults.value.length > 0)
+
+const openTTSearchResult = (item) => {
+  ttGlobalSearch.value = ''
+  ttSearchFocused.value = false
+  if (item._type === 'maintenance') {
+    navigateTo(`/maintenance-ticket/${item.id}?from=dashboard`)
+  } else {
+    openTTDetail(item)
+  }
+}
+
+const ttRefresh = async () => {
+  ttRefreshing.value = true
+  try {
+    await Promise.all([fetchAllTickets(), fetchAllMaintenanceTickets()])
+  } finally {
+    ttRefreshing.value = false
+  }
+}
+
+const ttSearchRef = ref(null)
+
+const setTTSort = (field) => {
+  if (ttSortField.value === field) {
+    ttSortDir.value = ttSortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    ttSortField.value = field
+    ttSortDir.value = 'asc'
+  }
+}
+
+const jumpToFiltered = (pill) => {
+  ticketTab.value = 'all'
+  ttFilterPill.value = pill
+}
+
+const exportTicketsCSV = () => {
+  const rows = filteredAllTickets.value
+  if (!rows.length) return
+  const headers = ['#', 'Title', 'Project', 'Priority', 'QA Status', 'Dev Status', 'Assigned Dev', 'Age (days)', 'SLA %']
+  const lines = rows.map(t => [
+    t.sequence,
+    `"${(t.title || '').replace(/"/g, '""')}"`,
+    `"${t.project?.name || ''}"`,
+    t.priority || '',
+    t.status || '',
+    t.dev_status || 'Not Started',
+    `"${t.assigned_developer?.name || ''}"`,
+    ticketAgeDays(t),
+    slaProgress(t),
+  ].join(','))
+  const csv = [headers.join(','), ...lines].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `tickets-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const SLA_DAYS = { Critical: 1, High: 3, Medium: 7, Low: 14 }
 
@@ -4435,19 +4685,30 @@ const avgAge = computed(() => {
   return avg < 1 ? '< 1d' : `${Math.round(avg)}d`
 })
 
+const avgMaintenanceAge = computed(() => {
+  const open = allMaintenanceTickets.value.filter(t => t.status !== 'Completed')
+  if (!open.length) return '—'
+  const avg = open.reduce((s, t) => s + mtAgeDays(t), 0) / open.length
+  return avg < 1 ? '< 1d' : `${Math.round(avg)}d`
+})
+
 const filteredAllTickets = computed(() => {
-  return allTickets.value.filter(t => {
+  const PRIORITY_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+  const STATUS_ORDER   = { Pending: 0, Ongoing: 1, 'Out of Scope': 2, Completed: 3 }
+  const DEV_ORDER      = { 'Not Started': 0, 'In Progress': 1, 'Ready for QA': 2, Blocked: 3 }
+
+  const filtered = allTickets.value.filter(t => {
     if (ttGlobalSearch.value) {
       const q = ttGlobalSearch.value.toLowerCase()
       const devName  = t.assigned_developer?.name?.toLowerCase() || ''
       const devNames = (t.assigned_developers || []).map(d => d.name?.toLowerCase()).join(' ')
       if (!t.title.toLowerCase().includes(q) && !String(t.sequence).includes(q) && !devName.includes(q) && !devNames.includes(q)) return false
     }
-    if (ttFilterPill.value === 'pending')      { if (t.status !== 'Pending')    return false }
-    else if (ttFilterPill.value === 'in-progress') { if (t.status !== 'Ongoing') return false }
-    else if (ttFilterPill.value === 'resolved')    { if (t.status !== 'Completed') return false }
-    else if (ttFilterPill.value === 'overdue')     { if (!isOverdue(t)) return false }
-    else if (ttFilterPill.value === 'sent')        { if (!t.ticket_sent_at) return false }
+    if (ttFilterPill.value === 'pending')          { if (t.status !== 'Pending')    return false }
+    else if (ttFilterPill.value === 'in-progress') { if (t.status !== 'Ongoing')    return false }
+    else if (ttFilterPill.value === 'resolved')    { if (t.status !== 'Completed')  return false }
+    else if (ttFilterPill.value === 'overdue')     { if (!isOverdue(t))             return false }
+    else if (ttFilterPill.value === 'sent')        { if (!t.ticket_sent_at)         return false }
     if (ttFilters.project_id && t.project_id !== ttFilters.project_id) return false
     if (ttPriorityFilter.value && t.priority !== ttPriorityFilter.value) return false
     if (ttAssigneeFilter.value) {
@@ -4457,6 +4718,18 @@ const filteredAllTickets = computed(() => {
       if (!devName.includes(q) && !devNames.includes(q)) return false
     }
     return true
+  })
+
+  if (!ttSortField.value) return filtered
+  const dir = ttSortDir.value === 'asc' ? 1 : -1
+  return [...filtered].sort((a, b) => {
+    if (ttSortField.value === 'priority') return dir * ((PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9))
+    if (ttSortField.value === 'status')   return dir * ((STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9))
+    if (ttSortField.value === 'dev_status') return dir * ((DEV_ORDER[a.dev_status || 'Not Started'] ?? 9) - (DEV_ORDER[b.dev_status || 'Not Started'] ?? 9))
+    if (ttSortField.value === 'age')      return dir * (ticketAgeDays(a) - ticketAgeDays(b))
+    if (ttSortField.value === 'sla')      return dir * (slaProgress(a) - slaProgress(b))
+    if (ttSortField.value === 'title')    return dir * a.title.localeCompare(b.title)
+    return 0
   })
 })
 
@@ -4675,6 +4948,16 @@ onMounted(() => {
     assignSearch.value = ''
   })
 })
+
+// '/' key focuses the Ticket Tracker global search
+const _ttSearchKeyHandler = (e) => {
+  if (e.key !== '/' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
+  if (!ticketTrackerOpen.value) return
+  e.preventDefault()
+  ttSearchRef.value?.focus()
+}
+onMounted(() => document.addEventListener('keydown', _ttSearchKeyHandler))
+onUnmounted(() => document.removeEventListener('keydown', _ttSearchKeyHandler))
 
 // ── Dev Folders View ──────────────────────────────────────────────────────────
 const devFoldersViewOpen = ref(false)
