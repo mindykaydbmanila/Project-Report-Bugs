@@ -2067,14 +2067,35 @@
                       </div>
                     </div>
 
-                    <!-- Bug list -->
+                    <!-- Bug list grouped by project with pagination -->
                     <div v-if="devFolderDetailBugs.length" class="df-detail-bugs">
                       <div class="df-detail-bugs-title">Assigned Tickets</div>
-                      <div v-for="bug in devFolderDetailBugs" :key="bug.id" class="df-detail-bug-row">
-                        <span class="df-detail-bug-seq">#{{ bug.sequence }}</span>
-                        <span class="df-detail-bug-title">{{ bug.title }}</span>
-                        <span :class="['badge', priorityBadgeClass(bug.priority)]">{{ bug.priority }}</span>
-                        <span :class="['badge', statusBadgeClass(bug.status)]">{{ bug.status }}</span>
+                      <div v-for="project in folderDetailBugsByProject" :key="project.id" class="df-detail-project-group">
+                        <template v-for="pd in [getModalProjectData(project)]" :key="project.id + '_pd'">
+                        <div class="df-detail-project-sep">
+                          <span class="df-detail-project-sep-icon">📁</span>
+                          <span class="df-detail-project-sep-name">{{ project.name }}</span>
+                          <span class="df-detail-project-sep-count">{{ project.allBugs.length }} ticket{{ project.allBugs.length !== 1 ? 's' : '' }}</span>
+                        </div>
+                        <div v-for="bug in pd.bugs" :key="bug.id" class="df-detail-bug-row">
+                          <span class="df-detail-bug-seq">#{{ bug.sequence }}</span>
+                          <span class="df-detail-bug-title">{{ bug.title }}</span>
+                          <span :class="['badge', priorityBadgeClass(bug.priority)]">{{ bug.priority }}</span>
+                          <span :class="['badge', statusBadgeClass(bug.status)]">{{ bug.status }}</span>
+                        </div>
+                        <!-- Per-project pagination -->
+                        <div v-if="pd.totalPages > 1" class="df-detail-pagination">
+                          <span class="df-detail-pagination-info">{{ pd.showingFrom }}–{{ pd.showingTo }} / {{ project.allBugs.length }}</span>
+                          <div class="df-detail-pagination-controls">
+                            <button class="df-detail-page-btn" :disabled="pd.currentPage === 1" @click="setModalProjectPage(project.id, pd.currentPage - 1)">‹</button>
+                            <template v-for="(p, i) in getModalPageNums(pd.currentPage, pd.totalPages)" :key="i">
+                              <span v-if="p === '...'" class="df-detail-page-ellipsis">…</span>
+                              <button v-else :class="['df-detail-page-btn', pd.currentPage === p && 'df-detail-page-btn--active']" @click="setModalProjectPage(project.id, p)">{{ p }}</button>
+                            </template>
+                            <button class="df-detail-page-btn" :disabled="pd.currentPage === pd.totalPages" @click="setModalProjectPage(project.id, pd.currentPage + 1)">›</button>
+                          </div>
+                        </div>
+                        </template>
                       </div>
                     </div>
                     <div v-else style="text-align:center;padding:28px 0;color:var(--gray-400);font-size:13px;">
@@ -2482,9 +2503,19 @@
                         <!-- QA Notify -->
                         <td style="text-align:center;">
                           <template v-if="bug.dev_status === 'Ready for QA'">
-                            <span class="qa-notify-badge qa-notify-badge--ready">
-                              🔔 QA: Verify
-                            </span>
+                            <div style="display:flex;align-items:center;gap:4px;justify-content:center;">
+                              <span class="qa-notify-badge qa-notify-badge--ready">
+                                🔔 QA: Verify
+                              </span>
+                              <button
+                                v-if="canEditProject(selectedProject)"
+                                class="resend-ticket-btn"
+                                title="Resend ticket to developer"
+                                @click="openResendTicketModal(bug)"
+                              >
+                                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+                              </button>
+                            </div>
                           </template>
                           <template v-else-if="bug.dev_status === 'Blocked'">
                             <span class="qa-notify-badge qa-notify-badge--blocked">
@@ -5160,6 +5191,46 @@ const folderDetailStats = computed(() => {
   }
 })
 
+const folderDetailBugsByProject = computed(() => {
+  const byProject = {}
+  for (const bug of devFolderDetailBugs.value) {
+    const key  = bug.project_id ?? 0
+    const name = bug.project?.name ?? 'No Project'
+    if (!byProject[key]) byProject[key] = { id: key, name, allBugs: [] }
+    byProject[key].allBugs.push(bug)
+  }
+  return Object.values(byProject)
+})
+
+const MODAL_PAGE_SIZE   = 6
+const modalProjectPages = reactive({})
+
+function setModalProjectPage(projectId, page) {
+  modalProjectPages[projectId] = page
+}
+
+function getModalProjectData(project) {
+  const page  = modalProjectPages[project.id] || 1
+  const start = (page - 1) * MODAL_PAGE_SIZE
+  return {
+    bugs:        project.allBugs.slice(start, start + MODAL_PAGE_SIZE),
+    currentPage: page,
+    totalPages:  Math.max(1, Math.ceil(project.allBugs.length / MODAL_PAGE_SIZE)),
+    showingFrom: project.allBugs.length === 0 ? 0 : start + 1,
+    showingTo:   Math.min(page * MODAL_PAGE_SIZE, project.allBugs.length),
+  }
+}
+
+function getModalPageNums(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = [1]
+  if (current > 3) pages.push('...')
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
+  if (current < total - 2) pages.push('...')
+  if (total > 1) pages.push(total)
+  return pages
+}
+
 const dfsSummaryProgress = computed(() => {
   if (!devFoldersSummary.value) return null
   const o = devFoldersSummary.value.overall
@@ -5181,6 +5252,7 @@ async function openFolderDetail(folder) {
   devFolderDetail.value        = folder
   devFolderDetailBugs.value    = []
   devFolderDetailLoading.value = true
+  for (const k in modalProjectPages) delete modalProjectPages[k]
   try {
     const res = await $fetch(`${config.public.apiBase}/dev-folders/${folder.token}/bugs?email=${encodeURIComponent(folder.developer_email)}`)
     devFolderDetailBugs.value = res.bugs || []

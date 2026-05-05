@@ -106,6 +106,27 @@
         <button v-if="searchQuery" class="folder-search-clear" @click="searchQuery = ''">✕</button>
       </div>
 
+      <!-- Filter bar -->
+      <div v-if="bugs.length" class="folder-filter-bar">
+        <select v-model="activePriorityFilter" class="folder-filter-select">
+          <option value="">Priority</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <select v-model="activeDevStatusFilter" class="folder-filter-select">
+          <option value="">Status</option>
+          <option value="Not Started">Not Started</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Ready for QA">Ready for QA</option>
+          <option value="Blocked">Blocked</option>
+        </select>
+        <button v-if="activePriorityFilter || activeDevStatusFilter" class="folder-filter-clear-btn" @click="activePriorityFilter = ''; activeDevStatusFilter = ''">
+          ✕ Clear filters
+        </button>
+      </div>
+
       <!-- Empty state -->
       <div v-if="!bugs.length" class="folder-empty">
         <div style="font-size:40px;margin-bottom:12px;">📭</div>
@@ -113,7 +134,7 @@
       </div>
 
       <!-- No results from search -->
-      <div v-else-if="searchQuery && !groupedBugs.length" class="folder-empty">
+      <div v-else-if="searchQuery && !filteredFlatBugs.length" class="folder-empty">
         <div style="font-size:36px;margin-bottom:12px;">🔎</div>
         <p>No tickets match "<strong>{{ searchQuery }}</strong>"</p>
       </div>
@@ -122,6 +143,7 @@
       <div v-else class="folder-groups">
 
         <div v-for="project in groupedBugs" :key="project.id" class="folder-project-section">
+          <template v-for="pd in [getProjectData(project)]" :key="project.id + '_pd'">
 
           <!-- Project header -->
           <div class="folder-project-header">
@@ -130,7 +152,7 @@
             <span class="folder-project-total">{{ project.total }} ticket{{ project.total !== 1 ? 's' : '' }}</span>
           </div>
 
-          <div v-for="group in project.groups" :key="group.status" class="folder-group">
+          <div v-for="group in pd.groups" :key="group.status" class="folder-group">
             <div class="folder-group-header">
               <span :class="['folder-group-badge', statusClass(group.status)]">{{ group.status }}</span>
               <span class="folder-group-count">{{ group.bugs.length }} ticket{{ group.bugs.length !== 1 ? 's' : '' }}</span>
@@ -164,16 +186,31 @@
                       {{ dueDaysLabel(bug).text }}
                     </span>
                   </span>
-                  <span v-if="bug.dev_status" class="folder-ticket-devstatus">{{ bug.dev_status }}</span>
+                  <span v-if="bug.dev_status" :class="['folder-ticket-devstatus', devStatusClass(bug.dev_status)]">{{ bug.dev_status }}</span>
                 </div>
               </a>
             </div>
           </div>
 
+          <!-- Per-project pagination -->
+          <div v-if="pd.totalPages > 1" class="folder-pagination">
+            <div class="folder-pagination-info">
+              Showing {{ pd.showingFrom }}–{{ pd.showingTo }} of {{ project.total }} ticket{{ project.total !== 1 ? 's' : '' }}
+            </div>
+            <div class="folder-pagination-controls">
+              <button class="folder-page-btn" :disabled="pd.currentPage === 1" @click="setProjectPage(project.id, pd.currentPage - 1)">‹</button>
+              <template v-for="(p, i) in getProjectPageNums(pd.currentPage, pd.totalPages)" :key="i">
+                <span v-if="p === '...'" class="folder-page-ellipsis">…</span>
+                <button v-else :class="['folder-page-btn', pd.currentPage === p && 'folder-page-btn--active']" @click="setProjectPage(project.id, p)">{{ p }}</button>
+              </template>
+              <button class="folder-page-btn" :disabled="pd.currentPage === pd.totalPages" @click="setProjectPage(project.id, pd.currentPage + 1)">›</button>
+            </div>
+          </div>
+
+          </template>
         </div>
 
       </div>
-
 
     </div>
 
@@ -288,7 +325,9 @@ async function copyLink() {
 }
 
 const STATUS_ORDER  = ['Ongoing', 'Pending', 'Out of Scope', 'Completed']
-const activeFilter  = ref(null)
+const activeFilter         = ref(null)
+const activePriorityFilter = ref('')
+const activeDevStatusFilter = ref('')
 const searchQuery   = ref('')
 const showDoneSection = ref(true)
 
@@ -296,35 +335,81 @@ function toggleFilter(status) {
   activeFilter.value = activeFilter.value === status ? null : status
 }
 
-const groupedBugs = computed(() => {
+const PAGE_SIZE    = 6
+const projectPages = reactive({})
+
+watch([searchQuery, activeFilter, activePriorityFilter, activeDevStatusFilter], () => {
+  for (const k in projectPages) delete projectPages[k]
+})
+
+const filteredFlatBugs = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  const byProject = {}
-  for (const bug of bugs.value) {
-    // When no filter: hide Completed (shown in Done section). When filter active: show only that status.
+  return bugs.value.filter(bug => {
     if (activeFilter.value) {
-      if (bug.status !== activeFilter.value) continue
+      if (bug.status !== activeFilter.value) return false
     } else {
-      if (bug.status === 'Completed') continue
+      if (bug.status === 'Completed') return false
     }
-    // Search filter
+    if (activePriorityFilter.value && bug.priority !== activePriorityFilter.value) return false
+    if (activeDevStatusFilter.value) {
+      const ds = bug.dev_status || 'Not Started'
+      if (ds !== activeDevStatusFilter.value) return false
+    }
     if (q) {
-      const matchesSeq   = String(bug.sequence).includes(q)
-      const matchesTitle = (bug.title || '').toLowerCase().includes(q)
-      const matchesPrio  = (bug.priority || '').toLowerCase().includes(q)
-      const matchesType  = (bug.scenario_type || '').toLowerCase().includes(q)
-      if (!matchesSeq && !matchesTitle && !matchesPrio && !matchesType) continue
+      return String(bug.sequence).includes(q)
+        || (bug.title || '').toLowerCase().includes(q)
+        || (bug.priority || '').toLowerCase().includes(q)
+        || (bug.scenario_type || '').toLowerCase().includes(q)
     }
+    return true
+  })
+})
+
+function setProjectPage(projectId, page) {
+  projectPages[projectId] = page
+}
+
+function getProjectData(project) {
+  const page  = projectPages[project.id] || 1
+  const start = (page - 1) * PAGE_SIZE
+  const slice = project.allBugs.slice(start, start + PAGE_SIZE)
+  const byStatus = {}
+  for (const bug of slice) {
+    if (!byStatus[bug.status]) byStatus[bug.status] = []
+    byStatus[bug.status].push(bug)
+  }
+  return {
+    groups:      STATUS_ORDER.filter(s => byStatus[s]?.length).map(s => ({ status: s, bugs: byStatus[s] })),
+    currentPage: page,
+    totalPages:  Math.max(1, Math.ceil(project.allBugs.length / PAGE_SIZE)),
+    showingFrom: project.allBugs.length === 0 ? 0 : start + 1,
+    showingTo:   Math.min(page * PAGE_SIZE, project.allBugs.length),
+  }
+}
+
+function getProjectPageNums(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = [1]
+  if (current > 3) pages.push('...')
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
+  if (current < total - 2) pages.push('...')
+  if (total > 1) pages.push(total)
+  return pages
+}
+
+const groupedBugs = computed(() => {
+  const byProject = {}
+  for (const bug of filteredFlatBugs.value) {
     const key = bug.project_id ?? 0
     const name = bug.project?.name ?? 'No Project'
-    if (!byProject[key]) byProject[key] = { id: key, name, statusGroups: {} }
-    if (!byProject[key].statusGroups[bug.status]) byProject[key].statusGroups[bug.status] = []
-    byProject[key].statusGroups[bug.status].push(bug)
+    if (!byProject[key]) byProject[key] = { id: key, name, allBugs: [] }
+    byProject[key].allBugs.push(bug)
   }
   return Object.values(byProject).map(p => ({
-    id: p.id,
-    name: p.name,
-    total: Object.values(p.statusGroups).reduce((n, arr) => n + arr.length, 0),
-    groups: STATUS_ORDER.filter(s => p.statusGroups[s]?.length).map(s => ({ status: s, bugs: p.statusGroups[s] })),
+    id:     p.id,
+    name:   p.name,
+    total:  p.allBugs.length,
+    allBugs: p.allBugs,
   }))
 })
 
@@ -381,6 +466,15 @@ function dueDaysLabel(bug) {
 
 function statusClass(s) {
   return { Pending: 'status-pending', Ongoing: 'status-ongoing', Completed: 'status-completed', 'Out of Scope': 'status-oos' }[s] || ''
+}
+
+function devStatusClass(s) {
+  return {
+    'Not Started':  'devstatus-not-started',
+    'In Progress':  'devstatus-in-progress',
+    'Ready for QA': 'devstatus-ready-qa',
+    'Blocked':      'devstatus-blocked',
+  }[s] || 'devstatus-not-started'
 }
 
 function priorityClass(p) {
@@ -603,6 +697,45 @@ onMounted(() => {
 }
 .folder-search-clear:hover { color: #64748b; background: #f1f5f9; }
 
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+.folder-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.folder-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 28px 6px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  font-family: inherit;
+}
+.folder-filter-select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+.folder-filter-select:hover { border-color: #6366f1; }
+.folder-filter-clear-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #fca5a5;
+  background: #fff;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+.folder-filter-clear-btn:hover { background: #fef2f2; }
+
 /* ── Empty ──────────────────────────────────────────────────────────────── */
 .folder-empty { text-align: center; padding: 60px 24px; color: #94a3b8; }
 
@@ -653,7 +786,11 @@ onMounted(() => {
 .folder-ticket-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .folder-ticket-due { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
 .folder-due-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
-.folder-ticket-devstatus { font-size: 11px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+.folder-ticket-devstatus { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+.devstatus-not-started  { background: #f1f5f9; color: #475569; }
+.devstatus-in-progress  { background: #dbeafe; color: #1e40af; }
+.devstatus-ready-qa     { background: #dcfce7; color: #166534; }
+.devstatus-blocked      { background: #fee2e2; color: #991b1b; }
 
 /* ── Done section ───────────────────────────────────────────────────────── */
 .folder-done-section { margin-top: 8px; }
@@ -697,4 +834,61 @@ onMounted(() => {
 
 .folder-done-tick { font-size: 11px; color: #16a34a; font-weight: 800; }
 .folder-ticket-title--done { color: #64748b; text-decoration: line-through; text-decoration-color: #94a3b8; }
+
+/* ── Pagination ─────────────────────────────────────────────────────────── */
+.folder-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px 0 8px;
+  border-top: 1.5px solid #f1f5f9;
+}
+.folder-pagination-info {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.folder-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.folder-page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+.folder-page-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #6366f1;
+  color: #6366f1;
+}
+.folder-page-btn:disabled { opacity: 0.4; cursor: default; }
+.folder-page-btn--active {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+.folder-page-btn--active:hover:not(:disabled) { background: #4f46e5; }
+.folder-page-ellipsis {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 0 4px;
+  line-height: 34px;
+}
 </style>
