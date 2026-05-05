@@ -871,7 +871,7 @@
                     {{ tickets.length ? 'No tickets match your filters.' : 'No tickets yet. Create one to get started.' }}
                   </td>
                 </tr>
-                <tr v-for="t in filteredTickets" :key="t.id"
+                <tr v-for="t in paginatedTickets" :key="t.id"
                     class="clickable-row"
                     :class="{ 'tt-overdue-row': isOverdue(t), 'maint-row-completed': t.status === 'Completed' }"
                     @click="navigateTo(ticketUrl(t.id))">
@@ -994,6 +994,30 @@
                 </tr>
               </tbody>
             </table>
+            <div v-if="filteredTickets.length > 0 && maintTicketTotalPages > 1" class="proj-pagination" style="padding:14px 20px;">
+              <div class="proj-pagination-info">
+                Showing {{ (maintTicketPage - 1) * maintTicketPerPage + 1 }}–{{ Math.min(maintTicketPage * maintTicketPerPage, filteredTickets.length) }} of {{ filteredTickets.length }}
+              </div>
+              <div class="proj-pagination-controls">
+                <button class="proj-page-btn" :disabled="maintTicketPage === 1" @click="maintTicketPage--">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <template v-for="pg in maintTicketTotalPages" :key="pg">
+                  <button class="proj-page-btn" :class="{ 'proj-page-btn--active': maintTicketPage === pg }" @click="maintTicketPage = pg">{{ pg }}</button>
+                </template>
+                <button class="proj-page-btn" :disabled="maintTicketPage === maintTicketTotalPages" @click="maintTicketPage++">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+              <div class="proj-perpage-wrap">
+                <span style="font-size:12px;color:var(--gray-400);">Per page</span>
+                <select class="proj-perpage-select" v-model.number="maintTicketPerPage">
+                  <option :value="10">10</option>
+                  <option :value="20">20</option>
+                  <option :value="50">50</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1904,6 +1928,15 @@ const filteredTickets = computed(() => tickets.value.filter(t => {
   if (ticketStatusFilter.value && t.status !== ticketStatusFilter.value) return false
   return true
 }))
+
+const maintTicketPage    = ref(1)
+const maintTicketPerPage = ref(10)
+const maintTicketTotalPages = computed(() => Math.max(1, Math.ceil(filteredTickets.value.length / maintTicketPerPage.value)))
+const paginatedTickets   = computed(() => {
+  const start = (maintTicketPage.value - 1) * maintTicketPerPage.value
+  return filteredTickets.value.slice(start, start + maintTicketPerPage.value)
+})
+watch(filteredTickets, () => { maintTicketPage.value = 1 })
 
 const overdueCount = computed(() => tickets.value.filter(t => isOverdue(t)).length)
 

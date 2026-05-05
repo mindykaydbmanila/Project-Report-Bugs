@@ -962,7 +962,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="t in pipelineTickets" :key="t.id" class="clickable-row" :class="{ 'tt-overdue-row': isOverdue(t) }" @click="openTTDetail(t)">
+                      <tr v-for="t in paginatedPipelineTickets" :key="t.id" class="clickable-row" :class="{ 'tt-overdue-row': isOverdue(t) }" @click="openTTDetail(t)">
                         <td>
                           <div style="display:flex;align-items:center;gap:5px;">
                             <span v-if="isOverdue(t)" class="tt-overdue-dot" title="Overdue"></span>
@@ -998,7 +998,31 @@
                       </tr>
                     </tbody>
                   </table>
-                  <div v-else class="empty-state" style="padding:40px;">
+                  <div v-if="pipelineTickets.length > 0 && ticketPipelineTotalPages > 1" class="proj-pagination" style="padding:14px 20px 14px;">
+                    <div class="proj-pagination-info">
+                      Showing {{ (ticketPipelinePage - 1) * ticketPipelinePerPage + 1 }}–{{ Math.min(ticketPipelinePage * ticketPipelinePerPage, pipelineTickets.length) }} of {{ pipelineTickets.length }}
+                    </div>
+                    <div class="proj-pagination-controls">
+                      <button class="proj-page-btn" :disabled="ticketPipelinePage === 1" @click="ticketPipelinePage--">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <template v-for="pg in ticketPipelineTotalPages" :key="pg">
+                        <button class="proj-page-btn" :class="{ 'proj-page-btn--active': ticketPipelinePage === pg }" @click="ticketPipelinePage = pg">{{ pg }}</button>
+                      </template>
+                      <button class="proj-page-btn" :disabled="ticketPipelinePage === ticketPipelineTotalPages" @click="ticketPipelinePage++">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                    <div class="proj-perpage-wrap">
+                      <span style="font-size:12px;color:var(--gray-400);">Per page</span>
+                      <select class="proj-perpage-select" v-model.number="ticketPipelinePerPage">
+                        <option :value="10">10</option>
+                        <option :value="20">20</option>
+                        <option :value="50">50</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div v-else-if="!pipelineTickets.length" class="empty-state" style="padding:40px;">
                     <div class="empty-state-icon">🎫</div>
                     <div class="empty-state-title">No tickets yet</div>
                     <div class="empty-state-text">Assign developers to bugs to start tracking tickets</div>
@@ -1013,10 +1037,10 @@
                     <span style="font-size:16px;">🔧</span>
                     <h3 class="card-title">Maintenance Pipeline</h3>
                   </div>
-                  <span class="result-chip" style="background:#ecfdf5;color:#065f46;">{{ allMaintenanceTickets.filter(t => t.status !== 'Completed').length }} ticket{{ allMaintenanceTickets.filter(t => t.status !== 'Completed').length !== 1 ? 's' : '' }}</span>
+                  <span class="result-chip" style="background:#ecfdf5;color:#065f46;">{{ activeMaintTickets.length }} ticket{{ activeMaintTickets.length !== 1 ? 's' : '' }}</span>
                 </div>
                 <div class="card-body" style="padding:0;">
-                  <table v-if="allMaintenanceTickets.filter(t => t.status !== 'Completed').length">
+                  <table v-if="activeMaintTickets.length">
                     <thead>
                       <tr>
                         <th style="width:80px;">Ticket #</th>
@@ -1032,7 +1056,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="t in allMaintenanceTickets.filter(t => t.status !== 'Completed')" :key="'mto-' + t.id"
+                      <tr v-for="t in paginatedMaintTickets" :key="'mto-' + t.id"
                           class="clickable-row"
                           :class="{ 'tt-overdue-row': mtIsOverdue(t) }"
                           @click="navigateTo(`/maintenance-ticket/${t.id}?from=dashboard`)">
@@ -1070,7 +1094,31 @@
                       </tr>
                     </tbody>
                   </table>
-                  <div v-else class="empty-state" style="padding:32px;">
+                  <div v-if="activeMaintTickets.length > 0 && maintPipelineTotalPages > 1" class="proj-pagination" style="padding:14px 20px 14px;">
+                    <div class="proj-pagination-info">
+                      Showing {{ (maintPipelinePage - 1) * maintPipelinePerPage + 1 }}–{{ Math.min(maintPipelinePage * maintPipelinePerPage, activeMaintTickets.length) }} of {{ activeMaintTickets.length }}
+                    </div>
+                    <div class="proj-pagination-controls">
+                      <button class="proj-page-btn" :disabled="maintPipelinePage === 1" @click="maintPipelinePage--">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <template v-for="pg in maintPipelineTotalPages" :key="pg">
+                        <button class="proj-page-btn" :class="{ 'proj-page-btn--active': maintPipelinePage === pg }" @click="maintPipelinePage = pg">{{ pg }}</button>
+                      </template>
+                      <button class="proj-page-btn" :disabled="maintPipelinePage === maintPipelineTotalPages" @click="maintPipelinePage++">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                    <div class="proj-perpage-wrap">
+                      <span style="font-size:12px;color:var(--gray-400);">Per page</span>
+                      <select class="proj-perpage-select" v-model.number="maintPipelinePerPage">
+                        <option :value="10">10</option>
+                        <option :value="20">20</option>
+                        <option :value="50">50</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div v-else-if="!activeMaintTickets.length" class="empty-state" style="padding:32px;">
                     <div class="empty-state-icon">🔧</div>
                     <div class="empty-state-title">No maintenance tickets</div>
                     <div class="empty-state-text">Maintenance tickets will appear here once created</div>
@@ -2272,7 +2320,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="bug in filteredBugs" :key="bug.id" :class="{ 'bug-row-completed': bug.status === 'Completed' }">
+                      <tr v-for="bug in paginatedBugs" :key="bug.id" :class="{ 'bug-row-completed': bug.status === 'Completed' }">
                         <td><span class="bug-seq">#{{ bug.sequence }}</span></td>
                         <td>
                           <div class="bug-title-main bug-title-link" @click="viewBug(bug)">{{ bug.title }}</div>
@@ -2499,7 +2547,31 @@
                       </tr>
                     </tbody>
                   </table>
-                  <div v-else class="empty-state">
+                  <div v-if="filteredBugs.length > 0 && bugTotalPages > 1" class="proj-pagination">
+                    <div class="proj-pagination-info">
+                      Showing {{ (bugPage - 1) * bugPerPage + 1 }}–{{ Math.min(bugPage * bugPerPage, filteredBugs.length) }} of {{ filteredBugs.length }}
+                    </div>
+                    <div class="proj-pagination-controls">
+                      <button class="proj-page-btn" :disabled="bugPage === 1" @click="bugPage--">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <template v-for="pg in bugTotalPages" :key="pg">
+                        <button class="proj-page-btn" :class="{ 'proj-page-btn--active': bugPage === pg }" @click="bugPage = pg">{{ pg }}</button>
+                      </template>
+                      <button class="proj-page-btn" :disabled="bugPage === bugTotalPages" @click="bugPage++">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                    <div class="proj-perpage-wrap">
+                      <span style="font-size:12px;color:var(--gray-400);">Per page</span>
+                      <select class="proj-perpage-select" v-model.number="bugPerPage">
+                        <option :value="10">10</option>
+                        <option :value="20">20</option>
+                        <option :value="50">50</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div v-else-if="filteredBugs.length === 0" class="empty-state">
                     <div class="empty-state-icon">🔍</div>
                     <div class="empty-state-title">No bugs found</div>
                     <div class="empty-state-text">{{ hasActiveFilters ? 'Try adjusting your filters' : 'Click "+ Report Bug" to log the first issue' }}</div>
@@ -3716,6 +3788,8 @@ const existingCmsImages    = ref([])
 const frontendFileInput    = ref(null)
 const cmsFileInput         = ref(null)
 const filters         = ref({ search: '', status: '', priority: '', scenario_type: '' })
+const bugPage         = ref(1)
+const bugPerPage      = ref(10)
 const form = ref({ title: '', description: '', priority: 'Medium', scenario_type: 'UI', status: 'Pending', date_to_accomplish: '', subtitles: [{ text: '', link: '' }] })
 const showThreadModal  = ref(false)
 const threadBugId      = ref(null)
@@ -4017,6 +4091,14 @@ const filteredBugs = computed(() => bugs.value.filter(bug => {
   return true
 }))
 
+const bugTotalPages  = computed(() => Math.max(1, Math.ceil(filteredBugs.value.length / bugPerPage.value)))
+const paginatedBugs  = computed(() => {
+  const start = (bugPage.value - 1) * bugPerPage.value
+  return filteredBugs.value.slice(start, start + bugPerPage.value)
+})
+
+watch(filteredBugs, () => { bugPage.value = 1 })
+
 // ── API: Projects ──
 const fetchProjects = async () => {
   try {
@@ -4244,7 +4326,7 @@ const dueDaysLabel = (bug) => {
   if (diff <= 7)  return { text: `${diff} days left`, color: '#d97706' }
   return { text: `${diff} days left`, color: '#16a34a' }
 }
-const clearFilters = () => { filters.value = { search: '', status: '', priority: '', scenario_type: '' } }
+const clearFilters = () => { filters.value = { search: '', status: '', priority: '', scenario_type: '' }; bugPage.value = 1 }
 
 const openThread = (bug) => {
   threadBugId.value = bug.id
@@ -4457,6 +4539,25 @@ const inProgressTickets = computed(() => allTickets.value.filter(t => t.ticket_s
 const pendingTickets    = computed(() => allTickets.value.filter(t => !t.has_assignment || !t.ticket_sent_at))
 const needsAssignment   = computed(() => allTickets.value.filter(t => !t.has_assignment))
 const needsSend         = computed(() => allTickets.value.filter(t => t.has_assignment && !t.ticket_sent_at))
+
+const ticketPipelinePage    = ref(1)
+const ticketPipelinePerPage = ref(10)
+const ticketPipelineTotalPages = computed(() => Math.max(1, Math.ceil(pipelineTickets.value.length / ticketPipelinePerPage.value)))
+const paginatedPipelineTickets = computed(() => {
+  const start = (ticketPipelinePage.value - 1) * ticketPipelinePerPage.value
+  return pipelineTickets.value.slice(start, start + ticketPipelinePerPage.value)
+})
+watch(pipelineTickets, () => { ticketPipelinePage.value = 1 })
+
+const maintPipelinePage    = ref(1)
+const maintPipelinePerPage = ref(10)
+const activeMaintTickets   = computed(() => allMaintenanceTickets.value.filter(t => t.status !== 'Completed'))
+const maintPipelineTotalPages = computed(() => Math.max(1, Math.ceil(activeMaintTickets.value.length / maintPipelinePerPage.value)))
+const paginatedMaintTickets = computed(() => {
+  const start = (maintPipelinePage.value - 1) * maintPipelinePerPage.value
+  return activeMaintTickets.value.slice(start, start + maintPipelinePerPage.value)
+})
+watch(activeMaintTickets, () => { maintPipelinePage.value = 1 })
 
 // ── Ticket Tracker — Inline Detail ───────────────────────────────────────────
 const ttDetailBug     = ref(null)
@@ -4881,7 +4982,12 @@ const openAssignDropdown = (bugId, event) => {
   assignSearch.value = ''
   if (event?.currentTarget) {
     const rect = event.currentTarget.getBoundingClientRect()
-    assignDropdownPos.value = { top: rect.bottom + 6, left: rect.left }
+    const dropdownHeight = 320
+    const spaceBelow = window.innerHeight - rect.bottom
+    const top = spaceBelow >= dropdownHeight + 6
+      ? rect.bottom + 6
+      : Math.max(6, rect.top - dropdownHeight - 6)
+    assignDropdownPos.value = { top, left: rect.left }
   }
   nextTick(() => { assignSearchInput.value?.focus() })
 }
