@@ -8,7 +8,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   runtimeConfig: {
     public: {
-      apiBase: 'http://localhost:8000/api'
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
     }
   },
   css: ['~/assets/css/main.css'],

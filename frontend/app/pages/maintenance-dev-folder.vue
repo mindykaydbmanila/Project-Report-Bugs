@@ -87,7 +87,33 @@
         </div>
       </div>
 
-      <!-- Active filter banner -->
+      <!-- Search bar -->
+      <div v-if="tickets.length" class="mdf-search-wrap">
+        <span class="mdf-search-icon">🔍</span>
+        <input
+          v-model="searchQuery"
+          class="mdf-search-input"
+          type="text"
+          placeholder="Search by ticket number, client, request…"
+        />
+        <button v-if="searchQuery" class="mdf-search-clear" @click="searchQuery = ''">✕</button>
+      </div>
+
+      <!-- Filter bar -->
+      <div v-if="tickets.length" class="mdf-filter-bar">
+        <select v-model="activeDevStatusFilter" class="mdf-filter-select">
+          <option value="">Dev Status</option>
+          <option value="Not Started">Not Started</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Ready for QA">Ready for QA</option>
+          <option value="Blocked">Blocked</option>
+        </select>
+        <button v-if="activeDevStatusFilter" class="mdf-filter-clear-btn" @click="activeDevStatusFilter = ''">
+          ✕ Clear filter
+        </button>
+      </div>
+
+      <!-- Active status filter banner -->
       <div v-if="activeFilter" class="mdf-filter-banner">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
         Showing <strong>{{ activeFilter }}</strong> tickets only &nbsp;—&nbsp;
@@ -100,16 +126,23 @@
         <p>No maintenance tickets assigned yet.</p>
       </div>
 
+      <!-- No results for search -->
+      <div v-else-if="searchQuery && !filteredTickets.length" class="mdf-empty">
+        <div style="font-size:36px;margin-bottom:12px;">🔎</div>
+        <p>No tickets match "<strong>{{ searchQuery }}</strong>"</p>
+      </div>
+
       <!-- No results for filter -->
       <div v-else-if="filteredTickets.length === 0" class="mdf-empty">
         <div style="font-size:36px;margin-bottom:12px;">🔍</div>
-        <p>No <strong>{{ activeFilter }}</strong> tickets.</p>
-        <button class="mdf-filter-clear" style="margin-top:10px;font-size:13px;" @click="activeFilter = null">Show all tickets</button>
+        <p>No <strong>{{ activeFilter || activeDevStatusFilter }}</strong> tickets.</p>
+        <button class="mdf-filter-clear" style="margin-top:10px;font-size:13px;" @click="activeFilter = null; activeDevStatusFilter = ''">Show all tickets</button>
       </div>
 
       <!-- Ticket groups by project -->
       <div v-else class="mdf-groups">
         <div v-for="project in groupedTickets" :key="project.id" class="mdf-project-section">
+          <template v-for="pd in [getProjectData(project)]" :key="project.id + '_pd'">
 
           <!-- Project header -->
           <div class="mdf-project-header">
@@ -118,7 +151,7 @@
             <span class="mdf-project-total">{{ project.total }} ticket{{ project.total !== 1 ? 's' : '' }}</span>
           </div>
 
-          <div v-for="group in project.groups" :key="group.status" class="mdf-group">
+          <div v-for="group in pd.groups" :key="group.status" class="mdf-group">
             <div class="mdf-group-header">
               <span :class="['mdf-group-badge', statusClass(group.status)]">{{ group.status }}</span>
               <span class="mdf-group-count">{{ group.tickets.length }} ticket{{ group.tickets.length !== 1 ? 's' : '' }}</span>
@@ -140,7 +173,7 @@
                   <span v-if="isQaAssigned(t)" class="mdf-role-chip mdf-role-qa">QA</span>
                 </div>
                 <div class="mdf-ticket-client">{{ t.client }}</div>
-                <div class="mdf-ticket-request">{{ t.request }}</div>
+                <div class="mdf-ticket-request">{{ stripHtml(t.request) }}</div>
                 <div class="mdf-ticket-footer">
                   <span v-if="t.target_date" class="mdf-ticket-due">
                     📅 {{ formatDate(t.target_date) }}
@@ -153,6 +186,23 @@
               </a>
             </div>
           </div>
+
+          <!-- Per-project pagination -->
+          <div v-if="pd.totalPages > 1" class="mdf-pagination">
+            <div class="mdf-pagination-info">
+              Showing {{ pd.showingFrom }}–{{ pd.showingTo }} of {{ project.total }} ticket{{ project.total !== 1 ? 's' : '' }}
+            </div>
+            <div class="mdf-pagination-controls">
+              <button class="mdf-page-btn" :disabled="pd.currentPage === 1" @click="setProjectPage(project.id, pd.currentPage - 1)">‹</button>
+              <template v-for="(p, i) in getProjectPageNums(pd.currentPage, pd.totalPages)" :key="i">
+                <span v-if="p === '...'" class="mdf-page-ellipsis">…</span>
+                <button v-else :class="['mdf-page-btn', pd.currentPage === p && 'mdf-page-btn--active']" @click="setProjectPage(project.id, p)">{{ p }}</button>
+              </template>
+              <button class="mdf-page-btn" :disabled="pd.currentPage === pd.totalPages" @click="setProjectPage(project.id, pd.currentPage + 1)">›</button>
+            </div>
+          </div>
+
+          </template>
         </div>
       </div>
     </div>
@@ -216,7 +266,9 @@ async function shareFolder() {
 }
 
 // ── Status filter ─────────────────────────────────────────────────────────────
-const activeFilter = ref(null)
+const activeFilter        = ref(null)
+const activeDevStatusFilter = ref('')
+const searchQuery         = ref('')
 
 const statusPills = [
   {
@@ -243,12 +295,69 @@ function toggleFilter(status) {
   activeFilter.value = activeFilter.value === status ? null : status
 }
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+const PAGE_SIZE    = 6
+const projectPages = reactive({})
+
+watch([searchQuery, activeFilter, activeDevStatusFilter], () => {
+  for (const k in projectPages) delete projectPages[k]
+})
+
+function setProjectPage(projectId, page) {
+  projectPages[projectId] = page
+}
+
+function getProjectPageNums(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = [1]
+  if (current > 3) pages.push('...')
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
+  if (current < total - 2) pages.push('...')
+  if (total > 1) pages.push(total)
+  return pages
+}
+
+function getProjectData(project) {
+  const page  = projectPages[project.id] || 1
+  const start = (page - 1) * PAGE_SIZE
+  const slice = project.allTickets.slice(start, start + PAGE_SIZE)
+  const byStatus = {}
+  for (const t of slice) {
+    if (!byStatus[t.status]) byStatus[t.status] = []
+    byStatus[t.status].push(t)
+  }
+  return {
+    groups:      STATUS_ORDER.filter(s => byStatus[s]?.length).map(s => ({ status: s, tickets: byStatus[s] })),
+    currentPage: page,
+    totalPages:  Math.max(1, Math.ceil(project.allTickets.length / PAGE_SIZE)),
+    showingFrom: project.allTickets.length === 0 ? 0 : start + 1,
+    showingTo:   Math.min(page * PAGE_SIZE, project.allTickets.length),
+  }
+}
+
 // ── Filtered + grouped tickets ────────────────────────────────────────────────
-const filteredTickets = computed(() =>
-  activeFilter.value
-    ? tickets.value.filter(t => t.status === activeFilter.value)
-    : tickets.value
-)
+const filteredTickets = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  return tickets.value.filter(t => {
+    if (activeFilter.value) {
+      if (activeFilter.value === 'In Progress') {
+        if (t.status !== 'In Progress' && t.dev_status !== 'In Progress') return false
+      } else {
+        if (t.status !== activeFilter.value) return false
+      }
+    }
+    if (activeDevStatusFilter.value) {
+      const ds = t.dev_status || 'Not Started'
+      if (ds !== activeDevStatusFilter.value) return false
+    }
+    if (q) {
+      return (t.ticket_number || '').toLowerCase().includes(q)
+        || (t.client || '').toLowerCase().includes(q)
+        || stripHtml(t.request || '').toLowerCase().includes(q)
+    }
+    return true
+  })
+})
 
 useHead({
   title: computed(() => email.value ? `Dev Folder · ${email.value}` : 'Maintenance Dev Folder'),
@@ -261,20 +370,27 @@ const groupedTickets = computed(() => {
   for (const t of filteredTickets.value) {
     const key  = t.maintenance_project_id ?? 0
     const name = t.project?.name ?? 'No Project'
-    if (!byProject[key]) byProject[key] = { id: key, name, statusGroups: {} }
-    if (!byProject[key].statusGroups[t.status]) byProject[key].statusGroups[t.status] = []
-    byProject[key].statusGroups[t.status].push(t)
+    if (!byProject[key]) byProject[key] = { id: key, name, allTickets: [] }
+    byProject[key].allTickets.push(t)
   }
   return Object.values(byProject).map(p => ({
-    id:    p.id,
-    name:  p.name,
-    total: Object.values(p.statusGroups).reduce((n, arr) => n + arr.length, 0),
-    groups: STATUS_ORDER.filter(s => p.statusGroups[s]?.length).map(s => ({ status: s, tickets: p.statusGroups[s] })),
+    id:         p.id,
+    name:       p.name,
+    total:      p.allTickets.length,
+    allTickets: p.allTickets,
   }))
 })
 
 function countByStatus(status) {
+  if (status === 'In Progress') {
+    return tickets.value.filter(t => t.status === 'In Progress' || t.dev_status === 'In Progress').length
+  }
   return tickets.value.filter(t => t.status === status).length
+}
+
+function stripHtml(html) {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 function initials(emailStr) {
@@ -497,4 +613,126 @@ onMounted(() => {
 
 /* Badge utilities (shared) */
 .badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+
+/* ── Search bar ─────────────────────────────────────────────────────────── */
+.mdf-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.mdf-search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  pointer-events: none;
+  line-height: 1;
+}
+.mdf-search-input {
+  width: 100%;
+  padding: 10px 40px 10px 38px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.mdf-search-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5,150,105,.12);
+}
+.mdf-search-input::placeholder { color: #94a3b8; }
+.mdf-search-clear {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.mdf-search-clear:hover { color: #64748b; background: #f1f5f9; }
+
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+.mdf-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.mdf-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 28px 6px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  font-family: inherit;
+}
+.mdf-filter-select:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
+.mdf-filter-select:hover { border-color: #059669; }
+.mdf-filter-clear-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #fca5a5;
+  background: #fff;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+.mdf-filter-clear-btn:hover { background: #fef2f2; }
+
+/* ── Pagination ─────────────────────────────────────────────────────────── */
+.mdf-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px 0 8px;
+  border-top: 1.5px solid #f1f5f9;
+}
+.mdf-pagination-info { font-size: 12px; color: #94a3b8; font-weight: 500; }
+.mdf-pagination-controls { display: flex; align-items: center; gap: 4px; }
+.mdf-page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+.mdf-page-btn:hover:not(:disabled) { background: #f0fdf4; border-color: #059669; color: #059669; }
+.mdf-page-btn:disabled { opacity: 0.4; cursor: default; }
+.mdf-page-btn--active { background: #059669; border-color: #059669; color: #fff; }
+.mdf-page-btn--active:hover:not(:disabled) { background: #047857; }
+.mdf-page-ellipsis { font-size: 13px; color: #94a3b8; padding: 0 4px; line-height: 34px; }
 </style>
