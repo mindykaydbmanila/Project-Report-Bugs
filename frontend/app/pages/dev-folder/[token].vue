@@ -9,15 +9,17 @@
     <!-- Header -->
     <header class="folder-header">
       <div class="folder-header-inner">
+        <div class="folder-header-left">
+          <div class="folder-header-eyebrow">
+            DEV FOLDER<span v-if="folder && folder.project_name"> · {{ folder.project_name.toUpperCase() }}</span>
+          </div>
+          <div class="folder-header-title">{{ folder ? folder.developer_name : 'Developer Folder' }}</div>
+          <div v-if="folder" class="folder-header-sub">{{ folder.developer_email }}</div>
+        </div>
         <div class="folder-header-brand">
           <div class="folder-brand-icon">🐛</div>
           <div class="folder-brand-name">QA Bug Tracker</div>
         </div>
-        <div class="folder-header-eyebrow">
-          DEV FOLDER<span v-if="folder && folder.project_name"> · {{ folder.project_name.toUpperCase() }}</span>
-        </div>
-        <div class="folder-header-title">{{ folder ? folder.developer_name : 'Developer Folder' }}</div>
-        <div v-if="folder" class="folder-header-sub">{{ folder.developer_email }}</div>
       </div>
     </header>
 
@@ -225,6 +227,7 @@ async function loadFolder(email = null) {
   loading.value      = true
   error.value        = null
   requiresAuth.value = false
+  authError.value    = ''
 
   try {
     const url = `${api}/dev-folders/${token}/bugs` + (email ? `?email=${encodeURIComponent(email)}` : '')
@@ -238,6 +241,7 @@ async function loadFolder(email = null) {
     if (e?.data?.requires_auth) {
       requiresAuth.value = true
       folder.value = { developer_name: e.data.developer_name }
+      if (email) authError.value = 'true'
     } else {
       error.value = e?.data?.message || 'Folder not found.'
     }
@@ -429,12 +433,18 @@ onMounted(() => {
 .folder-header-inner {
   max-width: 900px;
   margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
+.folder-header-left { display: flex; flex-direction: column; }
 .folder-header-brand {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 14px;
+  flex-shrink: 0;
+  margin-top: 4px;
 }
 .folder-brand-icon {
   font-size: 15px;
