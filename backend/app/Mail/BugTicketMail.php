@@ -18,6 +18,7 @@ class BugTicketMail extends Mailable
         public Bug $bug,
         public User $developer,
         public User $assigner,
+        public ?string $folderToken = null,
     ) {}
 
     public function envelope(): Envelope
@@ -29,8 +30,10 @@ class BugTicketMail extends Mailable
 
     public function content(): Content
     {
-        $appUrl   = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
-        $ticketUrl = "{$appUrl}/ticket/{$this->bug->id}";
+        $appUrl    = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
+        $ticketUrl = $this->folderToken
+            ? "{$appUrl}/ticket/{$this->bug->id}?from={$this->folderToken}"
+            : "{$appUrl}/ticket/{$this->bug->id}";
         $devFirstName = explode(' ', $this->bug->assignedDeveloper->name ?? $this->developer->name)[0];
         $priority = $this->bug->priority;
         $priorityColor = match($priority) {
@@ -41,8 +44,9 @@ class BugTicketMail extends Mailable
             default    => '#64748b',
         };
 
-        $description = strip_tags($this->bug->description ?? '—');
+        $description  = strip_tags($this->bug->description ?? '—');
         $reportedDate = $this->bug->created_at->format('F j, Y');
+        $projectName  = $this->bug->project?->name ?? 'Unknown Project';
 
         return new Content(
             htmlString: <<<HTML
@@ -52,7 +56,8 @@ class BugTicketMail extends Mailable
               <div style="max-width:560px;margin:0 auto;">
                 <!-- Header -->
                 <div style="background:#4f46e5;border-radius:12px 12px 0 0;padding:24px 32px;">
-                  <div style="color:#c7d2fe;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">BUG TICKET ASSIGNED</div>
+                  <div style="color:#c7d2fe;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">BUG TICKET ASSIGNED</div>
+                  <div style="color:#a5b4fc;font-size:12px;font-weight:500;margin-bottom:10px;">📁 {$projectName}</div>
                   <div style="color:#fff;font-size:24px;font-weight:800;line-height:1.2;margin-bottom:6px;">#{$this->bug->sequence} — {$this->bug->title}</div>
                   <div style="color:#a5b4fc;font-size:13px;">{$this->bug->scenario_type}</div>
                 </div>

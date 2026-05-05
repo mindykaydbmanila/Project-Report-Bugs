@@ -342,13 +342,8 @@ class BugController extends Controller
                 'email'  => $devData['email'],
                 'avatar' => $devData['avatar'] ?? null,
             ]);
-            try {
-                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer));
-            } catch (\Exception $e) {
-                \Log::error('BugTicketMail failed: ' . $e->getMessage());
-            }
 
-            DevFolder::firstOrCreate(
+            $folder = DevFolder::firstOrCreate(
                 ['developer_email' => strtolower($devData['email'])],
                 [
                     'token'          => Str::random(48),
@@ -356,6 +351,12 @@ class BugController extends Controller
                     'visibility'     => 'public',
                 ]
             );
+
+            try {
+                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer, $folder->token));
+            } catch (\Exception $e) {
+                \Log::error('BugTicketMail failed: ' . $e->getMessage());
+            }
         }
 
         return response()->json($bug->load('assignedDeveloper:id,name,email,avatar'));
@@ -390,13 +391,8 @@ class BugController extends Controller
                 'email'  => $devData['email'],
                 'avatar' => $devData['avatar'] ?? null,
             ]);
-            try {
-                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer));
-            } catch (\Exception $e) {
-                \Log::error('BugTicketMail resend failed: ' . $e->getMessage());
-            }
 
-            DevFolder::firstOrCreate(
+            $folder = DevFolder::firstOrCreate(
                 ['developer_email' => strtolower($devData['email'])],
                 [
                     'token'          => Str::random(48),
@@ -404,6 +400,12 @@ class BugController extends Controller
                     'visibility'     => 'public',
                 ]
             );
+
+            try {
+                Mail::to($developer->email)->send(new BugTicketMail($bug, $developer, $assigner ?? $developer, $folder->token));
+            } catch (\Exception $e) {
+                \Log::error('BugTicketMail resend failed: ' . $e->getMessage());
+            }
         }
 
         return response()->json($bug->fresh());

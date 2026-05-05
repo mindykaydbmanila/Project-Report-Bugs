@@ -425,28 +425,34 @@ const route       = useRoute()
 const router      = useRouter()
 
 async function goBack() {
-  const devs = bug.value?.assigned_developers || []
-  const storedEmail = sessionStorage.getItem('devFolderEmail')
-
-  // Pick the dev matching the stored email, or fall back to the first assigned dev
-  const dev = (storedEmail && devs.find(d => d.email?.toLowerCase() === storedEmail.toLowerCase()))
-    || devs[0]
-    || null
-
-  if (dev) {
-    try {
-      const data = await $fetch(`${apiBase}/dev-folders`, {
-        method: 'POST',
-        body: { developer_email: dev.email, developer_name: dev.name, visibility: 'private' },
-      })
-      window.location.href = data.url
-      return
-    } catch {}
+  // If opened from a dev folder link (?from=token or stored token), go back there
+  const from = route.query.from || sessionStorage.getItem('devFolderToken')
+  if (from) {
+    const devEmail = sessionStorage.getItem('devFolderEmail')
+    const query = devEmail ? { verified_email: devEmail } : {}
+    router.push({ path: `/dev-folder/${from}`, query })
+    return
   }
 
-  // Fallback: use ?from= token or stored token
-  const from = route.query.from || sessionStorage.getItem('devFolderToken')
-  router.push(from ? `/dev-folder/${from}` : '/')
+  // If a dev navigated here from their folder (stored email), resolve and return to their folder
+  const storedEmail = sessionStorage.getItem('devFolderEmail')
+  if (storedEmail) {
+    const devs = bug.value?.assigned_developers || []
+    const dev = devs.find(d => d.email?.toLowerCase() === storedEmail.toLowerCase()) || devs[0] || null
+    if (dev) {
+      try {
+        const data = await $fetch(`${apiBase}/dev-folders`, {
+          method: 'POST',
+          body: { developer_email: dev.email, developer_name: dev.name },
+        })
+        window.location.href = data.url
+        return
+      } catch {}
+    }
+  }
+
+  // Default: back to the main dashboard
+  router.push('/')
 }
 const config      = useRuntimeConfig()
 const apiBase     = config.public.apiBase          // used for API calls  e.g. /api/bugs/1/ticket
